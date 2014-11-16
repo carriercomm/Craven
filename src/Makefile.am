@@ -1,3 +1,2 @@
 bin_PROGRAMS = dfsd
-dfsd_sources = main.cpp
-
+dfsd_SOURCES = main.cpp
