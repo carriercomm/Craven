@@ -1,1 +1,1 @@
-SUBDIRS  = daemon cli
+SUBDIRS  = daemon cli common

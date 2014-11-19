@@ -8,5 +8,5 @@ AC_PROG_CC
 AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile src/Makefile src/daemon/Makefile src/cli/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile src/daemon/Makefile src/cli/Makefile src/common/Makefile])
 AC_OUTPUT
