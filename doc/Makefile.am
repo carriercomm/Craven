@@ -1,5 +1,5 @@
 if HAVE_DOXYGEN
-dist_DATA = Doxyfile.in
+noinst_DATA = Doxyfile.in
 
 directory = $(top_srcdir)/doc
 
