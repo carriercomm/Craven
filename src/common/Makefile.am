@@ -1,1 +1,1 @@
-noinst_HEADERS = fnord.hpp
+noinst_HEADERS = configure.hpp

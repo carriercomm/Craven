@@ -1,3 +1,3 @@
 AM_CPPFLAGS = -I$(top_srcdir)/common
 bin_PROGRAMS = dfsd
-dfsd_SOURCES = main.cpp
+dfsd_SOURCES = main.cpp ../common/configure.cpp
