@@ -9,3 +9,6 @@ configure
 autom4te.cache/*
 build-aux/*
 build/*
+
+#Un-ignore doxygen
+!doc/Doxyfile.in
