@@ -10,5 +10,25 @@ autom4te.cache/*
 build-aux/*
 build/*
 
+#Results of ./configure
+config.h
+config.h.in~
+config.log
+config.status
+doc/Doxyfile
+**/Makefile
+libtool
+**/.deps
+**/.dirstamp
+stamp-h1
+
 #Un-ignore doxygen
 !doc/Doxyfile.in
+
+#Make objects
+*.o
+doc/docstamp
+doc/html/*
+doc/latex/*
+dfsd
+dfsctl
