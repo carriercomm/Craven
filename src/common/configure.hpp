@@ -1,6 +1,8 @@
 #pragma once
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
+
 namespace po = boost::program_options;
 
 #ifdef HAVE_CONFIG_H
@@ -21,8 +23,11 @@ public:
 
 protected:
 	//! Parse command for the use of the classes.
-	/*! This command should be run by a child class after it's set up all
+	/*! This command should be run by a child class after it has set up all
 	 *  options it desires.
+	 *
+	 *  Uses cli_ and all_ to parse argv_ (with argc_) and places the result in
+	 *  vm_.
 	 */
 	void parse();
 
@@ -32,6 +37,9 @@ protected:
 	//! Command-line and rc file options
 	po::options_description all_;
 
+	//! Results of parse
+	po::variables_map vm_;
+
 	//! Number of command-line options
 	int argc_;
 
@@ -39,5 +47,5 @@ protected:
 	char ** argv_;
 
 	//! Path to the rc file
-	std::string rc_file_;
+	boost::filesystem::path rc_file_;
 };
