@@ -13,4 +13,12 @@ DaemonConfigure::DaemonConfigure(int argc, char** argv)
 		("log", "Path to the log file.");
 
 	parse();
+
+
 }
+
+bool DaemonConfigure::daemonise()
+{
+	return vm_.count("daemonise");
+}
+

@@ -13,4 +13,7 @@ public:
 	 */
 	DaemonConfigure(int argc, char** argv);
 
+	//! Returns true if a daemon has been requested.
+	bool daemonise();
+
 };
