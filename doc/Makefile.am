@@ -12,6 +12,6 @@ CLEANFILES = docstamp
 all-local: docstamp
 
 clean-local:
-	rm -rf $(top_srcdir)/doc
+	rm -rf $(top_srcdir)/doc/{html,latex,docstamp}
 
 endif
