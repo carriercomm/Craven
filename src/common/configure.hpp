@@ -15,17 +15,28 @@ public:
 	/*!
 	 * \param argc The number of arguments in argv (pass through from main).
 	 * \param argv An array of c-style strings (pass through from main).
-	 * \param rc_name The file name of the rc file (default "~/.<PACKAGE NAME>rc").
 	 */
-	Configure(int argc, char ** argv, std::string const& rc_name = RCFILE);
+	Configure(int argc, char ** argv);
 
 
 protected:
+	//! Parse command for the use of the classes.
+	/*! This command should be run by a child class after it's set up all
+	 *  options it desires.
+	 */
+	void parse();
+
 	//! Command-line--only options
 	po::options_description cli_;
 
 	//! Command-line and rc file options
 	po::options_description all_;
+
+	//! Number of command-line options
+	int argc_;
+
+	//! Command-line arguments
+	char ** argv_;
 
 	//! Path to the rc file
 	std::string rc_file_;

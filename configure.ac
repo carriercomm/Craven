@@ -2,7 +2,7 @@ AC_INIT([dfs], [0.0], [tdj24@cam.ac.uk])
 AC_CONFIG_SRCDIR([src/daemon/main.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([foreign -Wall])
+AM_INIT_AUTOMAKE([foreign subdir-objects -Wall])
 
 AC_LANG([C++])
 AC_PROG_CC
@@ -10,6 +10,7 @@ AC_PROG_CXX
 AC_PROG_LIBTOOL
 BOOST_REQUIRE
 BOOST_PROGRAM_OPTIONS
+BOOST_FILESYSTEM
 AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
 
 AC_CHECK_PROGS([DOXYGEN], [doxygen])
