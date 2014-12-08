@@ -15,7 +15,7 @@ Daemon::Daemon(DaemonConfigure const& config)
 
 }
 
-void Daemon::double_fork()
+void Daemon::double_fork() const
 {
 	pid_t pid1, pid2;
 	int status;
@@ -42,5 +42,10 @@ void Daemon::double_fork()
 			close(2);
 		}
 	}
+
+}
+
+void Daemon::init_log() const
+{
 
 }

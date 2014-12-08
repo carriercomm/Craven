@@ -7,6 +7,7 @@ public:
 	Daemon(DaemonConfigure const& config);
 
 private:
-	void double_fork();
+	void double_fork() const;
 
+	void init_log() const;
 };
