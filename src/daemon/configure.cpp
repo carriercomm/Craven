@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
@@ -34,7 +36,8 @@ bool DaemonConfigure::daemonise() const
 
 fs::path DaemonConfigure::log_path() const
 {
-	return static_cast<fs::path>(vm_["log"].as<std::string>());
+	std::cout << vm_["log"].as<std::string>();
+	return vm_["log"].as<fs::path>();
 
 }
 

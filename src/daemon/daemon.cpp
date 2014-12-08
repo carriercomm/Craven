@@ -3,6 +3,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <iostream>
+
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/utility/setup/file.hpp>
+
+#include <boost/filesystem.hpp>
+
+namespace logging = boost::log;
+namespace fs = boost::filesystem;
+
 #include "configure.hpp"
 #include "daemon.hpp"
 
@@ -13,6 +25,7 @@ Daemon::Daemon(DaemonConfigure const& config)
 	if(config.daemonise())
 		double_fork();
 
+	init_log(config.log_path(), logging::trivial::debug);
 }
 
 void Daemon::double_fork() const
@@ -45,7 +58,11 @@ void Daemon::double_fork() const
 
 }
 
-void Daemon::init_log() const
+void Daemon::init_log(fs::path const& log_path, logging::trivial::severity_level level) const
 {
+	BOOST_LOG_TRIVIAL(info) << "Logging to " << log_path;
+	logging::add_file_log(logging::keywords::file_name = log_path.string(), logging::keywords::open_mode = std::ios::app);
+
+	logging::core::get()->set_filter(logging::trivial::severity >= level);
 
 }
