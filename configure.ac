@@ -26,6 +26,7 @@ AM_CONDITIONAL([HAVE_DOXYGEN],
 AC_DEFINE([DOT_DIR], ["~/." PACKAGE_NAME "/"], [The default location of the dot directory])
 AC_DEFINE([RCFILE], [DOT_DIR PACKAGE_NAME "rc"], [The default location of the rcfile])
 AC_DEFINE([COMMS_SOCKET], [DOT_DIR "comms"], [The default location of the communication socket])
+AC_DEFINE([LOG_LOCATION], [DOT_DIR PACKAGE_NAME ".log"], [The default location of the daemon log])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile src/daemon/Makefile src/cli/Makefile src/common/Makefile])
