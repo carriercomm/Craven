@@ -32,3 +32,6 @@ doc/html/*
 doc/latex/*
 dfsd
 dfsctl
+expansion
+*.log
+*.trs
