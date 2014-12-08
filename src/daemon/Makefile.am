@@ -1,5 +1,5 @@
 AM_CPPFLAGS = -I$(top_srcdir)/common -DBOOST_ALL_DYN_LINK
 bin_PROGRAMS = dfsd
-dfsd_SOURCES = main.cpp ../common/configure.cpp configure.cpp
+dfsd_SOURCES = main.cpp ../common/configure.cpp configure.cpp daemon.cpp
 dfsd_LDADD = $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS)
 dfsd_LDFLAGS = $(BOOST_PROGRAM_OPTIONS_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS)
