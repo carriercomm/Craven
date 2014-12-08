@@ -103,7 +103,6 @@ void Configure::parse()
 	rc_file_ = expand(rc_file_);
 
 	//If the file doesn't exist, output a warning and move on
-	//TODO (#7): add warning once logging's in
 	if(fs::exists(rc_file_))
 	{
 		std::ifstream rc_file(rc_file_.string());
