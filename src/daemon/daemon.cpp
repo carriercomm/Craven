@@ -33,7 +33,6 @@ void Daemon::double_fork() const
 	pid_t pid1, pid2;
 	int status;
 
-	//TODO (#8): handle failure cases to log.
 	if(pid1 = fork()) // parent process
 		exit(0);
 	else if (!pid1) // child process
@@ -49,13 +48,16 @@ void Daemon::double_fork() const
 			// Reset our umask:
 			umask(0);
 
-			// Close cin, cout and cerr:
+			// Close stdin, stdout and stderr:
 			close(0);
 			close(1);
 			close(2);
 		}
+		else
+			BOOST_LOG_TRIVIAL(warning) << "Second fork of daemonise failed. Continuing...";
 	}
-
+	else
+		BOOST_LOG_TRIVIAL(warning) << "First fork of daemonise failed. Continuing...";
 }
 
 void Daemon::init_log(fs::path const& log_path, logging::trivial::severity_level level) const
