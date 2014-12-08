@@ -100,6 +100,7 @@ void Configure::parse()
 	po::store(po::parse_command_line(argc_, argv_, cmd_line), vm_);
 
 	rc_file_ = static_cast<fs::path>(vm_["conf"].as<std::string>());
+	rc_file_ = expand(rc_file_);
 
 	//If the file doesn't exist, output a warning and move on
 	//TODO (#7): add warning once logging's in
