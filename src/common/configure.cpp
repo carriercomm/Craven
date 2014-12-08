@@ -1,3 +1,5 @@
+#include <wordexp.h>
+
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -13,6 +15,61 @@ namespace fs = boost::filesystem;
 #endif
 
 #include "configure.hpp"
+
+std::runtime_error expansion::factory(int err)
+{
+	switch (err)
+	{
+	case WRDE_BADCHAR:
+		return badchar();
+		break;
+
+	case WRDE_BADVAL:
+		return badval();
+		break;
+
+	case WRDE_CMDSUB:
+		return cmdsub();
+		break;
+
+	case WRDE_NOSPACE:
+		return nospace();
+		break;
+
+	case WRDE_SYNTAX:
+		return syntax();
+		break;
+
+	default:
+		return expansion_error("Unknown expansion error");
+	}
+
+}
+
+expansion::expansion_error::expansion_error(const std::string& what_arg)
+	:std::runtime_error(what_arg){}
+
+expansion::expansion_error::expansion_error(const char* what_arg)
+	:std::runtime_error(what_arg){}
+
+expansion::badchar::badchar()
+	:expansion::expansion_error("Illegal occurence of newline or one of `|&;<>(){}' in expansion."){}
+
+expansion::badval::badval()
+	:expansion::expansion_error("Undefined shell variable referenced in expansion."){}
+
+expansion::cmdsub::cmdsub()
+	:expansion::expansion_error("Illegal command substitution occurred in expansion."){}
+
+expansion::nospace::nospace()
+	:expansion::expansion_error("Out of memory error occured during expansion."){}
+
+expansion::syntax::syntax()
+	:expansion::expansion_error("Syntax error in expansion."){}
+
+expansion::noexpand::noexpand()
+	:expansion::expansion_error("No expansions produced."){}
+
 
 Configure::Configure(int argc, char ** argv)
 	:cli_("CLI-only"),
@@ -59,4 +116,21 @@ void Configure::parse()
 		std::cout << cmd_line << "\n";
 
 	po::notify(vm_);
+}
+
+boost::filesystem::path Configure::expand(boost::filesystem::path const& path) const
+{
+	wordexp_t p;
+	int err = wordexp(path.c_str(), &p, 0);
+	if(err != 0)
+		throw expansion::factory(err); //throw the correct error
+
+	if(p.we_wordc == 0)
+		throw expansion::noexpand();
+
+	fs::path expanded_path{p.we_wordv[0]};
+
+	wordfree(&p);
+
+	return expanded_path;
 }

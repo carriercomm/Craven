@@ -15,6 +15,7 @@ BOOST_PROGRAM_OPTIONS
 BOOST_FILESYSTEM
 BOOST_THREAD
 BOOST_LOG
+BOOST_TEST
 AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
 AC_SUBST([AM_CXXFLAGS], [-DBOOST_ALL_DYN_LINK])
 
@@ -33,5 +34,5 @@ AC_DEFINE([COMMS_SOCKET], [DOT_DIR "comms"], [The default location of the commun
 AC_DEFINE([LOG_LOCATION], [DOT_DIR PACKAGE_NAME ".log"], [The default location of the daemon log])
 
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile src/Makefile src/daemon/Makefile src/cli/Makefile src/common/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile src/daemon/Makefile src/cli/Makefile src/common/Makefile src/common/test/Makefile])
 AC_OUTPUT
