@@ -5,10 +5,6 @@
 
 namespace po = boost::program_options;
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 //! Class for configuration code shared by the cli and daemon
 class Configure
 {

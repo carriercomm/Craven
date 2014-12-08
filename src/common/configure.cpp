@@ -8,6 +8,10 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "configure.hpp"
 
 Configure::Configure(int argc, char ** argv)
