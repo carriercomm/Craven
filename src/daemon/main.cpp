@@ -9,13 +9,11 @@
 
 int main(int argc, char** argv)
 {
-	std::cout << "Distributed Filesystem (c) Tom Johnson 2014\n"
-		<< "Daemon v0.0\n";
+	// Parse the configuration
 	DaemonConfigure conf(argc, argv);
 
+	// Run the daemon.
 	Daemon daemon(conf);
-
-	BOOST_LOG_TRIVIAL(warning) << "Testing 123";
 
 	return 0;
 }

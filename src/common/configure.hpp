@@ -77,6 +77,8 @@ public:
 	 */
 	Configure(int argc, char ** argv);
 
+	//! True if the version flag was included on the command line.
+	bool version_requested() const;
 
 protected:
 	//! Parse command for the use of the classes.

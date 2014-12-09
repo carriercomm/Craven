@@ -22,17 +22,28 @@ namespace logging = boost::log;
 namespace expr = boost::log::expressions;
 namespace fs = boost::filesystem;
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif //HAVE_CONFIG_H
+
 #include "configure.hpp"
 #include "daemon.hpp"
 
 Daemon::Daemon(DaemonConfigure const& config)
 {
+	if(config.version_requested())
+		std::cout << "Distributed Filesystem (c) Tom Johnson 2014\n"
+			<< "Project v" << VERSION
+			<< " Daemon v0.0\n";
+	else
+	{
+		// Double-fork to avoid zombification on parent exit
+		if(config.daemonise())
+			double_fork();
 
-	// Double-fork to avoid zombification on parent exit
-	if(config.daemonise())
-		double_fork();
-
-	init_log(config.log_path(), config.output_loudness(), config.log_level());
+		//Setup our logs
+		init_log(config.log_path(), config.output_loudness(), config.log_level());
+	}
 }
 
 void Daemon::double_fork() const

@@ -95,6 +95,11 @@ Configure::Configure(int argc, char ** argv)
 
 }
 
+bool Configure::version_requested() const
+{
+	return vm_.count("version");
+}
+
 void Configure::parse(const std::string& usage)
 {
 	po::options_description cmd_line;
