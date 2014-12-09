@@ -32,7 +32,7 @@ Daemon::Daemon(DaemonConfigure const& config)
 	if(config.daemonise())
 		double_fork();
 
-	init_log(config.log_path(), config.output_loudness(), logging::trivial::debug);
+	init_log(config.log_path(), config.output_loudness(), config.log_level());
 }
 
 void Daemon::double_fork() const
