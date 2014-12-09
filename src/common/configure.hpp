@@ -57,6 +57,16 @@ namespace expansion
 	};
 }
 
+//! Exception thrown when a provided configuration is invalid
+class invalid_config : public std::runtime_error
+{
+public:
+	//! Constructor for this exception.
+	//! \param msg Passed through to std::runtime_error
+	explicit invalid_config(const std::string & msg);
+	explicit invalid_config(const char* msg);
+};
+
 //! Class for configuration code shared by the cli and daemon
 class Configure
 {

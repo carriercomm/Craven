@@ -70,6 +70,15 @@ expansion::syntax::syntax()
 expansion::noexpand::noexpand()
 	:expansion::expansion_error("No expansions produced."){}
 
+invalid_config::invalid_config(const std::string& msg)
+	:std::runtime_error("Fatal configuration error: " + msg)
+{
+}
+
+invalid_config::invalid_config(const char* msg)
+	:std::runtime_error("Fatal configuration error: " + msg)
+{
+}
 
 Configure::Configure(int argc, char ** argv)
 	:cli_("CLI-only"),
