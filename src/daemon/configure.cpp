@@ -1,5 +1,7 @@
 #include <iostream>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
@@ -13,6 +15,16 @@ namespace fs = boost::filesystem;
 #include "../common/configure.hpp"
 #include "configure.hpp"
 
+std::map<std::string, boost::log::trivial::severity_level> DaemonConfigure::level_map =
+{
+	std::make_pair("trace", boost::log::trivial::trace),
+	std::make_pair("debug", boost::log::trivial::debug),
+	std::make_pair("info", boost::log::trivial::info),
+	std::make_pair("warning", boost::log::trivial::warning),
+	std::make_pair("error", boost::log::trivial::error),
+	std::make_pair("fatal", boost::log::trivial::fatal),
+};
+
 
 DaemonConfigure::DaemonConfigure(int argc, char** argv)
  :Configure(argc, argv)
@@ -21,7 +33,7 @@ DaemonConfigure::DaemonConfigure(int argc, char** argv)
 		("daemonise,d", "Fork the daemon to background.");
 
 	all_.add_options()
-		("level", "Fine-grain control of the log level; verbose overrides.")
+		("level", po::value<std::string>()->default_value("info"), "Fine-grain control of the log level; verbose overrides.")
 		("log", po::value<std::string>()->default_value(LOG_LOCATION), "Path to the log file.");
 
 	std::string usage{"Usage: "};
@@ -31,7 +43,16 @@ DaemonConfigure::DaemonConfigure(int argc, char** argv)
 
 	parse(usage);
 
-
+	//Setup the loglevel:
+	std::string level_string = vm_["level"].as<std::string>();
+	if(level_map.count(level_string))
+		log_level_ = level_map[level_string];
+	else
+	{
+		std::cerr << "Configuration warning: log level `" << level_string
+			<<"' invalid, defaulting to info.\n";
+		log_level_ = boost::log::trivial::info;
+	}
 }
 
 bool DaemonConfigure::daemonise() const
@@ -55,4 +76,9 @@ DaemonConfigure::loudness DaemonConfigure::output_loudness() const
 		return DaemonConfigure::verbose;
 
 	return DaemonConfigure::normal;
+}
+
+boost::log::trivial::severity_level DaemonConfigure::log_level() const
+{
+	return log_level_;
 }

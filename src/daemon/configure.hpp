@@ -5,6 +5,7 @@
 //!Class for the daemon's configuration.
 class DaemonConfigure : public Configure
 {
+	static std::map<std::string, boost::log::trivial::severity_level> level_map;
 public:
 	//!Constructor for the daemon config class.
 	/*!
@@ -28,4 +29,10 @@ public:
 
 	//! Get the desired loudness on stderr.
 	loudness output_loudness() const;
+
+	//! Returns the desired log level for the file log.
+	boost::log::trivial::severity_level log_level() const;
+
+protected:
+	boost::log::trivial::severity_level log_level_;
 };
