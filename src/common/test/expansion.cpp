@@ -17,11 +17,7 @@ struct expose_expansion : Configure
 	:Configure(0, nullptr)
 	{}
 
-	fs::path expansion_passthrough(fs::path const& path)
-	{
-		return expand(path);
-	}
-
+	using Configure::expand;
 };
 
 // Test cases defined on page 32 of logbook.
@@ -33,7 +29,7 @@ BOOST_AUTO_TEST_CASE(tilde_expansion)
 
 	expose_expansion sut;
 
-	BOOST_REQUIRE_EQUAL(sut.expansion_passthrough("~"), home);
+	BOOST_REQUIRE_EQUAL(sut.expand("~"), home);
 }
 
 BOOST_AUTO_TEST_CASE(env_variable_expansion)
@@ -43,7 +39,7 @@ BOOST_AUTO_TEST_CASE(env_variable_expansion)
 
 	expose_expansion sut;
 
-	BOOST_REQUIRE_EQUAL(sut.expansion_passthrough("$HOME"), home);
+	BOOST_REQUIRE_EQUAL(sut.expand("$HOME"), home);
 }
 
 BOOST_AUTO_TEST_CASE(env_variable_brace_expansion)
@@ -53,21 +49,21 @@ BOOST_AUTO_TEST_CASE(env_variable_brace_expansion)
 
 	expose_expansion sut;
 
-	BOOST_REQUIRE_EQUAL(sut.expansion_passthrough("${HOME}"), home);
+	BOOST_REQUIRE_EQUAL(sut.expand("${HOME}"), home);
 }
 
 BOOST_AUTO_TEST_CASE(command_expansion)
 {
 	expose_expansion sut;
 
-	BOOST_REQUIRE_EQUAL(sut.expansion_passthrough("$(echo foo)"), "foo");
+	BOOST_REQUIRE_EQUAL(sut.expand("$(echo foo)"), "foo");
 }
 
 BOOST_AUTO_TEST_CASE(syntax_throws)
 {
 	expose_expansion sut;
 
-	BOOST_REQUIRE_THROW(sut.expansion_passthrough("$("), std::runtime_error);
+	BOOST_REQUIRE_THROW(sut.expand("$("), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_CASE(glob_produces_first)
@@ -87,7 +83,7 @@ BOOST_AUTO_TEST_CASE(glob_produces_first)
 
 	expose_expansion sut;
 
-	BOOST_REQUIRE_EQUAL(sut.expansion_passthrough(tmp / "/*"), (tmp / "bar"));
+	BOOST_REQUIRE_EQUAL(sut.expand(tmp / "/*"), (tmp / "bar"));
 
 	fs::remove_all(tmp);
 }
