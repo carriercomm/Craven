@@ -109,5 +109,6 @@ void Daemon::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr
 		->set_filter(logging::trivial::severity >= level);
 
 
+	BOOST_LOG_TRIVIAL(info) << "Log start.";
 	BOOST_LOG_TRIVIAL(info) << "Logging to " << log_path;
 }
