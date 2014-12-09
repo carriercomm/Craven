@@ -75,11 +75,6 @@ invalid_config::invalid_config(const std::string& msg)
 {
 }
 
-invalid_config::invalid_config(const char* msg)
-	:std::runtime_error("Fatal configuration error: " + msg)
-{
-}
-
 Configure::Configure(int argc, char ** argv)
 	:cli_("CLI-only"),
 	all_("CLI and rc file"),
