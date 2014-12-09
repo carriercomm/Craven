@@ -26,7 +26,7 @@ std::map<std::string, boost::log::trivial::severity_level> DaemonConfigure::leve
 };
 
 
-DaemonConfigure::DaemonConfigure(int argc, char** argv)
+DaemonConfigure::DaemonConfigure(int argc, const char** argv)
  :Configure(argc, argv)
 {
 	cli_.add_options()

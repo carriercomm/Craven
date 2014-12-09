@@ -7,5 +7,5 @@ class CtlConfigure : public Configure
 {
 public:
 	//! Constructor for the control configuration class
-	CtlConfigure(int argc, char** argv);
+	CtlConfigure(int argc, const char** argv);
 };

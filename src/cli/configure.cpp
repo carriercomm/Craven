@@ -1,7 +1,7 @@
 
 #include "configure.hpp"
 
-CtlConfigure::CtlConfigure(int argc, char** argv)
+CtlConfigure::CtlConfigure(int argc, const char** argv)
 	:Configure(argc, argv)
 {
 	hidden_.add_options()

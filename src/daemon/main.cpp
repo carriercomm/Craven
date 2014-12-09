@@ -7,7 +7,7 @@
 #include "configure.hpp"
 #include "daemon.hpp"
 
-int main(int argc, char** argv)
+int main(int argc, const char** argv)
 {
 	// Parse the configuration
 	DaemonConfigure conf(argc, argv);

@@ -6,7 +6,7 @@
 
 #include "configure.hpp"
 
-int main(int argc, char** argv)
+int main(int argc, const char** argv)
 {
 	CtlConfigure conf(argc, argv);
 
@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 		std::cout << "Distributed Filesystem (c) Tom Johnson 2014\n"
 			<< "Project v" << VERSION
 			<< " Control client v0.0\n";
-		
+
 
 	return 0;
 }

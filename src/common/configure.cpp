@@ -75,7 +75,7 @@ invalid_config::invalid_config(const std::string& msg)
 {
 }
 
-Configure::Configure(int argc, char ** argv)
+Configure::Configure(int argc, const char** argv)
 	:cli_("CLI-only"),
 	all_("CLI and rc file"),
 	argc_(argc),

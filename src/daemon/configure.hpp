@@ -12,7 +12,7 @@ public:
 	 * \param argc passed through to the base class.
 	 * \param argv passed through to the base class.
 	 */
-	DaemonConfigure(int argc, char** argv);
+	DaemonConfigure(int argc, const char** argv);
 
 	//! Returns true if a daemon has been requested.
 	bool daemonise() const;
