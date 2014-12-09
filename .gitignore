@@ -35,3 +35,7 @@ dfsctl
 expansion
 *.log
 *.trs
+
+#Ctags & cscope
+**/tags
+**/cscope*
