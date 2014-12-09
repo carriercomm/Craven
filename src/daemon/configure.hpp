@@ -18,4 +18,14 @@ public:
 
 	boost::filesystem::path log_path() const;
 
+	//! Enum specifying how much output goes to stdout.
+	enum loudness {
+		normal, //!< normal: warning and above
+		quiet, //!< quiet: critical and above
+		verbose, //!< verbose: info and above
+		daemon, //!< nothing -- we're a daemon, so we don't have a console.
+	};
+
+	//! Get the desired loudness on stderr.
+	loudness output_loudness() const;
 };

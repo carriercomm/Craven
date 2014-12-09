@@ -36,8 +36,18 @@ bool DaemonConfigure::daemonise() const
 
 fs::path DaemonConfigure::log_path() const
 {
-	std::cout << vm_["log"].as<std::string>();
-	return vm_["log"].as<fs::path>();
-
+	return expand(static_cast<fs::path>(vm_["log"].as<std::string>()));
 }
 
+DaemonConfigure::loudness DaemonConfigure::output_loudness() const
+{
+	if(vm_.count("d"))
+		return DaemonConfigure::daemon;
+
+	if(vm_.count("q"))
+		return DaemonConfigure::quiet;
+	else if(vm_.count("v"))
+		return DaemonConfigure::verbose;
+
+	return DaemonConfigure::normal;
+}

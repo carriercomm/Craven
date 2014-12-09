@@ -1,14 +1,18 @@
-#include <stdlib.h>
+#include <cstdlib>
+
+#include <iostream>
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <iostream>
-
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
+#include <boost/log/attributes/current_thread_id.hpp>
 #include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/console.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
 
 #include <boost/filesystem.hpp>
 
@@ -25,7 +29,7 @@ Daemon::Daemon(DaemonConfigure const& config)
 	if(config.daemonise())
 		double_fork();
 
-	init_log(config.log_path(), logging::trivial::debug);
+	init_log(config.log_path(), config.output_loudness(), logging::trivial::debug);
 }
 
 void Daemon::double_fork() const
@@ -60,11 +64,44 @@ void Daemon::double_fork() const
 		BOOST_LOG_TRIVIAL(warning) << "First fork of daemonise failed. Continuing...";
 }
 
-void Daemon::init_log(fs::path const& log_path, logging::trivial::severity_level level) const
+void Daemon::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr_level, logging::trivial::severity_level level) const
 {
+	//Add attributes
+
+	//Add TimeStamp and LineID
+	logging::add_common_attributes;
+
+	//ThreadID
+	logging::core::get()->add_global_attribute(
+			"ThreadID",
+			logging::attributes::current_thread_id());
+
+
+	if(stderr_level != DaemonConfigure::daemon)
+	{
+		logging::trivial::severity_level stderr_severity;
+		switch(stderr_level)
+		{
+		case DaemonConfigure::quiet:
+			stderr_severity = logging::trivial::fatal;
+			break;
+
+		case DaemonConfigure::verbose:
+			stderr_severity = logging::trivial::info;
+			break;
+
+		case DaemonConfigure::normal:
+		default:
+			stderr_severity = logging::trivial::warning;
+		}
+
+		logging::add_console_log(std::cerr)->set_filter(logging::trivial::severity >= stderr_severity);
+	}
+
+	logging::add_file_log(logging::keywords::file_name = log_path.string(),
+			logging::keywords::open_mode = std::ios::app)
+		->set_filter(logging::trivial::severity >= level);
+
+
 	BOOST_LOG_TRIVIAL(info) << "Logging to " << log_path;
-	logging::add_file_log(logging::keywords::file_name = log_path.string(), logging::keywords::open_mode = std::ios::app);
-
-	logging::core::get()->set_filter(logging::trivial::severity >= level);
-
 }
