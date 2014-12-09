@@ -82,8 +82,8 @@ Configure::Configure(int argc, char ** argv)
 		("help,h", "Print the help message")
 		("conf,c", po::value<std::string>()->default_value(RCFILE),
 			"Use <file> instead of the default(" RCFILE ")")
-		("q", "Be quiet")
-		("v", "Be verbose");
+		(",q", "Be quiet")
+		(",v", "Be verbose");
 
 
 	all_.add_options()

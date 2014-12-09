@@ -9,6 +9,8 @@
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
+#include <boost/log/expressions/formatters/date_time.hpp>
+#include <boost/log/support/date_time.hpp>
 #include <boost/log/attributes/current_thread_id.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/console.hpp>
@@ -17,6 +19,7 @@
 #include <boost/filesystem.hpp>
 
 namespace logging = boost::log;
+namespace expr = boost::log::expressions;
 namespace fs = boost::filesystem;
 
 #include "configure.hpp"
@@ -69,7 +72,14 @@ void Daemon::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr
 	//Add attributes
 
 	//Add LineID, TimeStamp, ProcessID and ThreadID.
-	logging::add_common_attributes;
+	logging::add_common_attributes();
+
+	//Formatter
+	auto formatter = expr::stream
+		<< "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%dT%H:%M:%S%q")
+		<< "] {" << expr::attr<logging::attributes::current_thread_id::value_type>("ThreadID")
+		<< "} (" << logging::trivial::severity
+		<< "): " << expr::message;
 
 
 	if(stderr_level != DaemonConfigure::daemon)
@@ -90,11 +100,12 @@ void Daemon::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr
 			stderr_severity = logging::trivial::warning;
 		}
 
-		logging::add_console_log(std::cerr)->set_filter(logging::trivial::severity >= stderr_severity);
+		logging::add_console_log(std::cerr, logging::keywords::format = formatter)->set_filter(logging::trivial::severity >= stderr_severity);
 	}
 
 	logging::add_file_log(logging::keywords::file_name = log_path.string(),
-			logging::keywords::open_mode = std::ios::app)
+			logging::keywords::open_mode = std::ios::app,
+			logging::keywords::format = formatter)
 		->set_filter(logging::trivial::severity >= level);
 
 
