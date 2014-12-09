@@ -91,13 +91,18 @@ Configure::Configure(int argc, char ** argv)
 
 }
 
-void Configure::parse()
+void Configure::parse(const std::string& usage)
 {
 	po::options_description cmd_line;
-	cmd_line.add(cli_).add(all_);
+	cmd_line.add(cli_).add(all_).add(hidden_);
+
+	po::options_description visible(usage);
+	visible.add(cli_).add(all_);
 
 
-	po::store(po::parse_command_line(argc_, argv_, cmd_line), vm_);
+	//Parse the command line
+	po::store(po::command_line_parser(argc_, argv_).
+			options(cmd_line).positional(pos_).run(), vm_);
 
 	rc_file_ = static_cast<fs::path>(vm_["conf"].as<std::string>());
 	rc_file_ = expand(rc_file_);
@@ -107,13 +112,13 @@ void Configure::parse()
 	{
 		std::ifstream rc_file(rc_file_.string());
 
-		po::store(po::parse_config_file(rc_file, all_), vm_);
+		po::store(po::parse_config_file(rc_file, all_, true), vm_);
 	}
 	else if(vm_.count("q") == 0)
 		std::cerr << "Warning: specified rc file does not exist: " << rc_file_ << "\n";
 
 	if(vm_.count("help"))
-		std::cout << cmd_line << "\n";
+		std::cout << visible << "\n";
 
 	po::notify(vm_);
 }

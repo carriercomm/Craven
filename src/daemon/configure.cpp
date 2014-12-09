@@ -24,7 +24,12 @@ DaemonConfigure::DaemonConfigure(int argc, char** argv)
 		("level", "Fine-grain control of the log level; verbose overrides.")
 		("log", po::value<std::string>()->default_value(LOG_LOCATION), "Path to the log file.");
 
-	parse();
+	std::string usage{"Usage: "};
+	usage += argv_[0];
+	usage += " [options]...\n"
+		"Available options";
+
+	parse(usage);
 
 
 }

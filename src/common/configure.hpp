@@ -76,8 +76,10 @@ protected:
 	 *
 	 *  Uses cli_ and all_ to parse argv_ (with argc_) and places the result in
 	 *  vm_.
+	 *
+	 *  \param usage The usage message to display.
 	 */
-	void parse();
+	void parse(const std::string& usage);
 
 	//! Expand shell-like things in paths
 	/*!
@@ -98,6 +100,12 @@ protected:
 
 	//! Command-line and rc file options
 	po::options_description all_;
+
+	//! Hidden cli options
+	po::options_description hidden_;
+
+	//! Positional options
+	po::positional_options_description pos_;
 
 	//! Results of parse
 	po::variables_map vm_;
