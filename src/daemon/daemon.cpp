@@ -68,13 +68,8 @@ void Daemon::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr
 {
 	//Add attributes
 
-	//Add TimeStamp and LineID
+	//Add LineID, TimeStamp, ProcessID and ThreadID.
 	logging::add_common_attributes;
-
-	//ThreadID
-	logging::core::get()->add_global_attribute(
-			"ThreadID",
-			logging::attributes::current_thread_id());
 
 
 	if(stderr_level != DaemonConfigure::daemon)
