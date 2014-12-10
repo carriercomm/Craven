@@ -11,6 +11,7 @@ AC_PROG_LIBTOOL
 
 BOOST_REQUIRE([1.56])
 BOOST_SYSTEM
+BOOST_BIND
 BOOST_ASIO
 BOOST_PROGRAM_OPTIONS
 BOOST_FILESYSTEM
@@ -36,5 +37,5 @@ AC_DEFINE([COMMS_SOCKET], [DOT_DIR "comms"], [The default location of the commun
 AC_DEFINE([LOG_LOCATION], [DOT_DIR PACKAGE_NAME ".log"], [The default location of the daemon log])
 
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile src/Makefile src/daemon/Makefile src/cli/Makefile src/common/Makefile src/common/test/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile src/daemon/Makefile src/cli/Makefile src/cli/test/Makefile src/common/Makefile src/common/test/Makefile])
 AC_OUTPUT
