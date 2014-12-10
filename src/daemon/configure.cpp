@@ -25,9 +25,7 @@ std::map<std::string, boost::log::trivial::severity_level> DaemonConfigure::leve
 	std::make_pair("fatal", boost::log::trivial::fatal),
 };
 
-
-DaemonConfigure::DaemonConfigure(int argc, const char** argv)
- :Configure(argc, argv)
+void DaemonConfigure::init(const std::string& program_name)
 {
 	cli_.add_options()
 		("daemonise,d", "Fork the daemon to background.");
@@ -37,7 +35,7 @@ DaemonConfigure::DaemonConfigure(int argc, const char** argv)
 		("log", po::value<std::string>()->default_value(LOG_LOCATION), "Path to the log file.");
 
 	std::string usage{"Usage: "};
-	usage += argv_[0];
+	usage += program_name;
 	usage += " [options]...\n"
 		"Available options";
 
@@ -53,6 +51,20 @@ DaemonConfigure::DaemonConfigure(int argc, const char** argv)
 			<<"' invalid, defaulting to info.\n";
 		log_level_ = boost::log::trivial::info;
 	}
+
+}
+
+
+DaemonConfigure::DaemonConfigure(int argc, const char** argv)
+ :Configure(argc, argv)
+{
+	init(argv[0]);
+}
+
+DaemonConfigure::DaemonConfigure(const std::vector<std::string>& args)
+ :Configure(args)
+{
+	init(args[0]);
 }
 
 bool DaemonConfigure::daemonise() const

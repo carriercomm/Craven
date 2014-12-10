@@ -75,11 +75,10 @@ invalid_config::invalid_config(const std::string& msg)
 {
 }
 
-Configure::Configure(int argc, const char** argv)
+Configure::Configure(const std::vector<std::string>& args)
 	:cli_("CLI-only"),
 	all_("CLI and rc file"),
-	argc_(argc),
-	argv_(argv)
+	args_(args)
 {
 	cli_.add_options()
 		("version", "Print the version")
@@ -92,7 +91,14 @@ Configure::Configure(int argc, const char** argv)
 
 	all_.add_options()
 		("socket,s", po::value<std::string>()->default_value(COMMS_SOCKET), "Location of the control socket");
+}
 
+Configure::Configure(int argc, const char** argv)
+	:Configure({})
+{
+	args_.reserve(argc);
+	for(const char** it = argv; it != argv + argc; ++it)
+		args_.push_back(static_cast<std::string>(*it));
 }
 
 bool Configure::version_requested() const
@@ -110,7 +116,7 @@ void Configure::parse(const std::string& usage)
 
 
 	//Parse the command line
-	po::store(po::command_line_parser(argc_, argv_).
+	po::store(po::command_line_parser(args_).
 			options(cmd_line).positional(pos_).run(), vm_);
 
 	rc_file_ = static_cast<fs::path>(vm_["conf"].as<std::string>());

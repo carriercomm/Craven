@@ -6,13 +6,32 @@
 class DaemonConfigure : public Configure
 {
 	static std::map<std::string, boost::log::trivial::severity_level> level_map;
-public:
-	//!Constructor for the daemon config class.
+
+	//! Initialises the configuration class
 	/*!
-	 * \param argc passed through to the base class.
-	 * \param argv passed through to the base class.
+	 *  This function is shared by both constructors to handle shared init.
+	 *
+	 *  \param program_name The 0th argument in the argument list, used for the
+	 *  usage string.
+	 */
+	void init(const std::string& program_name);
+
+public:
+	//! Constructor for the daemon config class.
+	/*!
+	 *  \param argc passed through to the base class.
+	 *  \param argv passed through to the base class.
 	 */
 	DaemonConfigure(int argc, const char** argv);
+
+	//! Constructor for testing
+	/*!
+	 *  This constructor exists for use in testing, where the argument list has
+	 *  not come from the system.
+	 *
+	 *  \param args A list of arguments, formatted like argv would be.
+	 */
+	DaemonConfigure(const std::vector<std::string> & args);
 
 	//! Returns true if a daemon has been requested.
 	bool daemonise() const;

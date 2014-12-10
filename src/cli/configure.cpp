@@ -1,8 +1,10 @@
+#include <vector>
+#include <string>
 
+#include "../common/configure.hpp"
 #include "configure.hpp"
 
-CtlConfigure::CtlConfigure(int argc, const char** argv)
-	:Configure(argc, argv)
+void CtlConfigure::init(const std::string& program_name)
 {
 	hidden_.add_options()
 		("verb", po::value<std::string>(), "The action to perform on the daemon.");
@@ -10,9 +12,21 @@ CtlConfigure::CtlConfigure(int argc, const char** argv)
 	pos_.add("verb", -1);
 
 	std::string usage{"Usage: "};
-	usage += argv_[0];
+	usage += program_name;
 	usage += " [options]... verb\n"
 		"Available options";
 
 	parse(usage);
+}
+
+CtlConfigure::CtlConfigure(int argc, const char** argv)
+	:Configure(argc, argv)
+{
+	init(argv[0]);
+}
+
+CtlConfigure::CtlConfigure(const std::vector<std::string>& args)
+	:Configure(args)
+{
+	init(args[0]);
 }

@@ -70,6 +70,12 @@ public:
 class Configure
 {
 public:
+	//! Constructor for use in tests.
+	/*!
+	 *  \param args The list of arguments.
+	 */
+	Configure(const std::vector<std::string>& args);
+
 	//! Constructor for the generic configuration class.
 	/*!
 	 * \param argc The number of arguments in argv (pass through from main).
@@ -121,11 +127,9 @@ protected:
 	//! Results of parse
 	po::variables_map vm_;
 
-	//! Number of command-line options
-	int argc_;
+	//! Command-line options
+	std::vector<std::string> args_;
 
-	//! Command-line arguments
-	const char** argv_;
 
 	//! Path to the rc file
 	boost::filesystem::path rc_file_;
