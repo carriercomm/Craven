@@ -7,7 +7,7 @@
 void CtlConfigure::init(const std::string& program_name)
 {
 	hidden_.add_options()
-		("verb", po::value<std::string>(), "The action to perform on the daemon.");
+		("verb", po::value<std::vector<std::string>>()->multitoken(), "The action to perform on the daemon.");
 
 	pos_.add("verb", -1);
 
