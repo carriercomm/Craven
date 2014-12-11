@@ -1,5 +1,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
+#include <boost/signals2.hpp>
 
 namespace fs = boost::filesystem;
 
