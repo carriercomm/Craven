@@ -15,7 +15,7 @@ namespace detail
 		template <class T>
 		static pointer create(T&& socket)
 		{
-			return pointer(new connection(std::forward(socket)));
+			return std::make_shared<connection>(std::forward(socket));
 		}
 
 		boost::asio::local::stream_protocol::socket socket();
