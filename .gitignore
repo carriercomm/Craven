@@ -33,6 +33,7 @@ doc/latex/*
 dfsd
 dfsctl
 expansion
+comms
 *.log
 *.trs
 
