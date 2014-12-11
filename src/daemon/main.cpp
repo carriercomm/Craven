@@ -1,9 +1,11 @@
+#include <cstdlib>
 #include <iostream>
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 
+#include "signals.hpp"
 #include "configure.hpp"
 #include "daemon.hpp"
 

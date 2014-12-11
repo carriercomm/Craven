@@ -17,6 +17,7 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 
 #include <boost/filesystem.hpp>
+#include <boost/asio.hpp>
 
 namespace logging = boost::log;
 namespace expr = boost::log::expressions;
