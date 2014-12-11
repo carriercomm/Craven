@@ -54,10 +54,10 @@ public:
 	 *  shared_ptr; this shared connection object should handle the connection via
 	 *  RAII.
 	 */
-	class CtlSession
+	class session
 	{};
 
-	typedef boost::signals2::signal<void(const std::vector<std::string>&, const CtlSession&)> signal_type;
+	typedef boost::signals2::signal<void(const std::vector<std::string>&, const session&)> signal_type;
 
 	RemoteControl(boost::asio::io_service& io, const boost::filesystem::path& socket);
 
@@ -67,7 +67,7 @@ public:
 	 *  This function registers a callback for a verb sent for the CTL.
 	 *  \param verb The verb for which this callback should be called
 	 *  \param f The callback. Must be a callable of type void f(const
-	 *  std::vector<std::string>&, const CtlSession&);
+	 *  std::vector<std::string>&, const session&);
 	 *
 	 *  \returns A Boost.Signals2 connection object; use this to unregister.
 	 */
