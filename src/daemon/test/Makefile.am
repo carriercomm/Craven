@@ -1,0 +1,7 @@
+check_PROGRAMS = remcon
+remcon_SOURCES = remcon-test.cpp ../remcon.cpp
+
+remcon_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
+remcon_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
+
+TESTS = $(check_PROGRAMS)

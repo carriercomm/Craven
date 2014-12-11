@@ -30,12 +30,15 @@ stamp-h1
 doc/docstamp
 doc/html/*
 doc/latex/*
+*.log
+*.trs
+
+#binaries
 dfsd
 dfsctl
 expansion
 comms
-*.log
-*.trs
+remcon
 
 #Ctags & cscope
 **/tags
