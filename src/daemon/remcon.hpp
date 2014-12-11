@@ -2,6 +2,46 @@
 
 #include <unordered_map>
 
+namespace detail
+{
+	class connection : public std::enable_shared_from_this<connection>
+	{
+		connection(boost::asio::local::stream_protocol::socket& socket);
+	public:
+		typedef std::shared_ptr<connection> pointer;
+
+		static pointer create(boost::asio::io_service& io_service);
+
+		template <class T>
+		static pointer create(T&& socket)
+		{
+			return pointer(new connection(std::forward(socket)));
+		}
+
+		boost::asio::local::stream_protocol::socket socket();
+
+		void queue_write(const std::string& msg);
+
+		template <class Callable>
+		boost::signals2::connection connect_read(Callable&& f)
+		{
+			return read_handlers_.connect(std::forward(f));
+		}
+
+
+	protected:
+		boost::asio::local::stream_protocol::socket socket_;
+
+		std::deque<std::string> write_queue_;
+
+		boost::signals2::signal<void (const std::string&)> read_handlers_;
+
+		void handle_read(boost::system::error_code& error, std::size_t bytes_tx);
+		void handle_write(boost::system::error_code& error);
+	};
+
+}
+
 //! Responsible for handling the connection to a CLI instance; provides callbacks for this.
 class RemoteControl
 {
