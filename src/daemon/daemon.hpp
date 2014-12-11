@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/asio/io_service.hpp>
+
 //! Daemon control class
 /*!
  * This class handles the control of the daemon; it's responsible for setting
