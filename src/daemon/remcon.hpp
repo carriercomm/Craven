@@ -18,7 +18,7 @@ namespace detail
 			return std::make_shared<connection>(std::forward(socket));
 		}
 
-		boost::asio::local::stream_protocol::socket socket();
+		boost::asio::local::stream_protocol::socket& socket();
 
 		void queue_write(const std::string& msg);
 
