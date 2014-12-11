@@ -1,5 +1,9 @@
 #pragma once
 
+#include <memory>
+
+#include <boost/asio.hpp>
+
 //! Class to handle daemon--ctl comms from the ctl side.
 class CommsManager
 {
