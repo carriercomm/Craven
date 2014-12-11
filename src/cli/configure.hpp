@@ -16,4 +16,10 @@ public:
 
 	//! Constructor for use in tests
 	CtlConfigure(const std::vector<std::string>& args);
+
+	//! Used to retrieve the arguments passed to the daemon
+	//! \returns A vector of strings 
+	std::vector<std::string> daemon_arguments() const;
+
+	friend std::ostream& operator<<(std::ostream& os, const CtlConfigure& conf);
 };

@@ -106,6 +106,29 @@ bool Configure::version_requested() const
 	return vm_.count("version");
 }
 
+boost::filesystem::path Configure::socket() const
+{
+	return static_cast<fs::path>(vm_["socket"].as<std::string>());
+}
+
+std::ostream& operator<<(std::ostream& os, const Configure& conf)
+{
+	os << "Configure={"
+		<< "version=" << (conf.vm_.count("version") ? "true" : "false")
+		<< ", help=" << (conf.vm_.count("help") ? "true" : "false")
+		<< ", conf=" << conf.vm_["conf"].as<std::string>()
+		<< ", sock=" << conf.vm_["socket"].as<std::string>();
+
+	if(conf.vm_.count("q"))
+		os << ", quiet";
+	if(conf.vm_.count("v"))
+		os << ", verbose";
+
+	os << "}";
+
+	return os;
+}
+
 void Configure::parse(const std::string& usage)
 {
 	po::options_description cmd_line;
@@ -154,3 +177,4 @@ boost::filesystem::path Configure::expand(boost::filesystem::path const& path) c
 
 	return expanded_path;
 }
+

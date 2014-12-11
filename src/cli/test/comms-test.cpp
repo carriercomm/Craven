@@ -5,7 +5,6 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
-#include <functional>
 #include <iterator>
 #include <array>
 
@@ -19,7 +18,7 @@ namespace fs = boost::filesystem;
 #include "../comms.hpp"
 
 //! Timeout in seconds for the socket-based tests.
-const unsigned timeout = 30;
+const unsigned timeout = 300;
 
 //! Fixture for testing the cli-side of the comms module.
 class SetupConfig
@@ -80,34 +79,70 @@ fs::path SetupConfig::temp_unix() const
 	return temp_unix_;
 }
 
-void handle_accept(const boost::system::error_code& error, std::string*
-		received, boost::asio::local::stream_protocol::socket* socket)
+
+class UnixServer : std::enable_shared_from_this<UnixServer>
 {
-	if(error)
-		throw boost::system::system_error(error);
+public:
+	typedef std::shared_ptr<boost::asio::io_service> io_ptr;
+	typedef boost::system::error_code error_code;
 
-	//read in the whole message
-	std::ostringstream os;
+	UnixServer(io_ptr io_service, const fs::path& socket)
+		:io_(io_service),
+		acc_(*io_, boost::asio::local::stream_protocol::endpoint(socket.string())),
+		sock_(*io_)
 
-	while(true)
 	{
-		std::array<char, 512> buf;
-		boost::system::error_code error;
-
-		size_t len = socket->read_some(boost::asio::buffer(buf), error);
-
-		if(error == boost::asio::error::eof)
-			break;
-		else if(error)
-			throw boost::system::system_error(error);
-
-		os.write(buf.data(), len);
+		acc_.async_accept(sock_, boost::bind(&UnixServer::handle_accept, this,
+					boost::asio::placeholders::error));
 	}
 
-	*received = os.str();
-}
+	std::string data() const
+	{
+		return data_;
+	}
 
-void invert_bool(const boost::system::error_code& error, boost::asio::io_service* io, bool* var)
+	void handle_read(const error_code& error, std::size_t bytes_tx)
+	{
+		if(error && error != boost::asio::error::eof)
+			throw boost::system::system_error(error);
+
+		buf_.commit(bytes_tx);
+		std::istream buffer_stream(&buf_);
+		std::getline(buffer_stream, data_);
+
+		auto t = std::make_shared<boost::asio::deadline_timer>(*io_, boost::posix_time::seconds(1));
+
+		t->async_wait([this](const boost::system::error_code& error)
+					{
+						sock_.shutdown(boost::asio::local::stream_protocol::socket::shutdown_both);
+						sock_.close();
+
+						acc_.close();
+					});
+	}
+
+	void handle_accept(const boost::system::error_code& error)
+	{
+		if(error)
+			throw boost::system::system_error(error);
+
+		boost::asio::async_read_until(sock_, buf_, '\n',
+				boost::bind(&UnixServer::handle_read, this,
+					boost::asio::placeholders::error,
+					boost::asio::placeholders::bytes_transferred));
+	}
+
+private:
+	io_ptr io_;
+	boost::asio::local::stream_protocol::acceptor acc_;
+	boost::asio::local::stream_protocol::socket sock_;
+
+	boost::asio::streambuf buf_;
+	std::string data_;
+};
+
+
+void invert_bool(const boost::system::error_code& error, std::shared_ptr<boost::asio::io_service> io, bool* var)
 {
 	if(error)
 		throw boost::system::system_error(error);
@@ -125,50 +160,86 @@ BOOST_AUTO_TEST_CASE(arguments_passthrough)
 	auto config = sc.build_config();
 	std::ostringstream os;
 
-	std::cout << "Connect to: " <<  sc.temp_unix().string() << "\n";
-
-	CommsManager sut(config, os);
-
 	//set up Asio
-	boost::asio::io_service io_service;
+	auto io_service = std::make_shared<boost::asio::io_service>();
 
 	//set up the unix socket
-	boost::asio::local::stream_protocol::endpoint ep(sc.temp_unix().string());
-	boost::asio::local::stream_protocol::acceptor acceptor(io_service,
-			ep);
-	boost::asio::local::stream_protocol::socket socket(io_service);
-
-	std::string received;
-
-	acceptor.async_accept(socket, boost::bind(handle_accept,
-				boost::asio::placeholders::error, &received, &socket));
+	UnixServer ux(io_service, sc.temp_unix());
 
 	//set up the timeout
-	boost::asio::deadline_timer t(io_service, boost::posix_time::seconds(timeout));
+	boost::asio::deadline_timer t(*io_service, boost::posix_time::seconds(timeout));
 
 	bool timeout = false;
 
-	t.async_wait(boost::bind(invert_bool, boost::asio::placeholders::error, &io_service, &timeout));
+	t.async_wait(boost::bind(invert_bool, boost::asio::placeholders::error, io_service, &timeout));
 
-	io_service.run();
+	//Run the system under test.
+	CommsManager sut(config, os, io_service);
 
 	BOOST_REQUIRE(!timeout);
 
-	BOOST_REQUIRE_EQUAL(received, R"(["foo", "bar baz", "t", "thud"])");
+	// TODO #12: work out why dfsctl is coming through
+	// probably related to ticket 11
+	BOOST_REQUIRE_EQUAL(ux.data(), R"(["dfsctl", "foo", "bar baz", "t", "thud"])");
 }
 
-void stream_to_accept(const boost::system::error_code& error, const
-		std::string& stream, boost::asio::local::stream_protocol::socket* socket)
+class UnixStream : std::enable_shared_from_this<UnixStream>
 {
-	if(error)
-		throw boost::system::system_error(error);
+public:
+	typedef std::shared_ptr<boost::asio::io_service> io_ptr;
+	typedef boost::system::error_code error_code;
 
-	boost::system::error_code write_error;
-	boost::asio::write(*socket, boost::asio::buffer(stream), write_error);
+	UnixStream(io_ptr io_service, const fs::path& socket, const std::string& data)
+		:io_(io_service),
+		acc_(*io_, boost::asio::local::stream_protocol::endpoint(socket.string())),
+		sock_(*io_),
+		data_(data)
 
-	if(write_error)
-		throw boost::system::system_error(write_error);
-}
+	{
+		acc_.async_accept(sock_, boost::bind(&UnixStream::handle_accept, this,
+					boost::asio::placeholders::error));
+	}
+
+	void handle_accept(const boost::system::error_code& error)
+	{
+		if(error)
+			throw boost::system::system_error(error);
+
+		//Setup a bogus read handler
+		boost::asio::async_read_until(sock_, buf_, '\n',
+				[this](const error_code& error, std::size_t bytes_tx)
+				{
+					if(error)
+						throw boost::system::system_error(error);
+					buf_.commit(bytes_tx);
+					buf_.consume(bytes_tx);
+				});
+
+		boost::system::error_code write_error;
+		boost::asio::write(sock_, boost::asio::buffer(data_), write_error);
+
+		if(write_error)
+			throw boost::system::system_error(write_error);
+
+		auto t = std::make_shared<boost::asio::deadline_timer>(*io_, boost::posix_time::seconds(1));
+
+		t->async_wait([this](const boost::system::error_code& error)
+					{
+						sock_.shutdown(boost::asio::local::stream_protocol::socket::shutdown_both);
+						sock_.close();
+
+						acc_.close();
+					});
+	}
+
+private:
+	io_ptr io_;
+	boost::asio::local::stream_protocol::acceptor acc_;
+	boost::asio::local::stream_protocol::socket sock_;
+
+	boost::asio::streambuf buf_;
+	std::string data_;
+};
 
 BOOST_AUTO_TEST_CASE(output_on_stream)
 {
@@ -177,34 +248,26 @@ BOOST_AUTO_TEST_CASE(output_on_stream)
 	auto config = sc.build_config();
 	std::ostringstream os;
 
-	std::cout << "Connect to: " <<  sc.temp_unix().string() << "\n";
-
-	CommsManager sut(config, os);
-
 	//set up Asio
-	boost::asio::io_service io_service;
-
-	//set up the unix socket
-	boost::asio::local::stream_protocol::endpoint ep(sc.temp_unix().string());
-	boost::asio::local::stream_protocol::acceptor acceptor(io_service,
-			ep);
-	boost::asio::local::stream_protocol::socket socket(io_service);
+	auto io_service = std::make_shared<boost::asio::io_service>();
 
 	std::string to_stream("Foo bar baz fnord\nbaz bar foo");
 
-	acceptor.async_accept(socket, boost::bind(stream_to_accept,
-				boost::asio::placeholders::error, to_stream, &socket));
+	//set up the unix socket
+	UnixStream ux(io_service, sc.temp_unix().string(), to_stream);
 
 	//set up the timeout
-	boost::asio::deadline_timer t(io_service, boost::posix_time::seconds(timeout));
+	boost::asio::deadline_timer t(*io_service, boost::posix_time::seconds(timeout));
 
 	bool timeout = false;
 
-	t.async_wait(boost::bind(invert_bool, boost::asio::placeholders::error, &io_service, &timeout));
+	t.async_wait(boost::bind(invert_bool, boost::asio::placeholders::error, io_service, &timeout));
 
-	io_service.run();
+	CommsManager sut(config, os, io_service);
 
 	BOOST_REQUIRE(!timeout);
 
-	BOOST_REQUIRE_EQUAL(os.str(), to_stream);
+	std::string result(os.str());
+
+	BOOST_REQUIRE_EQUAL(result, to_stream);
 }

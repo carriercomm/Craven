@@ -86,6 +86,10 @@ public:
 	//! True if the version flag was included on the command line.
 	bool version_requested() const;
 
+	boost::filesystem::path socket() const;
+
+	friend std::ostream& operator<<(std::ostream& os, const Configure& conf);
+
 protected:
 	//! Parse command for the use of the classes.
 	/*! This command should be run by a child class after it has set up all
