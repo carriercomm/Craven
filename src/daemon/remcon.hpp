@@ -39,7 +39,15 @@ namespace detail
 		 */
 		static pointer create(boost::asio::io_service& io_service);
 
-		//
+		//! Create a new instance of the class from a socket
+		/*!
+		 *  This is one of the two overloads of this function, the only
+		 *  function able to create new instances of this class.
+		 *
+		 *  It creates a new class to manage the given socket.
+		 *
+		 *  \param socket The socket to manage.
+		 *  \returns A new instance of the class, wrapped in a std::shared_ptr
 		template <class T>
 		static pointer create(T&& socket)
 		{
