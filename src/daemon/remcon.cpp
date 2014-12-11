@@ -1,0 +1,12 @@
+#include <boost/filesystem.hpp>
+#include <boost/asio.hpp>
+
+namespace fs = boost::filesystem;
+
+#include "remcon.hpp"
+
+RemoteControl::RemoteControl(boost::asio::io_service& io, const fs::path& socket)
+	:io_(io)
+{
+
+}

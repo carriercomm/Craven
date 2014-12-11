@@ -62,12 +62,12 @@ void Daemon::double_fork() const
 	int status;
 
 	if(pid1 = fork()) // parent process
-		exit(0);
+		std::exit(0);
 	else if (!pid1) // child process
 	{
 		int sid = setsid();
 		if(pid2 = fork()) // second parent
-			exit(0);
+			std::exit(0);
 		else if(!pid2)
 		{
 			// Change current directory
