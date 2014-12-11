@@ -13,7 +13,16 @@ public:
 	//! \param config The configuration for this daemon
 	Daemon(DaemonConfigure const& config);
 
-private:
+	//! Enum providing numeric exit codes and for the storage of daemon state.
+	enum daemon_state {
+		exit = 0, //!< Used to indicate a clean exit
+		error = 1, //!< Used to indicate an error has occurred.
+		running = 2, //!< The daemon is running; if this is returned there's been a critical error.
+	};
+	int exit_code() const;
+
+
+protected:
 	//! Executes a double-fork to escape a shell.
 	void double_fork() const;
 
@@ -31,4 +40,7 @@ private:
 
 	//! The asio io_service for the daemon.
 	boost::asio::io_service io_;
+
+	//! The state of the daemon
+	daemon_state state_ = running;
 };

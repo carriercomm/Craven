@@ -33,9 +33,12 @@ namespace fs = boost::filesystem;
 Daemon::Daemon(DaemonConfigure const& config)
 {
 	if(config.version_requested())
+	{
 		std::cout << "Distributed Filesystem (c) Tom Johnson 2014\n"
 			<< "Project v" << VERSION
 			<< " Daemon v0.0\n";
+		state_ = exit;
+	}
 	else
 	{
 		// Double-fork to avoid zombification on parent exit
@@ -46,6 +49,12 @@ Daemon::Daemon(DaemonConfigure const& config)
 		init_log(config.log_path(), config.output_loudness(), config.log_level());
 	}
 }
+
+int Daemon::exit_code() const
+{
+	return static_cast<int>(state_);
+}
+
 
 void Daemon::double_fork() const
 {

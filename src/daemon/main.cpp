@@ -17,5 +17,5 @@ int main(int argc, const char** argv)
 	// Run the daemon.
 	Daemon daemon(conf);
 
-	return 0;
+	return daemon.exit_code();
 }
