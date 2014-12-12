@@ -21,7 +21,7 @@ namespace detail
 		 *  \param socket A reference to the socket for which this class is
 		 *  built around. This socket is moved into the class.
 		 */
-		connection(boost::asio::local::stream_protocol::socket& socket);
+		connection(boost::asio::local::stream_protocol::socket socket);
 	public:
 		//! The pointer type for this class.
 		typedef std::shared_ptr<connection> pointer;
@@ -83,7 +83,7 @@ namespace detail
 		template <class Callable>
 		boost::signals2::connection connect_read(Callable&& f)
 		{
-			return read_handlers_.connect(std::forward(f));
+			return read_handlers_.connect(std::forward<Callable>(f));
 		}
 
 
