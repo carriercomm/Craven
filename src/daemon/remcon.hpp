@@ -48,6 +48,7 @@ namespace detail
 		 *
 		 *  \param socket The socket to manage.
 		 *  \returns A new instance of the class, wrapped in a std::shared_ptr
+		 */
 		template <class T>
 		static pointer create(T&& socket)
 		{
@@ -57,6 +58,9 @@ namespace detail
 		//! Return the socket managed by this class.
 		//! \return The socket managed by this class.
 		boost::asio::local::stream_protocol::socket& socket();
+
+		//! \overload
+		const boost::asio::local::stream_protocol::socket& socket() const;
 
 		//! Add a message to the write queue.
 		/*!
