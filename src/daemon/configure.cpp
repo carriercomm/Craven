@@ -17,12 +17,12 @@ namespace fs = boost::filesystem;
 
 std::map<std::string, boost::log::trivial::severity_level> DaemonConfigure::level_map =
 {
-	std::make_pair("trace", boost::log::trivial::trace),
-	std::make_pair("debug", boost::log::trivial::debug),
-	std::make_pair("info", boost::log::trivial::info),
-	std::make_pair("warning", boost::log::trivial::warning),
-	std::make_pair("error", boost::log::trivial::error),
-	std::make_pair("fatal", boost::log::trivial::fatal),
+	{"trace", boost::log::trivial::trace},
+	{"debug", boost::log::trivial::debug},
+	{"info", boost::log::trivial::info},
+	{"warning", boost::log::trivial::warning},
+	{"error", boost::log::trivial::error},
+	{"fatal", boost::log::trivial::fatal},
 };
 
 void DaemonConfigure::init(const std::string& program_name)
