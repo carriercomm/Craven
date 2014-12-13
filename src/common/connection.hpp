@@ -1,5 +1,12 @@
 #pragma once
 
+#include <deque>
+#include <functional>
+
+#include <boost/signals2.hpp>
+#include <boost/asio/io_service.hpp>
+
+
 namespace util
 {
 	//! Specifies that util::connection should use a single read handler
@@ -22,7 +29,7 @@ namespace util
 		typedef void connection_return;
 
 		template <class Callable>
-		connection_return connect(handler_type& handler, Callable&& f)
+		static connection_return connect(handler_type& handler, Callable&& f)
 		{
 			handler = handler_type(std::forward<Callable>(f));
 		}
@@ -39,7 +46,7 @@ namespace util
 		typedef boost::signals2::connection connection_return;
 
 		template <class Callable>
-		connection_return connect(handler_type& handler, Callable&& f)
+		static connection_return connect(handler_type& handler, Callable&& f)
 		{
 			return handler.connect(f);
 		}
@@ -117,15 +124,21 @@ namespace util
 		template <class T>
 		static pointer create(T&& socket)
 		{
-			return std::make_shared<type>(std::forward<T>(socket));
+			return pointer(new type(std::move(socket)));
 		}
 
 		//! Return the socket managed by this class.
 		//! \return The socket managed by this class.
-		socket_type& socket();
+		socket_type& socket()
+		{
+
+		}
 
 		//! \overload
-		const socket_type& socket() const;
+		const socket_type& socket() const
+		{
+
+		}
 
 		//! Add a message to the write queue.
 		/*!
@@ -134,7 +147,10 @@ namespace util
 		 *
 		 *  \param msg The message to add to the message queue.
 		 */
-		void queue_write(const std::string& msg);
+		void queue_write(const std::string& msg)
+		{
+
+		}
 
 		//! Register a callback for a read event.
 		/*!
@@ -148,7 +164,7 @@ namespace util
 		template <class Callable>
 		typename handler_traits::connection_return connect_read(Callable&& f)
 		{
-			handler_traits::connect(read_handler_, std::forward<Callable>(f));
+			return handler_traits::connect(read_handler_, std::forward<Callable>(f));
 		}
 
 
