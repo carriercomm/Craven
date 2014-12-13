@@ -1,11 +1,14 @@
 #pragma once
 
+#include <mutex>
 #include <deque>
 #include <functional>
+#include <memory>
 
 #include <boost/signals2.hpp>
-#include <boost/asio/io_service.hpp>
+#include <boost/asio.hpp>
 
+#include "linebuffer.hpp"
 
 namespace util
 {
@@ -89,7 +92,8 @@ namespace util
 		 *  built around. This socket is moved into the class.
 		 */
 		connection(socket_type socket)
-			:socket_(std::move(socket))
+			:socket_(std::move(socket)),
+			writing_(false)
 		{
 
 		}
@@ -124,20 +128,22 @@ namespace util
 		template <class T>
 		static pointer create(T&& socket)
 		{
-			return pointer(new type(std::move(socket)));
+			auto ptr = pointer(new type(std::move(socket)));
+			ptr->setup_read();
+			return ptr;
 		}
 
 		//! Return the socket managed by this class.
 		//! \return The socket managed by this class.
 		socket_type& socket()
 		{
-
+			return socket_;
 		}
 
 		//! \overload
 		const socket_type& socket() const
 		{
-
+			return socket_;
 		}
 
 		//! Add a message to the write queue.
@@ -149,7 +155,12 @@ namespace util
 		 */
 		void queue_write(const std::string& msg)
 		{
+			{
+				std::lock_guard<std::mutex> guard(wq_mutex_);
+				write_queue_.push_back(msg);
+			}//cleanup lock
 
+			setup_write();
 		}
 
 		//! Register a callback for a read event.
@@ -175,14 +186,72 @@ namespace util
 		//! The message queue to be placed on the socket.
 		std::deque<std::string> write_queue_;
 
+		//! Mutex protecting write_queue_ and writing_
+		std::mutex wq_mutex_;
+
+		//! For handling the write queue
+		bool writing_;
+
 		//! Handles the read callbacks.
 		typename handler_traits::handler_type read_handler_;
 
-		//! Callback for handling reads on the socket.
-		void handle_read(boost::system::error_code& error, std::size_t bytes_tx);
+		typedef util::line_buffer<std::array<char, 512>> line_buffer_type;
+		//! Forms complete lines from buffers.
+		line_buffer_type lb;
 
-		//! Callback for handling writes on the socket.
-		void handle_write(boost::system::error_code& error);
+
+		//! Setup a read
+		void setup_read()
+		{
+			auto buf = std::make_shared<line_buffer_type::buffer_type>();
+
+			//Compiler won't look for shared_from_this in this class unless we tell it to
+			auto shared(this->shared_from_this());
+
+			socket_.async_receive(boost::asio::buffer(*buf),
+					[this, shared, buf](const boost::system::error_code& ec, std::size_t bytes_tx)
+					{
+						if(ec)
+							throw boost::system::system_error(ec);
+
+						auto lines = lb(*buf, bytes_tx);
+						for(const std::string& line : lines)
+							read_handler_(line);
+
+						setup_read();
+					});
+		}
+
+		//! Setup a write
+		void setup_write()
+		{
+			std::lock_guard<std::mutex> guard(wq_mutex_);
+
+			if(!writing_ && !write_queue_.empty())
+			{
+				writing_ = true;
+
+				auto msg = std::make_shared<std::string>(write_queue_.front());
+				write_queue_.pop_front();
+
+				//Compiler won't look for shared_from_this in this class unless we tell it to
+				auto shared(this->shared_from_this());
+
+				boost::asio::async_write(socket_, boost::asio::buffer(*msg),
+						//Capture shared & msg to ensure lifetime
+						[this, shared, msg](const boost::system::error_code& ec, std::size_t bytes_tx)
+						{
+							if(ec)
+								throw boost::system::system_error(ec);
+
+							wq_mutex_.lock();
+							writing_ = false;
+							wq_mutex_.unlock();
+
+							setup_write();
+						});
+			}
+		}
+
 	};
-
 }
