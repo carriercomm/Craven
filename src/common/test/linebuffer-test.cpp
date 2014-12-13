@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE(remainder_empty)
 
 	auto res = sut(buf);
 
-	
+
 	BOOST_REQUIRE_EQUAL(res.size(), 3);
 	BOOST_REQUIRE_EQUAL(res[0], "fnord");
 	BOOST_REQUIRE_EQUAL(res[1], "foo");
