@@ -1,2 +1,2 @@
-noinst_HEADERS = configure.hpp
+noinst_HEADERS = configure.hpp linebuffer.hpp
 SUBDIRS = test

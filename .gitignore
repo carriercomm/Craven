@@ -39,6 +39,7 @@ dfsctl
 expansion
 comms
 remcon
+linebuffer
 
 #Ctags & cscope
 **/tags
