@@ -1,4 +1,4 @@
-check_PROGRAMS = expansion linebuffer
+check_PROGRAMS = expansion linebuffer connection
 expansion_SOURCES = expansion.cpp ../configure.cpp
 
 expansion_CPPFLAGS = $(BOOST_CPPFLAGS)
@@ -6,8 +6,15 @@ expansion_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FIL
 expansion_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_THREAD_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
 
 linebuffer_SOURCES = linebuffer-test.cpp
+
 linebuffer_CPPFLAGS = $(BOOST_CPPFLAGS)
 linebuffer_LDADD = $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
 linebuffer_LDFLAGS = $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
+
+connection_SOURCES = connection-test.cpp
+
+connection_CPPFLAGS = $(BOOST_CPPFLAGS)
+connection_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
+connection_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
 
 TESTS = $(check_PROGRAMS)
