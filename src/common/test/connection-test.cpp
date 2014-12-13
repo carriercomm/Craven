@@ -51,7 +51,7 @@ void check_array::operator()(const std::string& line)
 	{
 		success_ = success_ && (line == expected_.front());
 		expected_.pop_front();
-		if(!success_)
+		if(!success_ || expected_.empty())
 			io_.stop();
 	}
 }
@@ -66,6 +66,40 @@ std::size_t check_array::remaining() const
 	return expected_.size();
 }
 
+class timer
+{
+public:
+	static const unsigned timeout = 30;
+
+	timer(boost::asio::io_service& io);
+
+	bool timed_out() const;
+
+protected:
+	bool timed_out_;
+	boost::asio::deadline_timer t_;
+};
+
+timer::timer(boost::asio::io_service& io)
+	:timed_out_(false),
+	t_(io, boost::posix_time::seconds(timeout))
+{
+	t_.async_wait(
+			[this, &io](const boost::system::error_code& ec)
+			{
+				if(ec)
+					throw boost::system::system_error(ec);
+
+				timed_out_ = true;
+				io.stop();
+			});
+}
+
+bool timer::timed_out() const
+{
+	return timed_out_;
+}
+
 
 
 BOOST_AUTO_TEST_CASE(single_handler_trait)
@@ -74,22 +108,27 @@ BOOST_AUTO_TEST_CASE(single_handler_trait)
 	socket_type sock1(io);
 	socket_type sock2(io);
 
+	boost::asio::local::connect_pair(sock1, sock2);
+
 	auto conn1 = single_connection::create(sock1);
 	auto conn2 = single_connection::create(sock2);
-
-	boost::asio::local::connect_pair(sock1, sock2);
 
 	std::string msg1 = "Fnord\nfoo\n";
 	std::string msg2 = "bar\n";
 
 	check_array ca(io, std::deque<std::string>{"Fnord", "foo", "bar"});
 
-	conn2->connect_read(ca);
+	conn2->connect_read([&ca](const std::string& msg){ca(msg);});
 
 	conn1->queue_write(msg1);
 	conn1->queue_write(msg2);
 
-	BOOST_REQUIRE(ca.success());
+	timer t(io);
+
+	io.run();
+
+	BOOST_REQUIRE_MESSAGE(!t.timed_out(), "Test took too long.");
+	BOOST_REQUIRE_MESSAGE(ca.success(), "Remaining: " << ca.remaining());
 }
 
 BOOST_AUTO_TEST_CASE(multiple_handler_trait)
@@ -98,20 +137,25 @@ BOOST_AUTO_TEST_CASE(multiple_handler_trait)
 	socket_type sock1(io);
 	socket_type sock2(io);
 
+	boost::asio::local::connect_pair(sock1, sock2);
+
 	auto conn1 = multiple_connection::create(sock1);
 	auto conn2 = multiple_connection::create(sock2);
-
-	boost::asio::local::connect_pair(sock1, sock2);
 
 	std::string msg1 = "Fnord\nfoo\n";
 	std::string msg2 = "bar\n";
 
 	check_array ca(io, std::deque<std::string>{"Fnord", "foo", "bar"});
 
-	conn2->connect_read(ca);
+	conn2->connect_read([&ca](const std::string& msg){ca(msg);});
 
 	conn1->queue_write(msg1);
 	conn1->queue_write(msg2);
 
-	BOOST_REQUIRE(ca.success());
+	timer t(io);
+
+	io.run();
+
+	BOOST_REQUIRE_MESSAGE(!t.timed_out(), "Test took too long.");
+	BOOST_REQUIRE_MESSAGE(ca.success(), "Remaining: " << ca.remaining());
 }
