@@ -27,15 +27,28 @@ namespace util
 		typedef connection_single_handler_tag tag;
 		typedef connection_traits<tag> type;
 
-		typedef std::function<void (const std::string&)> handler_type;
+		template <typename function_type>
+		struct handler_type
+		{
+			typedef std::function<function_type> type;
+		};
 
 		typedef void connection_return;
 
-		template <class Callable>
-		static connection_return connect(handler_type& handler, Callable&& f)
+		template <class F>
+		struct build_connect;
+
+		template <class R, class... Args>
+		struct build_connect<R(Args...)>
 		{
-			handler = handler_type(std::forward<Callable>(f));
-		}
+			typedef typename handler_type<R(Args...)>::type object_type;
+
+			template <class Callable>
+			static connection_return connect(object_type& handler, Callable&& f)
+			{
+				handler = object_type(std::forward<Callable>(f));
+			}
+		};
 	};
 
 	template <>
@@ -44,15 +57,28 @@ namespace util
 		typedef connection_multiple_handler_tag tag;
 		typedef connection_traits<tag> type;
 
-		typedef boost::signals2::signal<void (const std::string&)> handler_type;
+		template <typename function_type>
+		struct handler_type
+		{
+			typedef boost::signals2::signal<function_type> type;
+		};
 
 		typedef boost::signals2::connection connection_return;
 
-		template <class Callable>
-		static connection_return connect(handler_type& handler, Callable&& f)
+		template <class F>
+		struct build_connect;
+
+		template <class R, class... Args>
+		struct build_connect<R(Args...)>
 		{
-			return handler.connect(f);
-		}
+			typedef typename handler_type<R(Args...)>::type object_type;
+
+			template <class Callable>
+			static connection_return connect(object_type& handler, Callable&& f)
+			{
+				return handler.connect(std::forward<Callable>(f));
+			}
+		};
 	};
 
 	//! Connection handler
@@ -175,7 +201,22 @@ namespace util
 		template <class Callable>
 		typename handler_traits::connection_return connect_read(Callable&& f)
 		{
-			return handler_traits::connect(read_handler_, std::forward<Callable>(f));
+			typedef typename handler_traits::template build_connect<void(const std::string&)> build_connect_type;
+			return build_connect_type::connect(read_handler_, std::forward<Callable>(f));
+		}
+
+		//! Register a callback for a close event
+		template <class Callable>
+		typename handler_traits::connection_return connect_close(Callable&& f)
+		{
+			typedef typename handler_traits::template build_connect<void(void)> build_connect_type;
+			return build_connect_type::connect(close_handler_, std::forward<Callable>(f));
+		}
+
+		//! Reports the open/closed status of the internal socket
+		bool is_open() const
+		{
+			return socket_.is_open();
 		}
 
 
@@ -193,11 +234,46 @@ namespace util
 		bool writing_;
 
 		//! Handles the read callbacks.
-		typename handler_traits::handler_type read_handler_;
+		typename handler_traits::template handler_type<void (const std::string&)>::type read_handler_;
+
+		//! Handles the close callbacks.
+		typename handler_traits::template handler_type<void (void)>::type close_handler_;
 
 		typedef util::line_buffer<std::array<char, 512>> line_buffer_type;
 		//! Forms complete lines from buffers.
 		line_buffer_type lb;
+
+		//! Handle error codes given by the asio library
+		/*!
+		 *  This function is responsible for throwing true errors & cleanly
+		 *  shutting the socket down when it received an end of file
+		 *
+		 *  \returns True if the calling handler is allowed to continue; false o/w
+		 */
+		bool handle_error(const boost::system::error_code& ec)
+		{
+			if(ec)
+			{
+				if(ec != boost::asio::error::eof)
+					throw boost::system::system_error(ec);
+				else
+				{
+					auto shared(this->shared_from_this());
+
+					//Can't execute close in any of the handlers that call this function
+					socket_.get_io_service().post(
+							[this, shared]()
+							{
+								socket_.close();
+								close_handler_();
+							});
+
+					return false;
+				}
+			}
+
+			return true;
+		}
 
 
 		//! Setup a read
@@ -211,14 +287,17 @@ namespace util
 			socket_.async_receive(boost::asio::buffer(*buf),
 					[this, shared, buf](const boost::system::error_code& ec, std::size_t bytes_tx)
 					{
-						if(ec)
-							throw boost::system::system_error(ec);
+						bool go = handle_error(ec);
 
-						auto lines = lb(*buf, bytes_tx);
-						for(const std::string& line : lines)
-							read_handler_(line);
+						if(go)
+						{
+							auto lines = lb(*buf, bytes_tx);
+							for(const std::string& line : lines)
+								read_handler_(line);
 
-						setup_read();
+							if(is_open())
+								setup_read();
+						}
 					});
 		}
 
@@ -241,14 +320,17 @@ namespace util
 						//Capture shared & msg to ensure lifetime
 						[this, shared, msg](const boost::system::error_code& ec, std::size_t bytes_tx)
 						{
-							if(ec)
-								throw boost::system::system_error(ec);
+							bool go = handle_error(ec);
 
-							wq_mutex_.lock();
-							writing_ = false;
-							wq_mutex_.unlock();
+							if(go)
+							{
+								wq_mutex_.lock();
+								writing_ = false;
+								wq_mutex_.unlock();
 
-							setup_write();
+								if(is_open())
+									setup_write();
+							}
 						});
 			}
 		}
