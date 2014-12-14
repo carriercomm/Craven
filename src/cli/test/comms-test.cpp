@@ -112,7 +112,7 @@ public:
 
 		auto t = std::make_shared<boost::asio::deadline_timer>(*io_, boost::posix_time::seconds(1));
 
-		t->async_wait([this](const boost::system::error_code& error)
+		t->async_wait([this, t](const boost::system::error_code& error)
 					{
 						sock_.shutdown(boost::asio::local::stream_protocol::socket::shutdown_both);
 						sock_.close();
@@ -140,7 +140,6 @@ private:
 	boost::asio::streambuf buf_;
 	std::string data_;
 };
-
 
 void invert_bool(const boost::system::error_code& error, std::shared_ptr<boost::asio::io_service> io, bool* var)
 {
@@ -243,6 +242,7 @@ private:
 
 BOOST_AUTO_TEST_CASE(output_on_stream)
 {
+	std::cout << "Foo!\n";
 	//Set up the configuration
 	SetupConfig sc({"foo", "bar baz", "t", "thud"}, true);
 	auto config = sc.build_config();
@@ -251,7 +251,7 @@ BOOST_AUTO_TEST_CASE(output_on_stream)
 	//set up Asio
 	auto io_service = std::make_shared<boost::asio::io_service>();
 
-	std::string to_stream("Foo bar baz fnord\nbaz bar foo");
+	std::string to_stream("Foo bar baz fnord\n");
 
 	//set up the unix socket
 	UnixStream ux(io_service, sc.temp_unix().string(), to_stream);
@@ -269,5 +269,5 @@ BOOST_AUTO_TEST_CASE(output_on_stream)
 
 	std::string result(os.str());
 
-	BOOST_REQUIRE_EQUAL(result, to_stream);
+	BOOST_REQUIRE_EQUAL(result, "Foo bar baz fnord");
 }
