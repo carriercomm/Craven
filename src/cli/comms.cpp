@@ -19,8 +19,8 @@ CommsManager::CommsManager(const CtlConfigure& config, std::ostream& output,
 {
 	unixsock::stream_protocol::endpoint ep(config.socket().string());
 
-	connection_type::socket_type socket(*io_service_);
-	socket.connect(ep);
+	auto socket = std::make_shared<connection_type::socket_type>(*io_service_);
+	socket->connect(ep);
 
 	connection_ = connection_type::create(socket);
 

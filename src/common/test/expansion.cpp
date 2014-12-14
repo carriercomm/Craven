@@ -14,7 +14,7 @@ namespace fs = boost::filesystem;
 struct expose_expansion : Configure
 {
 	expose_expansion()
-	:Configure(0, nullptr)
+	:Configure({})
 	{}
 
 	using Configure::expand;

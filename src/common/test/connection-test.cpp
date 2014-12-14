@@ -105,10 +105,10 @@ bool timer::timed_out() const
 BOOST_AUTO_TEST_CASE(single_handler_trait)
 {
 	boost::asio::io_service io;
-	socket_type sock1(io);
-	socket_type sock2(io);
+	auto sock1 = std::make_shared<socket_type>(io);
+	auto sock2 = std::make_shared<socket_type>(io);
 
-	boost::asio::local::connect_pair(sock1, sock2);
+	boost::asio::local::connect_pair(*sock1, *sock2);
 
 	auto conn1 = single_connection::create(sock1);
 	auto conn2 = single_connection::create(sock2);
@@ -134,10 +134,10 @@ BOOST_AUTO_TEST_CASE(single_handler_trait)
 BOOST_AUTO_TEST_CASE(multiple_handler_trait)
 {
 	boost::asio::io_service io;
-	socket_type sock1(io);
-	socket_type sock2(io);
+	auto sock1 = std::make_shared<socket_type>(io);
+	auto sock2 = std::make_shared<socket_type>(io);
 
-	boost::asio::local::connect_pair(sock1, sock2);
+	boost::asio::local::connect_pair(*sock1, *sock2);
 
 	auto conn1 = multiple_connection::create(sock1);
 	auto conn2 = multiple_connection::create(sock2);

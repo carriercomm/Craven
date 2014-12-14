@@ -21,6 +21,8 @@ public:
 		error = 1, //!< Used to indicate an error has occurred.
 		running = 2, //!< The daemon is running; if this is returned there's been a critical error.
 	};
+
+	//! Retrieve the exit code
 	int exit_code() const;
 
 

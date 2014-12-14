@@ -269,5 +269,5 @@ BOOST_AUTO_TEST_CASE(output_on_stream)
 
 	std::string result(os.str());
 
-	BOOST_REQUIRE_EQUAL(result, "Foo bar baz fnord");
+	BOOST_REQUIRE_EQUAL(result, "Foo bar baz fnord\n");
 }

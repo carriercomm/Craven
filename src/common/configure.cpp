@@ -97,7 +97,7 @@ Configure::Configure(int argc, const char** argv)
 	:Configure({})
 {
 	args_.reserve(argc);
-	for(const char** it = argv; it != argv + argc; ++it)
+	for(const char** it = argv + 1; it != argv + argc; ++it)
 		args_.push_back(static_cast<std::string>(*it));
 }
 
