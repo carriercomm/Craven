@@ -43,7 +43,7 @@ CommsManager::CommsManager(const CtlConfigure& config, std::ostream& output,
 	connection_->connect_read(
 			[this](const std::string& line)
 			{
-				output_stream_ << line;
+				output_stream_ << line << std::endl;
 			});
 
 	connection_->connect_close(
