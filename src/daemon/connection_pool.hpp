@@ -8,12 +8,13 @@
 /*! T is the connection manager type, R is the dispatch manager type. This class
  *  is templated to support its unit tests.
  */
-template <class T, R>
+template <typename T, typename R>
 class ConnectionPool
 {
 public:
 	typedef T connection_type;
 	typedef R dispatch_type;
+	typedef ConnectionPool<T, R> type;
 	typedef boost::uuids::uuid uid_type;
 
 	class remote_missing
@@ -37,9 +38,9 @@ public:
 		 *
 		 *  \param endpoint The endpoint the message came from.
 		 */
-		callback(ConnectionPool<& parent, const uid_type& endpoint)
+		callback(type& parent, const uid_type& endpoint)
 			:parent_(parent),
-			endpoint(endpoint_)
+			endpoint_(endpoint)
 		{
 		}
 
@@ -59,14 +60,14 @@ public:
 		 *
 		 *  \param msg The message to respond with.
 		 */
-		void operator()(const std:string& msg)
+		void operator()(const std::string& msg)
 		{
 			throw std::runtime_error("Not yet implemented");
 		}
 
 	protected:
 		//! A reference to the parent class of this callback
-		ConnectionPool& parent_;
+		type& parent_;
 
 		//! The originating node
 		uid_type endpoint_;
@@ -77,7 +78,7 @@ public:
 	 *  \param dispatch The instance of dispatch_type handling RPC dispatch
 	 *  \param connections The map of connections to initialise with.
 	 */
-	ConnectionPool(dispatch_type& dispatch, const std::unordered_map<uid_type, connection_type::pointer>& connections={})
+	ConnectionPool(dispatch_type& dispatch, const std::unordered_map<uid_type, typename connection_type::pointer>& connections={})
 		:dispatch_(dispatch),
 		connections_(connections)
 	{
@@ -96,7 +97,7 @@ public:
 		throw std::runtime_error("Not yet implemented");
 	}
 
-	void add_connection(connection_type::pointer connection, const uid_type& uid)
+	void add_connection(typename connection_type::pointer connection, const uid_type& uid)
 	{
 		throw std::runtime_error("Not yet implemented");
 	}
@@ -107,6 +108,6 @@ protected:
 	dispatch_type& dispatch_;
 
 	//! The map of connections.
-	std::unordered_map<uid_type, connection_type::pointer> connections_;
+	std::unordered_map<uid_type, typename connection_type::pointer> connections_;
 
 };
