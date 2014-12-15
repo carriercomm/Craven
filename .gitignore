@@ -41,6 +41,7 @@ comms
 remcon
 linebuffer
 connection
+connection_pool
 
 #Ctags & cscope
 **/tags
