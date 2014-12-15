@@ -36,6 +36,7 @@ public:
 	//! Returns true if a daemon has been requested.
 	bool daemonise() const;
 
+	//! Path to the log
 	boost::filesystem::path log_path() const;
 
 	//! Enum specifying how much output goes to stdout.

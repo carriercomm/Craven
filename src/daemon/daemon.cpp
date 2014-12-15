@@ -50,17 +50,8 @@ Daemon::Daemon(DaemonConfigure const& config)
 		init_log(config.log_path(), config.output_loudness(), config.log_level());
 
 		boost::asio::io_service io;
-		RemoteControl remcon(io, "/tmp/eris");
-		remcon.connect("fnord", [this](const std::vector<std::string>& lines, CTLSession session)
-				{
-					for(const std::string& line : lines)
-						std::cout << "|" << line << "|\n";
 
-					session.write("Hello from fnord!\n");
-				});
-
-		io.run();
-		std::cout << "Exiting.\n";
+		RemoteControl remcon(io, config.socket());
 	}
 }
 
