@@ -64,14 +64,13 @@ int Daemon::exit_code() const
 void Daemon::double_fork() const
 {
 	pid_t pid1, pid2;
-	int status;
 
-	if(pid1 = fork()) // parent process
+	if((pid1 = fork())) // parent process
 		std::exit(0);
 	else if (!pid1) // child process
 	{
-		int sid = setsid();
-		if(pid2 = fork()) // second parent
+		setsid();
+		if((pid2 = fork())) // second parent
 			std::exit(0);
 		else if(!pid2)
 		{
