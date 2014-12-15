@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -105,12 +104,6 @@ namespace util
 			{ }
 
 		public:
-			~socket_detail()
-			{
-				std::cout << "socket_detail destructing: " << this << "\n";
-			}
-
-
 			static pointer create(std::shared_ptr<connection_type> connection)
 			{
 				auto ptr = pointer(new socket_detail(connection));
@@ -201,8 +194,6 @@ namespace util
 
 									if(conn->is_open())
 										setup_read();
-									else
-										std::cout << "Didn't recur on read\n";
 								}
 							}
 						});
@@ -234,8 +225,6 @@ namespace util
 
 									if(conn->is_open())
 										setup_write();
-									else
-										std::cout << "Didn't recur on write\n";
 
 								}
 							});
@@ -292,11 +281,6 @@ namespace util
 
 		}
 	public:
-		~connection()
-		{
-			std::cout << "Connection destructing: " << this << "\n";
-		}
-
 		//! Create a new instance of the class from a socket
 		/*!
 		 *  This is one of the two overloads of this function, the only
