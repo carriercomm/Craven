@@ -1,8 +1,6 @@
 #pragma once
 
-#include <unordered_map>
-
-#include <boost/uuid/uuid.hpp>
+#include <map>
 
 //! This class manages a group of connections with IDs, passing messages to a dispatch class.
 /*! T is the connection manager type, R is the dispatch manager type. This class
@@ -15,7 +13,7 @@ public:
 	typedef T connection_type;
 	typedef R dispatch_type;
 	typedef ConnectionPool<T, R> type;
-	typedef boost::uuids::uuid uid_type;
+	typedef std::string uid_type;
 
 	class remote_missing
 	{
@@ -31,6 +29,17 @@ public:
 	class callback
 	{
 	public:
+		struct invalid_callback : std::runtime_error
+		{
+			invalid_callback()
+				:std::runtime_error("Callback not initialised")
+			{}
+		};
+
+		//! Construct an invalid handler.
+		callback()
+			:parent_(nullptr)
+		{}
 		//! Construct the handler
 		/*!
 		 *  \param parent -- a reference to the owning ConnectionPool that this
@@ -39,9 +48,14 @@ public:
 		 *  \param endpoint The endpoint the message came from.
 		 */
 		callback(type& parent, const uid_type& endpoint)
-			:parent_(parent),
+			:parent_(&parent),
 			endpoint_(endpoint)
 		{
+		}
+
+		operator bool()
+		{
+			return parent_ != nullptr;
 		}
 
 		//! Returns the endpoint the acompanying message came from.
@@ -67,7 +81,7 @@ public:
 
 	protected:
 		//! A reference to the parent class of this callback
-		type& parent_;
+		type* parent_;
 
 		//! The originating node
 		uid_type endpoint_;
@@ -78,7 +92,7 @@ public:
 	 *  \param dispatch The instance of dispatch_type handling RPC dispatch
 	 *  \param connections The map of connections to initialise with.
 	 */
-	ConnectionPool(dispatch_type& dispatch, const std::unordered_map<uid_type, typename connection_type::pointer>& connections={})
+	ConnectionPool(dispatch_type& dispatch, const std::map<uid_type, typename connection_type::pointer>& connections={})
 		:dispatch_(dispatch),
 		connections_(connections)
 	{
@@ -97,7 +111,7 @@ public:
 		throw std::runtime_error("Not yet implemented");
 	}
 
-	void add_connection(typename connection_type::pointer connection, const uid_type& uid)
+	void add_connection(const uid_type& uid, typename connection_type::pointer connection)
 	{
 		throw std::runtime_error("Not yet implemented");
 	}
@@ -108,6 +122,6 @@ protected:
 	dispatch_type& dispatch_;
 
 	//! The map of connections.
-	std::unordered_map<uid_type, typename connection_type::pointer> connections_;
+	std::map<uid_type, typename connection_type::pointer> connections_;
 
 };
