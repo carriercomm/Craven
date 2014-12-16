@@ -28,6 +28,9 @@ public:
 	 *  Instances of this class act as a callback to write a response when an
 	 *  RPC comes in. It's provided to dispatch with the message, which then
 	 *  handles marshalling.
+	 *
+	 *  The callback must not outlive its parent or a segfault will occur on
+	 *  several operations.
 	 */
 	class Callback
 	{
@@ -57,7 +60,7 @@ public:
 		}
 
 		//! Checks that this class is a valid callback.
-		operator bool()
+		operator bool() const
 		{
 			return parent_ != nullptr && parent_->exists(endpoint_);
 		}
@@ -168,3 +171,8 @@ protected:
 
 	}
 };
+
+//forward declaration
+class TopLevelDispatch;
+
+typedef ConnectionPool<util::connection<boost::asio::ip::tcp::socket, util::connection_multiple_handler_tag>, TopLevelDispatch> TCPConnectionPool;
