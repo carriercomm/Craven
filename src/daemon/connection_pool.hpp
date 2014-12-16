@@ -2,6 +2,8 @@
 
 #include <map>
 
+#include "../common/connection.hpp"
+
 //! This class manages a group of connections with IDs, passing messages to a dispatch class.
 /*! T is the connection manager type, R is the dispatch manager type. This class
  *  is templated to support its unit tests.

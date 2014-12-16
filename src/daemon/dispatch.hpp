@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "connection_pool.hpp"
 
 //! This class handles the top-level dispatch for the RPC. The class is also
@@ -13,9 +15,7 @@ public:
 	//already registered.
 	struct dispatcher_exists : std::runtime_error
 	{
-		dispatcher_exists(const std::string& id)
-			:std::runtime_error("Dispatcher with ID " + id + " is already registered.")
-		{}
+		dispatcher_exists(const std::string& id);
 	};
 
 	//! Wrapper around the connection pool's callback that handles json serialising.
@@ -23,22 +23,23 @@ public:
 	{
 	public:
 		Callback() = default;
-		Callback(const typename connection_pool_type::Callback& cb);
+		Callback(const std::string& module, const
+				connection_pool_type::Callback& cb);
 
-		operator bool();
+		operator bool() const;
 
-		typename connection_pool_type::uid_type endpoint() const;
+		connection_pool_type::uid_type endpoint() const;
 
 		void operator()(const Json::Value& msg);
 
 	protected:
-		connection_pool_type::Callback wrapped_;
 		std::string module_;
+		connection_pool_type::Callback wrapped_;
 	};
 
 
 	//! Construct the dispatch
-	Dispatch() = default;
+	TopLevelDispatch();
 
 	//! Dispatch the RPC encoded in msg.
 	/*!
@@ -50,10 +51,7 @@ public:
 	 *
 	 *  \param cb The callback object for replies.
 	 */
-	void operator()(const std::string& msg, const connection_pool_type::Callback& cb)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
+	void operator()(const std::string& msg, const connection_pool_type::Callback& cb);
 
 	//! Connect a module-level dispatcher.
 	/*!
@@ -73,17 +71,16 @@ public:
 		register_[id] = f;
 	}
 
-	bool connected(const std::string& id) const
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
+	//! Checks to see if the module id has a handler registered
+	bool connected(const std::string& id) const;
 
-	bool disconnect(const sdt::string& id);
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
+	//! Disconnects module id; does nothing if it's not connected.
+	void disconnect(const std::string& id);
 
 protected:
 	std::unordered_map<std::string, std::function<void (const Json::Value&,
-			const connection_pool_type::Callback&)>> register_;
+			const Callback&)>> register_;
+
+	void respond_with_error(const std::string& error, const
+			connection_pool_type::Callback& cb) const;
 };
