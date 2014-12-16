@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <functional>
 
 #include "../common/connection.hpp"
 
@@ -8,13 +9,12 @@
 /*! T is the connection manager type, R is the dispatch manager type. This class
  *  is templated to support its unit tests.
  */
-template <typename T, typename R>
+template <typename T>
 class ConnectionPool
 {
 public:
 	typedef T connection_type;
-	typedef R dispatch_type;
-	typedef ConnectionPool<T, R> type;
+	typedef ConnectionPool<T> type;
 	typedef std::string uid_type;
 	typedef std::map<uid_type, typename connection_type::pointer> connection_map_type;
 
@@ -105,12 +105,14 @@ public:
 		uid_type endpoint_;
 	};
 
+	typedef std::function<void(const std::string&, const Callback&)> dispatch_type;
+
 	//! Construct the ConnectionPool.
 	/*!
-	 *  \param dispatch The instance of dispatch_type handling RPC dispatch
+	 *  \param dispatch A function object handling dispatch
 	 *  \param connections The map of connections to initialise with.
 	 */
-	ConnectionPool(dispatch_type& dispatch, const std::map<uid_type, typename connection_type::pointer>& connections={})
+	ConnectionPool(const dispatch_type& dispatch, const std::map<uid_type, typename connection_type::pointer>& connections={})
 		:dispatch_(dispatch),
 		connections_(connections)
 	{
@@ -149,7 +151,7 @@ public:
 
 protected:
 	//! A reference to the instance of dispatch_type providing RPC dispatch serivces
-	dispatch_type& dispatch_;
+	dispatch_type dispatch_;
 
 	//! The map of connections.
 	connection_map_type connections_;
@@ -174,7 +176,4 @@ protected:
 	}
 };
 
-//forward declaration
-class TopLevelDispatch;
-
-typedef ConnectionPool<util::connection<boost::asio::ip::tcp::socket, util::connection_multiple_handler_tag>, TopLevelDispatch> TCPConnectionPool;
+typedef ConnectionPool<util::connection<boost::asio::ip::tcp::socket, util::connection_multiple_handler_tag>> TCPConnectionPool;

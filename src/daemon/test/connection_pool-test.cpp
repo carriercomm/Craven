@@ -52,18 +52,27 @@ struct connection_mock
 
 struct dispatch_mock
 {
-	void operator()(const std::string& msg, const ConnectionPool<connection_mock, dispatch_mock>::Callback& callback)
+	void operator()(const std::string& msg, const ConnectionPool<connection_mock>::Callback& callback)
 	{
 		calls.push_back(std::make_tuple(msg, callback.endpoint()));
 		last_callback = callback;
 	}
 
-	ConnectionPool<connection_mock, dispatch_mock>::Callback last_callback;
+	std::function<void(const std::string&, const ConnectionPool<connection_mock>::Callback&)>
+		get_function()
+	{
+		return [this] (const std::string& msg, const ConnectionPool<connection_mock>::Callback& callback)
+		{
+			(*this)(msg, callback);
+		};
+	}
+
+	ConnectionPool<connection_mock>::Callback last_callback;
 
 	std::vector<std::tuple<std::string, std::string>> calls;
 };
 
-typedef ConnectionPool<connection_mock, dispatch_mock> connection_pool_type;
+typedef ConnectionPool<connection_mock> connection_pool_type;
 
 BOOST_AUTO_TEST_CASE(read_handler_to_dispatch)
 {
@@ -71,7 +80,7 @@ BOOST_AUTO_TEST_CASE(read_handler_to_dispatch)
 	auto cm = std::make_shared<connection_mock>();
 	connection_pool_type::uid_type cm_uid("1");
 
-	connection_pool_type sut(dm, {{cm_uid, cm}});
+	connection_pool_type sut(dm.get_function(), {{cm_uid, cm}});
 
 	cm->read_handler_("Foo bar baz test message please ignore");
 
@@ -88,7 +97,7 @@ BOOST_AUTO_TEST_CASE(dispatch_callback_to_read_handler)
 	connection_pool_type::uid_type cm_uid("1");
 	connection_pool_type::uid_type cm_uid2("2");
 
-	connection_pool_type sut(dm, {{cm_uid, cm}, {cm_uid2, cm2}});
+	connection_pool_type sut(dm.get_function(), {{cm_uid, cm}, {cm_uid2, cm2}});
 
 	cm->read_handler_("Foo bar baz test message please ignore");
 
@@ -111,7 +120,7 @@ BOOST_AUTO_TEST_CASE(broadcast_writes_to_all)
 	connection_pool_type::uid_type cm_uid("1");
 	connection_pool_type::uid_type cm_uid2("2");
 
-	connection_pool_type sut(dm, {{cm_uid, cm}, {cm_uid2, cm2}});
+	connection_pool_type sut(dm.get_function(), {{cm_uid, cm}, {cm_uid2, cm2}});
 
 	sut.broadcast("Test message please ignore\n");
 
@@ -134,7 +143,7 @@ BOOST_AUTO_TEST_CASE(targeted_does_not_broadcast)
 	connection_pool_type::uid_type cm_uid("1");
 	connection_pool_type::uid_type cm_uid2("2");
 
-	connection_pool_type sut(dm, {{cm_uid, cm}, {cm_uid2, cm2}});
+	connection_pool_type sut(dm.get_function(), {{cm_uid, cm}, {cm_uid2, cm2}});
 
 	sut.send_targeted(cm_uid, "Hello from the system under test\n");
 
@@ -154,7 +163,7 @@ BOOST_AUTO_TEST_CASE(targeted_on_non_existant_throws)
 	connection_pool_type::uid_type cm_uid2("2");
 	connection_pool_type::uid_type non_existant("3");
 
-	connection_pool_type sut(dm, {{cm_uid, cm}, {cm_uid2, cm2}});
+	connection_pool_type sut(dm.get_function(), {{cm_uid, cm}, {cm_uid2, cm2}});
 
 	BOOST_REQUIRE_THROW(sut.send_targeted(non_existant, "This should throw!\n"),
 		connection_pool_type::endpoint_missing);
@@ -172,7 +181,7 @@ BOOST_AUTO_TEST_CASE(can_add_connections)
 	connection_pool_type::uid_type cm_uid("1");
 	connection_pool_type::uid_type cm_uid2("2");
 
-	connection_pool_type sut(dm, {{cm_uid, cm}});
+	connection_pool_type sut(dm.get_function(), {{cm_uid, cm}});
 
 	BOOST_REQUIRE_THROW(sut.send_targeted(cm_uid2, "This should throw!\n"),
 			connection_pool_type::endpoint_missing);
@@ -202,7 +211,7 @@ BOOST_AUTO_TEST_CASE(closed_connections_drop)
 	connection_pool_type::uid_type cm_uid("1");
 	connection_pool_type::uid_type cm_uid2("2");
 
-	connection_pool_type sut(dm, {{cm_uid, cm}, {cm_uid2, cm2}});
+	connection_pool_type sut(dm.get_function(), {{cm_uid, cm}, {cm_uid2, cm2}});
 
 	sut.send_targeted(cm_uid2, "This should pass :)\n");
 
@@ -238,7 +247,7 @@ BOOST_AUTO_TEST_CASE(connection_pool_last_out_cleans_connections)
 	std::weak_ptr<connection_mock> weak_cm(cm);
 	std::weak_ptr<connection_mock> weak_cm2(cm2);
 	{
-		connection_pool_type sut(dm, {{cm_uid, cm}, {cm_uid2, cm2}});
+		connection_pool_type sut(dm.get_function(), {{cm_uid, cm}, {cm_uid2, cm2}});
 
 		//remove our strong references while sut is still in scope
 		cm.reset();
