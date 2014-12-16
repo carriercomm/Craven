@@ -5,6 +5,7 @@
 #include <memory>
 #include <map>
 
+#include "../../common/connection.hpp"
 #include "../connection_pool.hpp"
 
 struct connection_mock
