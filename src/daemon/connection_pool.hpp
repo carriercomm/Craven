@@ -14,10 +14,13 @@ public:
 	typedef R dispatch_type;
 	typedef ConnectionPool<T, R> type;
 	typedef std::string uid_type;
+	typedef std::map<uid_type, typename connection_type::pointer> connection_map_type;
 
-	class remote_missing
+	struct endpoint_missing : std::runtime_error
 	{
-
+		endpoint_missing(const std::string& endpoint)
+			:std::runtime_error("Endpoint " + endpoint + " does not exist")
+		{}
 	};
 
 	//! Callback handler provided to dispatch when an RPC comes in.
@@ -26,7 +29,7 @@ public:
 	 *  RPC comes in. It's provided to dispatch with the message, which then
 	 *  handles marshalling.
 	 */
-	class callback
+	class Callback
 	{
 	public:
 		struct invalid_callback : std::runtime_error
@@ -37,7 +40,7 @@ public:
 		};
 
 		//! Construct an invalid handler.
-		callback()
+		Callback()
 			:parent_(nullptr)
 		{}
 		//! Construct the handler
@@ -47,20 +50,22 @@ public:
 		 *
 		 *  \param endpoint The endpoint the message came from.
 		 */
-		callback(type& parent, const uid_type& endpoint)
-			:parent_(&parent),
+		Callback(type* parent, const uid_type& endpoint)
+			:parent_(parent),
 			endpoint_(endpoint)
 		{
 		}
 
+		//! Checks that this class is a valid callback.
 		operator bool()
 		{
-			return parent_ != nullptr;
+			return parent_ != nullptr && parent_->exists(endpoint_);
 		}
 
 		//! Returns the endpoint the acompanying message came from.
 		uid_type endpoint() const
 		{
+			this->throw_if_invalid();
 			return endpoint_;
 		}
 
@@ -69,17 +74,25 @@ public:
 		 *  This function handles sending a response to the node from whence
 		 *  this RPC originated.
 		 *
-		 *  Can throw a remote_missing exception if the remote's disconnected
+		 *  Can throw a endpoint_missing exception if the endpoint's disconnected
 		 *  since.
 		 *
 		 *  \param msg The message to respond with.
 		 */
 		void operator()(const std::string& msg)
 		{
-			throw std::runtime_error("Not yet implemented");
+			this->throw_if_invalid();
+			parent_->send_targeted(endpoint_, msg);
 		}
 
 	protected:
+		inline void throw_if_invalid() const
+		{
+			if(parent_ == nullptr)
+				throw invalid_callback();
+		}
+
+
 		//! A reference to the parent class of this callback
 		type* parent_;
 
@@ -96,32 +109,62 @@ public:
 		:dispatch_(dispatch),
 		connections_(connections)
 	{
-
+		for(auto connection : connections_)
+			install_handlers(connection.first, connection.second);
 	}
 
 	//! Send a message to all known nodes.
 	void broadcast(const std::string& msg)
 	{
-		throw std::runtime_error("");
+		for(auto connection : connections_)
+			connection.second->queue_write(msg);
 	}
 
 	//! Send a message to a specific node
 	void send_targeted(const uid_type& endpoint, const std::string& msg)
 	{
-		throw std::runtime_error("Not yet implemented");
+		if(!connections_.count(endpoint))
+			throw endpoint_missing(endpoint);
+
+		connections_[endpoint]->queue_write(msg);
 	}
 
-	void add_connection(const uid_type& uid, typename connection_type::pointer connection)
+	void add_connection(const uid_type& endpoint, typename connection_type::pointer connection)
 	{
-		throw std::runtime_error("Not yet implemented");
+		if(!connections_.count(endpoint))
+			connections_[endpoint] = connection;
+		else if(!connections_[endpoint]->is_open())
+			connections_[endpoint] = connection;
 	}
 
+	bool exists(const uid_type& endpoint) const
+	{
+		return connections_.count(endpoint);
+	}
 
 protected:
 	//! A reference to the instance of dispatch_type providing RPC dispatch serivces
 	dispatch_type& dispatch_;
 
 	//! The map of connections.
-	std::map<uid_type, typename connection_type::pointer> connections_;
+	connection_map_type connections_;
 
+	void install_handlers(const uid_type& endpoint, typename connection_type::pointer connection)
+	{
+		connection->connect_read(
+				[this, endpoint](const std::string& msg)
+				{
+					Callback cb(this, endpoint);
+
+					dispatch_(msg, cb);
+				});
+
+		connection->connect_close(
+				[this, endpoint]()
+				{
+					if(connections_.count(endpoint))
+						connections_.erase(endpoint);
+				});
+
+	}
 };

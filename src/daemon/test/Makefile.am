@@ -10,4 +10,4 @@ connection_pool_LDADD = $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
 connection_pool_LDFLAGS = $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
 
 TESTS = $(check_PROGRAMS)
-XFAIL_TESTS = remcon connection_pool
+XFAIL_TESTS = remcon

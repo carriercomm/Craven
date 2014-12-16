@@ -14,6 +14,11 @@ struct connection_mock
 		:open_(true)
 	{}
 
+	void queue_write(const std::string& msg)
+	{
+		write_queue_.push_back(msg);
+	}
+
 	template <typename Callable>
 	void connect_read(Callable&& f)
 	{
@@ -46,12 +51,13 @@ struct connection_mock
 
 struct dispatch_mock
 {
-	void operator()(const std::string& msg, const ConnectionPool<connection_mock, dispatch_mock>::callback& callback)
+	void operator()(const std::string& msg, const ConnectionPool<connection_mock, dispatch_mock>::Callback& callback)
 	{
 		calls.push_back(std::make_tuple(msg, callback.endpoint()));
+		last_callback = callback;
 	}
 
-	ConnectionPool<connection_mock, dispatch_mock>::callback last_callback;
+	ConnectionPool<connection_mock, dispatch_mock>::Callback last_callback;
 
 	std::vector<std::tuple<std::string, std::string>> calls;
 };
@@ -114,8 +120,8 @@ BOOST_AUTO_TEST_CASE(broadcast_writes_to_all)
 	//Though it'd be a miracle if it managed it!
 	BOOST_REQUIRE_EQUAL(not_added->write_queue_.size(), 0);
 
-	BOOST_REQUIRE_EQUAL(cm->write_queue_[0], "Test message please ignore");
-	BOOST_REQUIRE_EQUAL(cm2->write_queue_[0], "Test message please ignore");
+	BOOST_REQUIRE_EQUAL(cm->write_queue_[0], "Test message please ignore\n");
+	BOOST_REQUIRE_EQUAL(cm2->write_queue_[0], "Test message please ignore\n");
 }
 
 BOOST_AUTO_TEST_CASE(targeted_does_not_broadcast)
@@ -150,7 +156,7 @@ BOOST_AUTO_TEST_CASE(targeted_on_non_existant_throws)
 	connection_pool_type sut(dm, {{cm_uid, cm}, {cm_uid2, cm2}});
 
 	BOOST_REQUIRE_THROW(sut.send_targeted(non_existant, "This should throw!\n"),
-		connection_pool_type::remote_missing);
+		connection_pool_type::endpoint_missing);
 
 	BOOST_REQUIRE_EQUAL(cm->write_queue_.size(), 0);
 	BOOST_REQUIRE_EQUAL(cm2->write_queue_.size(), 0);
@@ -168,12 +174,12 @@ BOOST_AUTO_TEST_CASE(can_add_connections)
 	connection_pool_type sut(dm, {{cm_uid, cm}});
 
 	BOOST_REQUIRE_THROW(sut.send_targeted(cm_uid2, "This should throw!\n"),
-			connection_pool_type::remote_missing);
+			connection_pool_type::endpoint_missing);
 
 	BOOST_REQUIRE_EQUAL(cm->write_queue_.size(), 0);
 	BOOST_REQUIRE_EQUAL(cm2->write_queue_.size(), 0);
 
-	sut.add_connection(cm_uid2, cm);
+	sut.add_connection(cm_uid2, cm2);
 
 	BOOST_REQUIRE_EQUAL(cm->write_queue_.size(), 0);
 	BOOST_REQUIRE_EQUAL(cm2->write_queue_.size(), 0);
@@ -211,7 +217,7 @@ BOOST_AUTO_TEST_CASE(closed_connections_drop)
 	BOOST_REQUIRE(weak_cm2.expired());
 
 	BOOST_REQUIRE_THROW(sut.send_targeted(cm_uid2, "This should throw!\n"),
-			connection_pool_type::remote_missing);
+			connection_pool_type::endpoint_missing);
 
 	sut.broadcast("This should not throw\n");
 
