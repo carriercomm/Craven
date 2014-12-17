@@ -110,6 +110,11 @@ boost::optional<std::string> RaftLog::last_vote() const noexcept
 	throw std::runtime_error("Not yet implemented");
 }
 
+uint32_t last_index() const noexcept
+{
+	throw std::runtime_error("Not yet implemented");
+}
+
 void RaftLog::write(const raft_log::LogEntry& entry) noexcept(false)
 {
 	throw std::runtime_error("Not yet implemented");

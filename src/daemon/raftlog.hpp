@@ -103,6 +103,9 @@ public:
 	 */
 	boost::optional<std::string> last_vote() const noexcept;
 
+	//! Retrieve the last known log index
+	uint32_t last_index() const noexcept;
+
 	//! Writes a log entry to the file and internal log
 	/*!
 	 *  Throws if an entry with the same index (but not necessarly the same
