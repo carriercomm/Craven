@@ -5,6 +5,9 @@
 #include <fstream>
 #include <iostream>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -110,7 +113,7 @@ boost::optional<std::string> RaftLog::last_vote() const noexcept
 	throw std::runtime_error("Not yet implemented");
 }
 
-uint32_t last_index() const noexcept
+uint32_t RaftLog::last_index() const noexcept
 {
 	throw std::runtime_error("Not yet implemented");
 }

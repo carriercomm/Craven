@@ -104,6 +104,10 @@ public:
 	boost::optional<std::string> last_vote() const noexcept;
 
 	//! Retrieve the last known log index
+	/*!
+	 *  Note that indexes are numbered from one. (i.e. the 0th index means we have
+	 *  no log entries).
+	 */
 	uint32_t last_index() const noexcept;
 
 	//! Writes a log entry to the file and internal log
@@ -138,6 +142,9 @@ public:
 
 	//! Retrieves the log entry at index, throwing if it doesn't exist.
 	raft_log::LogEntry log(uint32_t index) const noexcept(false);
+
+	//! Same as log()
+	raft_log::LogEntry operator[](uint32_t index) const noexcept(false);
 
 protected:
 	std::fstream stream_;
