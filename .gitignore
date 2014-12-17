@@ -43,6 +43,7 @@ linebuffer
 connection
 connection_pool
 dispatch
+raftlog
 
 #Ctags & cscope
 **/tags
