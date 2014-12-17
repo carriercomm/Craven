@@ -4,9 +4,12 @@
 
 #include "connection_pool.hpp"
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 //! This class handles the top-level dispatch for the RPC. The class is also
 //! responsible for top-level marshalling.
-<template T>
+template <typename T>
 class TopLevelDispatch
 {
 public:
@@ -21,14 +24,23 @@ public:
 		{}
 	};
 
+	struct invalid_name : std::runtime_error
+	{
+		invalid_name()
+			:std::runtime_error("Cannot register a handler with that name.")
+		{}
+
+	};
+
 	//! Wrapper around the connection pool's callback that handles json serialising.
 	class Callback
 	{
 	public:
 		Callback() = default;
-		Callback(const std::string& module, const
-				connection_pool_type::Callback& cb)
+		Callback(const std::string& module, const std::string& reply,
+				const typename connection_pool_type::Callback& cb)
 			:module_(module),
+			reply_(reply),
 			wrapped_(cb)
 		{
 		}
@@ -39,7 +51,7 @@ public:
 			return static_cast<bool>(wrapped_);
 		}
 
-		connection_pool_type::uid_type endpoint() const
+		typename connection_pool_type::uid_type endpoint() const
 		{
 			return wrapped_.endpoint();
 		}
@@ -48,6 +60,7 @@ public:
 		{
 			Json::Value root;
 			root["module"] = module_;
+			root["reply"] = reply_;
 			root["content"] = msg;
 
 			Json::FastWriter writer;
@@ -55,8 +68,8 @@ public:
 		}
 
 	protected:
-		std::string module_;
-		connection_pool_type::Callback wrapped_;
+		std::string module_, reply_;
+		typename connection_pool_type::Callback wrapped_;
 	};
 
 
@@ -88,20 +101,19 @@ public:
 	 *
 	 *  \param cb The callback object for replies.
 	 */
-	void operator()(const std::string& msg, const connection_pool_type::Callback& cb)
+	void operator()(const std::string& msg, const typename connection_pool_type::Callback& cb)
 	{
 		Json::Value root;
 		Json::Reader reader;
 		if(reader.parse(msg, root, false))
 		{
-			if(root.isMember("module") && root["module"].isString()
-					&& root.isMember("content"))
+			if(check_message_valid(root))
 			{
 				auto module_id = root["module"].asString();
 
 				if(connected(module_id))
 				{
-					Callback module_callback(module_id, cb);
+					Callback module_callback(root["reply"].asString(), module_id, cb);
 
 					//Call the registered dispatch handler for the module
 					register_[module_id](root["content"], module_callback);
@@ -151,6 +163,9 @@ public:
 	//! Disconnects module id; does nothing if it's not connected.
 	void disconnect(const std::string& id)
 	{
+		if(id == "dispatch")
+			throw invalid_name();
+
 		if(connected(id))
 			register_.erase(id);
 	}
@@ -159,12 +174,19 @@ protected:
 	std::unordered_map<std::string, std::function<void (const Json::Value&,
 			const Callback&)>> register_;
 
+	bool check_message_valid(const Json::Value& msg)
+	{
+		return msg.isMember("module") && msg["module"].isString()
+			&& msg.isMember("reply") && msg["reply"].isString()
+			&& msg.isMember("content");
+	}
+
 	void respond_with_error(const std::string& error, const
-			connection_pool_type::Callback& cb) const
+			typename connection_pool_type::Callback& cb) const
 	{
 		BOOST_LOG_TRIVIAL(warning) << error;
 
-		Callback module_callback("dispatch", cb);
+		Callback module_callback("dispatch", "dispatch", cb);
 		Json::Value error_message;
 
 		error_message["error"] = error;

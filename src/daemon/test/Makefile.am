@@ -1,4 +1,4 @@
-check_PROGRAMS = remcon connection_pool
+check_PROGRAMS = remcon connection_pool dispatch
 remcon_SOURCES = remcon-test.cpp ../remcon.cpp
 
 remcon_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(BOOST_LOG_LIBS)
@@ -8,6 +8,12 @@ connection_pool_SOURCES = connection_pool-test.cpp
 
 connection_pool_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
 connection_pool_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
+
+dispatch_SOURCES = dispatch-test.cpp
+
+dispatch_CPPFLAGS = $(JSONCPP_CFLAGS)
+dispatch_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(JSONCPP_LIBS)
+dispatch_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(JSONCPP_LDFLAGS)
 
 TESTS = $(check_PROGRAMS)
 XFAIL_TESTS = remcon

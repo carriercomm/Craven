@@ -42,6 +42,7 @@ remcon
 linebuffer
 connection
 connection_pool
+dispatch
 
 #Ctags & cscope
 **/tags
