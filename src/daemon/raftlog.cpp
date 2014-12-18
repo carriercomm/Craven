@@ -143,7 +143,7 @@ bool RaftLog::match(uint32_t term, uint32_t index) const noexcept
 	throw std::runtime_error("Not yet implemented");
 }
 
-raft_log::LogEntry RaftLog::log(uint32_t index) const noexcept(false)
+raft_log::LogEntry RaftLog::operator[](uint32_t index) const noexcept(false)
 {
 	throw std::runtime_error("Not yet implemented");
 }

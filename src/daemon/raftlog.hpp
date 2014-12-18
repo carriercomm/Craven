@@ -141,9 +141,6 @@ public:
 	bool match(uint32_t term, uint32_t index) const noexcept;
 
 	//! Retrieves the log entry at index, throwing if it doesn't exist.
-	raft_log::LogEntry log(uint32_t index) const noexcept(false);
-
-	//! Same as log()
 	raft_log::LogEntry operator[](uint32_t index) const noexcept(false);
 
 protected:

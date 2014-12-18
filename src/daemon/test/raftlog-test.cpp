@@ -241,21 +241,21 @@ BOOST_FIXTURE_TEST_CASE(log_entries_appended_recoverable, test_fixture)
 	BOOST_CHECK_EQUAL(sut.last_vote().get(), "eris");
 	BOOST_CHECK_EQUAL(sut.last_index(), 4);
 
-	BOOST_CHECK_EQUAL(sut.log(1).index(), 1);
-	BOOST_CHECK_EQUAL(sut.log(1).term(), 1);
-	BOOST_CHECK_EQUAL(sut.log(1).action().asString(), "thud");
+	BOOST_CHECK_EQUAL(sut[1].index(), 1);
+	BOOST_CHECK_EQUAL(sut[1].term(), 1);
+	BOOST_CHECK_EQUAL(sut[1].action().asString(), "thud");
 
-	BOOST_CHECK_EQUAL(sut.log(2).index(), 2);
-	BOOST_CHECK_EQUAL(sut.log(2).term(), 1);
-	BOOST_CHECK_EQUAL(sut.log(2).action().asString(), "thud");
+	BOOST_CHECK_EQUAL(sut[2].index(), 2);
+	BOOST_CHECK_EQUAL(sut[2].term(), 1);
+	BOOST_CHECK_EQUAL(sut[2].action().asString(), "thud");
 
-	BOOST_CHECK_EQUAL(sut.log(3).index(), 3);
-	BOOST_CHECK_EQUAL(sut.log(3).term(), 2);
-	BOOST_CHECK_EQUAL(sut.log(3).action().asString(), "fnord");
+	BOOST_CHECK_EQUAL(sut[3].index(), 3);
+	BOOST_CHECK_EQUAL(sut[3].term(), 2);
+	BOOST_CHECK_EQUAL(sut[3].action().asString(), "fnord");
 
-	BOOST_CHECK_EQUAL(sut.log(4).index(), 4);
-	BOOST_CHECK_EQUAL(sut.log(4).term(), 2);
-	BOOST_CHECK_EQUAL(sut.log(4).action().asString(), "thud");
+	BOOST_CHECK_EQUAL(sut[4].index(), 4);
+	BOOST_CHECK_EQUAL(sut[4].term(), 2);
+	BOOST_CHECK_EQUAL(sut[4].action().asString(), "thud");
 }
 
 BOOST_FIXTURE_TEST_CASE(last_known_entry_index_correct, test_fixture)
@@ -263,7 +263,7 @@ BOOST_FIXTURE_TEST_CASE(last_known_entry_index_correct, test_fixture)
 	write_simple();
 	RaftLog sut(tmp_log().string());
 
-	BOOST_REQUIRE_EQUAL(sut.last_index(), sut.log(sut.last_index()).index());
+	BOOST_REQUIRE_EQUAL(sut.last_index(), sut[sut.last_index()].index());
 }
 
 BOOST_FIXTURE_TEST_CASE(invalidated_entries_overwritten_on_recovery, test_fixture)
