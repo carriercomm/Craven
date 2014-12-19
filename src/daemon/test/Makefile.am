@@ -1,8 +1,4 @@
-check_PROGRAMS = remcon connection_pool dispatch raftlog
-remcon_SOURCES = remcon-test.cpp ../remcon.cpp
-
-remcon_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(BOOST_LOG_LIBS)
-remcon_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(BOOST_LOG_LDADD)
+check_PROGRAMS = connection_pool dispatch raftlog
 
 connection_pool_SOURCES = connection_pool-test.cpp
 
@@ -22,4 +18,3 @@ raftlog_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) 
 raftlog_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(JSONCPP_LDFLAGS)
 
 TESTS = $(check_PROGRAMS)
-XFAIL_TESTS = remcon
