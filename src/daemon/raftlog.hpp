@@ -106,14 +106,16 @@ public:
 	 *  \param file_name The name of the file to use as the Raft log. It will
 	 *  be opened in read/append mode and the state of the Raft log determined
 	 *  from it.
+	 *
+	 *  \param term_handler The handler to call when the term count advances.
 	 */
-	RaftLog(const char* file_name);
+	RaftLog(const char* file_name, std::function<void(uint32_t)> term_handler = nullptr);
 
 	//! \overload
-	RaftLog(const std::string& file_name);
+	RaftLog(const std::string& file_name, std::function<void(uint32_t)> term_handler = nullptr);
 
 	//! \overload
-	RaftLog(const boost::filesystem::path& file_name);
+	RaftLog(const boost::filesystem::path& file_name, std::function<void(uint32_t)> term_handler = nullptr);
 
 	//! Retrieve the current election term from the log.
 	uint32_t term() const noexcept;
@@ -171,6 +173,9 @@ public:
 
 protected:
 	std::fstream stream_;
+
+	std::function<void(uint32_t)> new_term_handler_;
+
 	uint32_t term_;
 	boost::optional<std::string> last_vote_;
 

@@ -7,6 +7,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <functional>
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -24,7 +25,7 @@ struct disable_logging
 {
 	disable_logging()
 	{
-		//boost::log::core::get()->set_logging_enabled(false);
+		boost::log::core::get()->set_logging_enabled(false);
 	}
 };
 
@@ -51,7 +52,7 @@ test_fixture::test_fixture()
 
 test_fixture::~test_fixture()
 {
-	//fs::remove(tmp_log_);
+	fs::remove(tmp_log_);
 }
 
 void test_fixture::write_simple() const
@@ -349,4 +350,44 @@ BOOST_FIXTURE_TEST_CASE(writing_new_vote_for_term_ok, test_fixture)
 	RaftLog sut(tmp_log().string());
 
 	sut.write(raft_log::Vote(2, "eris"));
+}
+
+BOOST_FIXTURE_TEST_CASE(new_term_handler_not_called_during_recovery, test_fixture)
+{
+	{
+		std::ofstream of(tmp_log().string());
+		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
+			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
+			<< R"({"term":2,"type":"entry","index":2,"action":"thud"})"
+			<< std::endl;
+	}
+
+	bool called = false;
+
+	RaftLog sut(tmp_log().string(), [&called](uint32_t term)
+			{
+				called = true;
+			});
+
+	BOOST_REQUIRE_MESSAGE(!called, "New term handler called");
+}
+
+BOOST_FIXTURE_TEST_CASE(new_term_handler_called_on_write, test_fixture)
+{
+	write_simple();
+
+	bool called = false;
+
+	RaftLog sut(tmp_log().string(), [&called](uint32_t term)
+			{
+				called = true;
+			});
+
+	sut.write(raft_log::Vote(2, "eris"));
+	BOOST_REQUIRE_MESSAGE(called, "New term handler not called for vote");
+
+	called = false;
+
+	sut.write(raft_log::LogEntry(3, 2, Json::Value("foo")));
+	BOOST_REQUIRE_MESSAGE(called, "New term handler not called for entry");
 }

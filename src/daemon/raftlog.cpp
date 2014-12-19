@@ -4,6 +4,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <functional>
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -180,25 +181,29 @@ raft_log::exceptions::json_bad_type::json_bad_type(const std::string& member, co
 
 }
 
-RaftLog::RaftLog(const char* file_name)
+RaftLog::RaftLog(const char* file_name, std::function<void(uint32_t)> term_handler)
 	:stream_(file_name, std::ios::in | std::ios::out | std::ios::app),
+	//We don't want to call this during recovery
+	new_term_handler_(nullptr),
 	term_(0),
 	last_vote_(boost::none)
 {
 	BOOST_LOG_TRIVIAL(info) << "Recovering log from " << file_name;
 	recover();
+	if(term_handler != nullptr)
+		new_term_handler_ = term_handler;
 	stream_.seekg(0);
 	stream_.seekp(0);
 	stream_.clear();
 }
 
-RaftLog::RaftLog(const std::string& file_name)
-	:RaftLog(file_name.c_str())
+RaftLog::RaftLog(const std::string& file_name, std::function<void(uint32_t)> term_handler)
+	:RaftLog(file_name.c_str(), term_handler)
 {
 }
 
-RaftLog::RaftLog(const boost::filesystem::path& file_name)
-	:RaftLog(file_name.c_str())
+RaftLog::RaftLog(const boost::filesystem::path& file_name, std::function<void(uint32_t)> term_handler)
+	:RaftLog(file_name.c_str(), term_handler)
 {
 }
 
@@ -359,6 +364,10 @@ void RaftLog::handle_state(const raft_log::Loggable& entry) noexcept(false)
 	{
 		term_ = entry.term();
 		last_vote_ = boost::none;
+
+		//If we have a handler to call for a new term, call it.
+		if(new_term_handler_)
+			new_term_handler_(term_);
 	}
 	else if(entry.term() < term_)
 		throw std::runtime_error(boost::str(boost::format(
