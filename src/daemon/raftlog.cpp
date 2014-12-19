@@ -10,140 +10,366 @@
 
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/format.hpp>
 
 #include <json/json.h>
 
 #include "raftlog.hpp"
 
 raft_log::Loggable::Loggable(uint32_t term)
+	:term_(term)
 {
-	throw std::runtime_error("Not yet implemented");
 }
 
+raft_log::Loggable::Loggable(const Json::Value& json)
+{
+	throw_if_not_member(json, "term");
+
+	if(json["term"].isInt() && json["term"].asInt() >= 0)
+		term_ = static_cast<uint32_t>(json["term"].asInt());
+	else
+		throw exceptions::json_bad_type("term", "unsigned int");
+}
 
 uint32_t raft_log::Loggable::term() const
 {
-	throw std::runtime_error("Not yet implemented");
+	return term_;
+}
+
+Json::Value raft_log::Loggable::write() const
+{
+	Json::Value root;
+	root["term"] = term_;
+	return root;
+}
+
+void raft_log::Loggable::throw_if_not_member(const Json::Value& json, const std::string& member)
+{
+	if(!json.isMember(member))
+		throw exceptions::json_missing_member(member);
+}
+
+raft_log::LogEntry::LogEntry()
+	:Loggable(0),
+	index_(0)
+{
+
 }
 
 raft_log::LogEntry::LogEntry(uint32_t term, uint32_t index, const Json::Value& action)
-	:Loggable(term)
+	:Loggable(term),
+	index_(index),
+	action_(action)
 {
-	throw std::runtime_error("Not yet implemented");
+}
+
+raft_log::LogEntry::LogEntry(const Json::Value& json)
+	:Loggable(json)
+{
+	throw_if_not_member(json, "type");
+	throw_if_not_member(json, "index");
+	throw_if_not_member(json, "action");
+
+	if(!json["type"].isString())
+		throw exceptions::json_bad_type("type", "string");
+
+	if(!(json["index"].isInt() && json["index"].asInt() >= 0))
+		throw exceptions::json_bad_type("index", "unsigned int");
+
+	if(json["type"].asString() != "entry")
+		throw exceptions::bad_json("Json not an entry");
+
+	index_ = json["index"].asUInt();
+	action_ = json["action"];
 }
 
 Json::Value raft_log::LogEntry::write() const
 {
-	throw std::runtime_error("Not yet implemented");
+	Json::Value root = Loggable::write();
+	root["type"] = "entry";
+	root["index"] = index_;
+	root["action"] = action_;
+	return root;
 }
 
 uint32_t raft_log::LogEntry::index() const
 {
-	throw std::runtime_error("Not yet implemented");
+	return index_;
 }
 
 Json::Value raft_log::LogEntry::action() const
 {
-	throw std::runtime_error("Not yet implemented");
+	return action_;
 }
 
 raft_log::Vote::Vote(uint32_t term, const std::string& node)
-	:Loggable(term)
+	:Loggable(term),
+	node_(node)
 {
-	throw std::runtime_error("Not yet implemented");
+}
+
+raft_log::Vote::Vote(const Json::Value& json)
+	:Loggable(json)
+{
+	throw_if_not_member(json, "type");
+	throw_if_not_member(json, "for");
+
+	if(!json["type"].isString())
+		throw exceptions::json_bad_type("type", "string");
+
+	if(!json["for"].isString())
+		throw exceptions::json_bad_type("for", "string");
+
+	if(json["type"].asString() != "vote")
+		throw exceptions::bad_json("Json not a vote.");
+
+	node_ = json["for"].asString();
 }
 
 Json::Value raft_log::Vote::write() const
 {
-	throw std::runtime_error("Not yet implemented");
+	Json::Value root = Loggable::write();
+	root["type"] = "vote";
+	root["for"] = node_;
+
+	return root;
+}
+
+std::string raft_log::Vote::node() const
+{
+	return node_;
 }
 
 raft_log::exceptions::entry_exists::entry_exists(uint32_t term, uint32_t index)
-	:std::runtime_error("Not yet implemented")
+	:std::runtime_error(boost::str(boost::format("Entry exists with index %|s| (term: %|s|)") % index % term))
 {
-	throw std::runtime_error("Not yet implemented");
 }
 
 
 raft_log::exceptions::entry_missing::entry_missing(uint32_t index)
-	:std::runtime_error("Not yet implemented")
+	:std::runtime_error(boost::str(boost::format("No entry with index %|s|") % index))
 {
-	throw std::runtime_error("Not yet implemented");
 }
 
 raft_log::exceptions::vote_exists::vote_exists(uint32_t term, const std::string& current_vote,
 		const std::string& requested_vote)
-	:std::runtime_error("Not yet implemented")
+	:std::runtime_error(boost::str(boost::format("Vote already exists for term %s: %s (requested %s)")
+				% term % current_vote % requested_vote))
 {
-	throw std::runtime_error("Not yet implemented");
 }
 
-raft_log::exceptions::invalid_vote::invalid_vote(uint32_t current_term,  uint32_t term,
-		const std::string& current_vote, const std::string& requested_vote)
-	:std::runtime_error("Not yet implemented")
+raft_log::exceptions::bad_log::bad_log(const std::string& what, uint32_t line_number)
+	:std::runtime_error(boost::str(boost::format(
+					"Log error on line %s: %s") % line_number % what))
 {
-	throw std::runtime_error("Not yet implemented");
+}
+
+raft_log::exceptions::bad_json::bad_json(const std::string& msg)
+	:std::runtime_error("Bad Json: " + msg)
+{
+}
+
+raft_log::exceptions::json_missing_member::json_missing_member(const std::string& member)
+	:bad_json("Missing member " + member)
+{
+}
+
+raft_log::exceptions::json_bad_type::json_bad_type(const std::string& member, const std::string& expected)
+	:bad_json(boost::str(boost::format("Bad type for member %|s|: expected %|s|") % member % expected))
+{
+
 }
 
 RaftLog::RaftLog(const char* file_name)
-	:stream_("/tmp/nope")
+	:stream_(file_name, std::ios::in | std::ios::out | std::ios::app),
+	term_(0),
+	last_vote_(boost::none)
 {
-	throw std::runtime_error("Not yet implemented");
+	BOOST_LOG_TRIVIAL(info) << "Recovering log from " << file_name;
+	recover();
+	stream_.seekg(0);
+	stream_.seekp(0);
+	stream_.clear();
 }
 
 RaftLog::RaftLog(const std::string& file_name)
-	:stream_("/tmp/nope")
+	:RaftLog(file_name.c_str())
 {
-	throw std::runtime_error("Not yet implemented");
 }
 
 RaftLog::RaftLog(const boost::filesystem::path& file_name)
-	:stream_("/tmp/nope")
+	:RaftLog(file_name.c_str())
 {
-	throw std::runtime_error("Not yet implemented");
 }
 
 uint32_t RaftLog::term() const noexcept
 {
-	throw std::runtime_error("Not yet implemented");
+	return term_;
 }
 
 boost::optional<std::string> RaftLog::last_vote() const noexcept
 {
-	throw std::runtime_error("Not yet implemented");
+	return last_vote_;
 }
 
 uint32_t RaftLog::last_index() const noexcept
 {
-	throw std::runtime_error("Not yet implemented");
+	return log_.size();
 }
 
 void RaftLog::write(const raft_log::LogEntry& entry) noexcept(false)
 {
-	throw std::runtime_error("Not yet implemented");
+	handle_state(entry);
+	write_json(entry.write());
 }
 
 void RaftLog::write(const raft_log::Vote& vote) noexcept(false)
 {
-	throw std::runtime_error("Not yet implemented");
+	handle_state(vote);
+	write_json(vote.write());
 }
 
 void RaftLog::invalidate(uint32_t index) noexcept(false)
 {
-	throw std::runtime_error("Not yet implemented");
+	if(index > last_index())
+		throw raft_log::exceptions::entry_missing(index);
+
+	else
+		log_.resize(index - 1);
+
 }
 
 bool RaftLog::valid(const raft_log::LogEntry entry) const noexcept
 {
-	throw std::runtime_error("Not yet implemented");
+	return (entry.index() <= last_index()
+			&& entry.term() > (*this)[entry.index()].term())
+			|| entry.index() == last_index() +1;
 }
 
 bool RaftLog::match(uint32_t term, uint32_t index) const noexcept
 {
-	throw std::runtime_error("Not yet implemented");
+	return (index < log_.size() + 1) && (*this)[index].term() == term;
 }
 
 raft_log::LogEntry RaftLog::operator[](uint32_t index) const noexcept(false)
 {
-	throw std::runtime_error("Not yet implemented");
+	//Bounds checking can be done by the vector
+	return log_[index - 1]; //-1 because entries number from 1 and indexes from 0
+}
+
+void RaftLog::recover()
+{
+	//seek to start of file
+	stream_.seekg(0, std::ios::beg);
+
+	std::string line;
+	Json::Value root;
+	Json::Reader r;
+	unsigned line_count = 0;
+	while(std::getline(stream_, line))
+	{
+		++line_count;
+		try
+		{
+			r.parse(line, root);
+			recover_line(root, line_count);
+		}
+		catch(raft_log::exceptions::bad_log& ex)
+		{
+			//To ensure we don't wrap it in the next one
+			throw ex;
+		}
+		catch(std::runtime_error& ex)
+		{
+			throw raft_log::exceptions::bad_log(ex.what(), line_count);
+		}
+	}
+
+	BOOST_LOG_TRIVIAL(info) << "Recovered raft log. Term: " << term_
+		<< " last vote: " << (last_vote_ ? *last_vote_ : "none")
+		<< " index: " << log_.size();
+}
+
+void RaftLog::recover_line(const Json::Value& root, uint32_t line_number)
+{
+	if(!root["type"].isString())
+		throw raft_log::exceptions::json_bad_type("type", "string");
+
+	std::string type = root["type"].asString();
+
+	if(type == "vote")
+	{
+		raft_log::Vote vote(root);
+		handle_state(vote);
+	}
+	else if(type == "entry")
+	{
+		raft_log::LogEntry entry(root);
+		handle_state(entry);
+	}
+	else
+		throw raft_log::exceptions::bad_log("Unknown type: " + type, line_number);
+
+}
+
+void RaftLog::handle_state(const raft_log::LogEntry& entry) noexcept(false)
+{
+
+	if(entry.index() <= last_index())
+	{
+		auto stale_entry = log_[entry.index() - 1];
+		if(stale_entry.term() < entry.term())
+		{
+			invalidate(stale_entry.index());
+			log_.push_back(entry);
+			handle_state(static_cast<const raft_log::Loggable&>(entry));
+		}
+		else
+			throw raft_log::exceptions::entry_exists(entry.term(), entry.index());
+	}
+	else if(entry.index() == last_index() + 1)
+	{
+		log_.push_back(entry);
+		handle_state(static_cast<const raft_log::Loggable&>(entry));
+	}
+	else
+		throw std::runtime_error(boost::str(boost::format(
+						"Entry index jump: expected %s, got %s")
+						% (last_index() + 1) % entry.index()));
+
+}
+
+void RaftLog::handle_state(const raft_log::Vote& vote) noexcept(false)
+{
+	handle_state(static_cast<const raft_log::Loggable&>(vote));
+
+	if(!last_vote_ )
+		last_vote_ = vote.node();
+	else if(*last_vote_ != vote.node())
+	{
+		std::string current_vote = last_vote_ ? *last_vote_ : "none";
+		throw raft_log::exceptions::vote_exists(term_, current_vote, vote.node());
+	}
+
+}
+
+void RaftLog::handle_state(const raft_log::Loggable& entry) noexcept(false)
+{
+	if(entry.term() > term_)
+	{
+		term_ = entry.term();
+		last_vote_ = boost::none;
+	}
+	else if(entry.term() < term_)
+		throw std::runtime_error(boost::str(boost::format(
+						"Stale term: %s, current: %s") % entry.term() % term_));
+}
+
+void RaftLog::write_json(const Json::Value& root)
+{
+	Json::FastWriter w;
+	std::string line = w.write(root);
+
+	stream_ << line;
+	stream_.flush();
 }
