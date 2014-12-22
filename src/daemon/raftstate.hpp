@@ -9,7 +9,7 @@ public:
 	typedef std::function<void (const std::string&, uint32_t, const std::string&, uint32_t, uint32_t, const std::vector<std::string>&)> append_entries_type;
 	typedef std::function<void (const std::string&, uint32_t, const std::string&, uint32_t, uint32_t)> request_vote_type;
 
-	rpc_handlers();
+	rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote);
 
 	void append_entries(const std::string& node, uint32_t term, const std::string&
 			leader_id, uint32_t prev_log_index, uint32_t prev_log_term,

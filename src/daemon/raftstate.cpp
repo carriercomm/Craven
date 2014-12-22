@@ -1,6 +1,12 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <fstream>
+
+#include <json/json.h>
+
+#include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 
 #include "raftstate.hpp"
 
@@ -38,7 +44,7 @@ uint32_t RaftState::timeout()
 	throw std::runtime_error("Not yet implemented.");
 }
 
-State RaftState::state() const
+RaftState::State RaftState::state() const
 {
 	throw std::runtime_error("Not yet implemented.");
 }
