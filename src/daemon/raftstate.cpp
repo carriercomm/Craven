@@ -16,17 +16,14 @@ rpc_handlers::rpc_handlers(const append_entries_type& append_entries, const requ
 {
 }
 
-void rpc_handlers::append_entries(const std::string& node, uint32_t term,
-		const std::string& leader_id, uint32_t prev_log_index, uint32_t
-		prev_log_term, const std::vector<std::string>& entries)
+void rpc_handlers::append_entries(const std::string& endpoint, const raft_rpc::append_entries_request& rpc)
 {
-	append_entries_(node, term, leader_id, prev_log_index, prev_log_term, entries);
+	append_entries_(endpoint, rpc);
 }
 
-void rpc_handlers::request_vote(const std::string& node, uint32_t term, const
-		std::string& candidate_id, uint32_t last_log_index, uint32_t last_log_term)
+void rpc_handlers::request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc)
 {
-	request_vote_(node, term, candidate_id, last_log_index, last_log_term);
+	request_vote_(endpoint, rpc);
 }
 
 RaftState::RaftState(const std::vector<std::string>& nodes, const std::string& log_file,

@@ -1,22 +1,20 @@
 #pragma once
 
 #include "raftlog.hpp"
+#include "raftrpc.hpp"
 
 //! Class (so I can clean up the interface) providing RPC callbacks
 class rpc_handlers
 {
 public:
-	typedef std::function<void (const std::string&, uint32_t, const std::string&, uint32_t, uint32_t, const std::vector<std::string>&)> append_entries_type;
-	typedef std::function<void (const std::string&, uint32_t, const std::string&, uint32_t, uint32_t)> request_vote_type;
+	typedef std::function<void (const std::string&, const raft_rpc::append_entries_request&)> append_entries_type;
+	typedef std::function<void (const std::string&, const raft_rpc::request_vote&)> request_vote_type;
 
 	rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote);
 
-	void append_entries(const std::string& node, uint32_t term, const std::string&
-			leader_id, uint32_t prev_log_index, uint32_t prev_log_term,
-			const std::vector<std::string>& entries);
+	void append_entries(const std::string& endpoint, const raft_rpc::append_entries_request& rpc);
 
-	void request_vote(const std::string& node, uint32_t term, const
-			std::string& candidate_id, uint32_t last_log_index, uint32_t last_log_term);
+	void request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc);
 protected:
 	append_entries_type append_entries_;
 	request_vote_type request_vote_;
