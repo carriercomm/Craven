@@ -1,5 +1,5 @@
 bin_PROGRAMS = dfsctl
-dfsctl_SOURCES = main.cpp ../common/configure.cpp configure.cpp comms.cpp
+dfsctl_SOURCES = main.cpp ../common/configure.cpp configure.cpp comms.cpp comms.hpp configure.hpp
 
 dfsctl_CPPFLAGS = $(BOOST_CPPFLAGS)
 dfsctl_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_THREAD_LIBS) $(BOOST_LOG_LIBS) $(BOOST_LOG_SETUP_LIBS)
