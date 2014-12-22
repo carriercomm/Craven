@@ -6,6 +6,7 @@
 #include <tuple>
 
 #include <json/json.h>
+#include <json_help.hpp>
 
 #include "../dispatch.hpp"
 
@@ -97,8 +98,7 @@ struct Module
 	{
 		return [this](const Json::Value& msg, const dispatch_type::Callback& cb)
 		{
-			Json::FastWriter writer;
-			auto json_string = writer.write(msg);
+			auto json_string = json_help::write(msg);
 			json_string.pop_back();
 			calls_.push_back(std::make_tuple(json_string, cb));
 		};

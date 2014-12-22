@@ -14,6 +14,7 @@
 #include <boost/format.hpp>
 
 #include <json/json.h>
+#include "../common/json_help.hpp"
 
 #include "raftlog.hpp"
 
@@ -268,16 +269,13 @@ void RaftLog::recover()
 	stream_.seekg(0, std::ios::beg);
 
 	std::string line;
-	Json::Value root;
-	Json::Reader r;
 	unsigned line_count = 0;
 	while(std::getline(stream_, line))
 	{
 		++line_count;
 		try
 		{
-			r.parse(line, root);
-			recover_line(root, line_count);
+			recover_line(json_help::parse(line), line_count);
 		}
 		catch(raft_log::exceptions::bad_log& ex)
 		{
@@ -376,8 +374,7 @@ void RaftLog::handle_state(const raft_log::Loggable& entry) noexcept(false)
 
 void RaftLog::write_json(const Json::Value& root)
 {
-	Json::FastWriter w;
-	std::string line = w.write(root);
+	std::string line = json_help::write(root);
 
 	stream_ << line;
 	stream_.flush();

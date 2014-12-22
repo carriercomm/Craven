@@ -63,8 +63,7 @@ public:
 			root["reply"] = reply_;
 			root["content"] = msg;
 
-			Json::FastWriter writer;
-			wrapped_(writer.write(root));
+			wrapped_(json_help::write(root));
 		}
 
 	protected:
