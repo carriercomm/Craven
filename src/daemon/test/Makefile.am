@@ -5,13 +5,13 @@ connection_pool_SOURCES = connection_pool-test.cpp
 connection_pool_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
 connection_pool_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
 
-dispatch_SOURCES = dispatch-test.cpp
+dispatch_SOURCES = dispatch-test.cpp ../../common/json_help.cpp
 
 dispatch_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS)
 dispatch_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(JSONCPP_LIBS)
 dispatch_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(JSONCPP_LDFLAGS)
 
-raftlog_SOURCES = raftlog-test.cpp ../raftlog.cpp
+raftlog_SOURCES = raftlog-test.cpp ../raftlog.cpp ../../common/json_help.cpp
 
 raftlog_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS)
 raftlog_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(JSONCPP_LIBS)
