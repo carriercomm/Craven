@@ -7,12 +7,13 @@
 class rpc_handlers
 {
 public:
-	typedef std::function<void (const std::string&, const raft_rpc::append_entries_request&)> append_entries_type;
+	typedef std::function<void (const std::string&, const raft_rpc::append_entries&)> append_entries_type;
 	typedef std::function<void (const std::string&, const raft_rpc::request_vote&)> request_vote_type;
 
+	rpc_handlers() = default;
 	rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote);
 
-	void append_entries(const std::string& endpoint, const raft_rpc::append_entries_request& rpc);
+	void append_entries(const std::string& endpoint, const raft_rpc::append_entries& rpc);
 
 	void request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc);
 protected:
@@ -66,9 +67,7 @@ public:
 	 *  element is true if this node has an entry that matches prev_log_* -- i.e.
 	 *  the logs are consistent up to that index.
 	 */
-	std::tuple<uint32_t, bool> append_entries(uint32_t term, const std::string& leader_id,
-			uint32_t prev_log_index, uint32_t prev_log_term,
-			const std::vector<std::string>& entries);
+	std::tuple<uint32_t, bool> append_entries(const raft_rpc::append_entries& rpc);
 
 	//! The response handler for append_entries
 	void append_entries_response(uint32_t term, bool success);
@@ -89,11 +88,12 @@ public:
 	 *  candidate is out of date, it'll update itself with this); the second is
 	 *  true if this node votes for the candidate.
 	 */
-	std::tuple<uint32_t, bool> request_vote(uint32_t term, const std::string& candidate_id,
-			uint32_t last_log_index, uint32_t last_log_term);
+	std::tuple<uint32_t, bool> request_vote(const raft_rpc::request_vote& rpc);
 
 	//! The response handler for request_vote
 	void request_vote(uint32_t term, bool voted);
+
+	uint32_t term() const;
 
 
 protected:

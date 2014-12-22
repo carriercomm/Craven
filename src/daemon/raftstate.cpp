@@ -9,6 +9,7 @@
 #include <boost/optional.hpp>
 
 #include "raftstate.hpp"
+#include "raftrpc.hpp"
 
 rpc_handlers::rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote)
 	:append_entries_(append_entries),
@@ -16,7 +17,7 @@ rpc_handlers::rpc_handlers(const append_entries_type& append_entries, const requ
 {
 }
 
-void rpc_handlers::append_entries(const std::string& endpoint, const raft_rpc::append_entries_request& rpc)
+void rpc_handlers::append_entries(const std::string& endpoint, const raft_rpc::append_entries& rpc)
 {
 	append_entries_(endpoint, rpc);
 }

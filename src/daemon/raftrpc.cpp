@@ -12,16 +12,16 @@ namespace raft_rpc
 {
 
 	template <typename T>
-	T append_entries_request::checked_from_json(const Json::Value& root, const std::string& key) const
+	T append_entries::checked_from_json(const Json::Value& root, const std::string& key) const
 	{
 		return json_help::checked_from_json<T>(root, key, "Bad json for append_entries RPC:");
 	}
 
-	append_entries_request::append_entries_request(uint32_t term, const std::string& candidate_id,
+	append_entries::append_entries(uint32_t term, const std::string& leader_id,
 			uint32_t prev_log_index, uint32_t prev_log_term, const
 			std::vector<Json::Value>& entries, uint32_t leader_commit)
 		:term_(term),
-		candidate_id_(candidate_id),
+		leader_id_(leader_id),
 		prev_log_(std::make_tuple(prev_log_term, prev_log_index)),
 		entries_(entries),
 		leader_commit_(leader_commit)
@@ -30,7 +30,7 @@ namespace raft_rpc
 
 	}
 
-	append_entries_request::append_entries_request(const Json::Value& root)
+	append_entries::append_entries(const Json::Value& root)
 	{
 		std::string type = checked_from_json<std::string>(root, "type");
 
@@ -39,7 +39,7 @@ namespace raft_rpc
 
 		term_ = checked_from_json<uint32_t>(root, "term");
 
-		candidate_id_ = checked_from_json<std::string>(root, "candidate_id");
+		leader_id_ = checked_from_json<std::string>(root, "leader_id");
 
 		prev_log_ = std::make_tuple(
 				checked_from_json<uint32_t>(root, "prev_log_term"),
@@ -50,12 +50,12 @@ namespace raft_rpc
 		leader_commit_ = checked_from_json<uint32_t>(root, "leader_commit");
 	}
 
-	append_entries_request::operator Json::Value() const
+	append_entries::operator Json::Value() const
 	{
 		Json::Value root;
 		root["type"] = "append_entries";
 		root["term"] = term_;
-		root["candidate_id"] = candidate_id_;
+		root["leader_id"] = leader_id_;
 		root["prev_log_term"] = prev_log_term();
 		root["prev_log_index"] = prev_log_index();
 
@@ -70,37 +70,37 @@ namespace raft_rpc
 		return root;
 	}
 
-	uint32_t append_entries_request::term() const
+	uint32_t append_entries::term() const
 	{
 		return term_;
 	}
 
-	std::string append_entries_request::candidate_id() const
+	std::string append_entries::leader_id() const
 	{
-		return candidate_id_;
+		return leader_id_;
 	}
 
-	std::tuple<uint32_t, uint32_t> append_entries_request::prev_log() const
+	std::tuple<uint32_t, uint32_t> append_entries::prev_log() const
 	{
 		return prev_log_;
 	}
 
-	uint32_t append_entries_request::prev_log_index() const
+	uint32_t append_entries::prev_log_index() const
 	{
 		return std::get<1>(prev_log_);
 	}
 
-	uint32_t append_entries_request::prev_log_term() const
+	uint32_t append_entries::prev_log_term() const
 	{
 		return std::get<0>(prev_log_);
 	}
 
-	std::vector<Json::Value> append_entries_request::entries() const
+	std::vector<Json::Value> append_entries::entries() const
 	{
 		return entries_;
 	}
 
-	uint32_t append_entries_request::leader_commit() const
+	uint32_t append_entries::leader_commit() const
 	{
 		return leader_commit_;
 	}
