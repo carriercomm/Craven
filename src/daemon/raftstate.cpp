@@ -70,3 +70,24 @@ void RaftState::request_vote_response(const std::string& from, uint32_t term, bo
 {
 	throw std::runtime_error("Not yet implemented.");
 }
+
+std::string RaftState::id() const
+{
+	throw std::runtime_error("Not yet implemented.");
+}
+
+std::vector<std::string> RaftState::nodes() const
+{
+	throw std::runtime_error("Not yet implemented.");
+}
+
+uint32_t RaftState::term() const
+{
+	throw std::runtime_error("Not yet implemented.");
+}
+
+boost::optional<std::string> RaftState::leader() const
+{
+	throw std::runtime_error("Not yet implemented.");
+}
+
