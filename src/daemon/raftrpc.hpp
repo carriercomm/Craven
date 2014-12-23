@@ -9,7 +9,7 @@ namespace raft_rpc
 	{
 	public:
 		append_entries(uint32_t term, const std::string& leader_id,
-				uint32_t prev_log_index, uint32_t prev_log_term, const
+				uint32_t prev_log_term, uint32_t prev_log_index, const
 				std::vector<Json::Value>& entries, uint32_t leader_commit);
 
 		append_entries(const Json::Value& root);
@@ -46,8 +46,8 @@ namespace raft_rpc
 	class request_vote
 	{
 	public:
-		request_vote(uint32_t term, const std::string& candidate_id, uint32_t last_log_term,
-				uint32_t last_log_index);
+		request_vote(uint32_t term, const std::string& candidate_id, uint32_t
+				last_log_term, uint32_t last_log_index);
 
 		request_vote(const Json::Value& root);
 

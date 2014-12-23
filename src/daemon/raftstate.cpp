@@ -11,9 +11,11 @@
 #include "raftstate.hpp"
 #include "raftrpc.hpp"
 
-rpc_handlers::rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote)
+rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
+		const request_vote_type& request_vote, const timeout_type& request_timeout)
 	:append_entries_(append_entries),
-	request_vote_(request_vote)
+	request_vote_(request_vote),
+	request_timeout_(request_timeout)
 {
 }
 

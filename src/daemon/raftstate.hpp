@@ -9,16 +9,21 @@ class rpc_handlers
 public:
 	typedef std::function<void (const std::string&, const raft_rpc::append_entries&)> append_entries_type;
 	typedef std::function<void (const std::string&, const raft_rpc::request_vote&)> request_vote_type;
+	typedef std::function<void (uint32_t milliseconds)> timeout_type;
 
 	rpc_handlers() = default;
-	rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote);
+	rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote,
+			const timeout_type& request_timeout);
 
 	void append_entries(const std::string& endpoint, const raft_rpc::append_entries& rpc);
 
 	void request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc);
+
+	void request_timeout(uint32_t milliseconds);
 protected:
 	append_entries_type append_entries_;
 	request_vote_type request_vote_;
+	timeout_type request_timeout_;
 };
 
 //! Class providing the volatile state & RPC handling for Raft
@@ -34,18 +39,16 @@ public:
 	 *  hidden from this class). The callback additionally provide neat type
 	 *  erasure, allowing untemplated testing.
 	 */
-	RaftState(const std::vector<std::string>& nodes, const std::string& log_file, const rpc_handlers& handlers);
+	RaftState(const std::string& id, const std::vector<std::string>& nodes,
+			const std::string& log_file, const rpc_handlers& handlers);
 
 	//! Handler called on timeout.
 	/*!
 	 *  This is the handler called by the RPC provider when the timeout fires.
-	 *
-	 *  \returns An unsigned integer providing the length of the next timeout in
-	 *  milliseconds; 0 means stop.
 	 */
-	uint32_t timeout();
+	void timeout();
 
-	enum State {follower, leader, candidate};
+	enum State {follower, candidate, leader};
 
 	//! Returns the type of Raft node this instance is currently being.
 	State state() const;
@@ -70,7 +73,7 @@ public:
 	std::tuple<uint32_t, bool> append_entries(const raft_rpc::append_entries& rpc);
 
 	//! The response handler for append_entries
-	void append_entries_response(uint32_t term, bool success);
+	void append_entries_response(const std::string& from, uint32_t term, bool success);
 
 	//! RequestVote RPC
 	/*!
@@ -91,12 +94,25 @@ public:
 	std::tuple<uint32_t, bool> request_vote(const raft_rpc::request_vote& rpc);
 
 	//! The response handler for request_vote
-	void request_vote(uint32_t term, bool voted);
+	void request_vote_response(const std::string& from, uint32_t term, bool voted);
 
+	std::string id() const;
+
+	std::vector<std::string> nodes() const;
+
+	//! Retrieve the current term
 	uint32_t term() const;
+
+	//! Return the current leader, if their identity is known.
+	/*!
+	 *  \returns boost::none if the leader for this term is not known or has not
+	 *  yet been elected (which is indistinguishable).
+	 */
+	boost::optional<std::string> leader() const;
 
 
 protected:
+	std::string id_;
 	std::vector<std::string> nodes_;
 
 	RaftLog log_;

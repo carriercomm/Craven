@@ -18,7 +18,7 @@ namespace raft_rpc
 	}
 
 	append_entries::append_entries(uint32_t term, const std::string& leader_id,
-			uint32_t prev_log_index, uint32_t prev_log_term, const
+			uint32_t prev_log_term, uint32_t prev_log_index, const
 			std::vector<Json::Value>& entries, uint32_t leader_commit)
 		:term_(term),
 		leader_id_(leader_id),
