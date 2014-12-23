@@ -1,7 +1,6 @@
 #pragma once
 
 #include "raftlog.hpp"
-#include "raftrpc.hpp"
 
 //! Class (so I can clean up the interface) providing RPC callbacks
 class rpc_handlers
@@ -48,7 +47,7 @@ public:
 	 */
 	void timeout();
 
-	enum State {follower, candidate, leader};
+	enum State {follower_state, candidate_state, leader_state};
 
 	//! Returns the type of Raft node this instance is currently being.
 	State state() const;
@@ -58,13 +57,7 @@ public:
 	 *  This function is used to signify to the RaftState instance that an
 	 *  AppendEntries RPC has arrived.
 	 *
-	 *  \param term The leader's term
-	 *  \param leader_id The ID of the leader
-	 *  \param prev_log_index The index of the log entry immediately preceeding
-	 *  the new ones sent in this RPC.
-	 *  \param prev_log_term The term of the previous log entry, so this node can
-	 *  verify its log is valid up to that index.
-	 *  \param entries The log entries to append.
+	 *  \param rpc The RPC's arguments
 	 *
 	 *  \returns A tuple: the first element is the term of this node, the second
 	 *  element is true if this node has an entry that matches prev_log_* -- i.e.
@@ -80,12 +73,7 @@ public:
 	 *  This function is used to signify to the RaftState instance that a
 	 *  RequestVote RPC has arrived.
 	 *
-	 *  \param term The candidate's term
-	 *  \param candidate_id The ID of the candidate
-	 *  \param last_log_index The index of the candidate's last log entry -- for
-	 *  this node to check the safety condition of voting.
-	 *  \param last_log_term The term of the candidate's last log entry (same
-	 *  reason).
+	 *  \param rpc The rpc's arguments
 	 *
 	 *  \returns A tuple: the first element is the term of this node (if the
 	 *  candidate is out of date, it'll update itself with this); the second is
