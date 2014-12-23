@@ -18,6 +18,7 @@
 namespace fs = boost::filesystem;
 
 #include <json/json.h>
+#include "../../common/json_help.hpp"
 
 #include "../raftlog.hpp"
 
@@ -391,3 +392,63 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_called_on_write, test_fixture)
 	sut.write(raft_log::LogEntry(3, 2, Json::Value("foo")));
 	BOOST_REQUIRE_MESSAGE(called, "New term handler not called for entry");
 }
+
+BOOST_FIXTURE_TEST_CASE(explicit_term_loaded_properly, test_fixture)
+{
+	{
+		std::ofstream of(tmp_log().string());
+		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
+			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
+			<< R"({"term":2,"type":"term"})"
+			<< std::endl;
+	}
+
+	RaftLog sut(tmp_log().string());
+
+	BOOST_REQUIRE_EQUAL(sut.term(), 2);
+
+}
+
+BOOST_FIXTURE_TEST_CASE(explicit_term_written, test_fixture)
+{
+	write_simple();
+
+	{
+		RaftLog sut(tmp_log().string());
+
+		raft_log::NewTerm term(3);
+
+		sut.write(term);
+	}
+
+	std::ifstream log(tmp_log().string());
+	std::string line;
+	//Ignore the first three lines
+	for(unsigned int i =0; i < 3; ++i)
+		BOOST_REQUIRE(std::getline(log, line));
+
+	BOOST_REQUIRE(std::getline(log, line));
+	auto root = json_help::parse(line);
+	BOOST_REQUIRE_EQUAL(root["term"].asInt(), 3);
+	BOOST_REQUIRE_EQUAL(root["type"].asString(), "term");
+}
+
+BOOST_FIXTURE_TEST_CASE(stale_explicit_term_fails, test_fixture)
+{
+	{
+		std::ofstream of(tmp_log().string());
+		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
+			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
+			<< R"({"term":2,"type":"term"})"
+			<< std::endl;
+	}
+
+	RaftLog sut(tmp_log().string());
+	BOOST_CHECK_EQUAL(sut.term(), 2);
+
+	raft_log::NewTerm term(1);
+
+	BOOST_REQUIRE_THROW(sut.write(term), std::runtime_error);
+}
+
+

@@ -104,6 +104,39 @@ Json::Value raft_log::LogEntry::action() const
 	return action_;
 }
 
+raft_log::NewTerm::NewTerm()
+	:Loggable(0)
+{
+}
+
+raft_log::NewTerm::NewTerm(uint32_t term)
+	:Loggable(term)
+{
+}
+
+raft_log::NewTerm::NewTerm(const Json::Value& json)
+	:Loggable(json)
+{
+	throw_if_not_member(json, "type");
+
+	if(!json["type"].isString())
+		throw exceptions::json_bad_type("type", "string");
+
+	if(json["type"].asString() != "term")
+		throw exceptions::bad_json("Json not an explicit term marker");
+
+}
+
+Json::Value raft_log::NewTerm::write() const
+{
+	auto root = Loggable::write();
+
+	root["term"] = term_;
+	root["type"] = "term";
+
+	return root;
+}
+
 raft_log::Vote::Vote(uint32_t term, const std::string& node)
 	:Loggable(term),
 	node_(node)
@@ -229,6 +262,17 @@ void RaftLog::write(const raft_log::LogEntry& entry) noexcept(false)
 	write_json(entry.write());
 }
 
+void RaftLog::write(const raft_log::NewTerm& term) noexcept(false)
+{
+	handle_state(term);
+	write_json(term.write());
+}
+
+void RaftLog::write(uint32_t term) noexcept(false)
+{
+	write(raft_log::NewTerm(term));
+}
+
 void RaftLog::write(const raft_log::Vote& vote) noexcept(false)
 {
 	handle_state(vote);
@@ -310,6 +354,11 @@ void RaftLog::recover_line(const Json::Value& root, uint32_t line_number)
 		raft_log::LogEntry entry(root);
 		handle_state(entry);
 	}
+	else if(type == "term")
+	{
+		raft_log::NewTerm term(root);
+		handle_state(term);
+	}
 	else
 		throw raft_log::exceptions::bad_log("Unknown type: " + type, line_number);
 
@@ -340,6 +389,11 @@ void RaftLog::handle_state(const raft_log::LogEntry& entry) noexcept(false)
 						"Entry index jump: expected %s, got %s")
 						% (last_index() + 1) % entry.index()));
 
+}
+
+void RaftLog::handle_state(const raft_log::NewTerm& term) noexcept(false)
+{
+	handle_state(static_cast<const raft_log::Loggable&>(term));
 }
 
 void RaftLog::handle_state(const raft_log::Vote& vote) noexcept(false)

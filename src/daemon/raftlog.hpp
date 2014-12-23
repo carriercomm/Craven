@@ -38,6 +38,19 @@ namespace raft_log
 		Json::Value action_;
 	};
 
+	//! Only difference from Loggable is that this produces more JSON
+	class NewTerm : public Loggable
+	{
+	public:
+		//! Constructs the zeroth term, which is the default startup term.
+		NewTerm();
+
+		NewTerm(uint32_t term);
+		NewTerm(const Json::Value& json);
+
+		Json::Value write() const;
+	};
+
 	class Vote : public Loggable
 	{
 	public:
@@ -140,6 +153,12 @@ public:
 	 */
 	void write(const raft_log::LogEntry& entry) noexcept(false);
 
+	//! Writes an explicit term update to the file
+	void write(const raft_log::NewTerm& term) noexcept(false);
+
+	//! Helper for wrapping a term number in its log type
+	void write(uint32_t term) noexcept(false);
+
 	//! Records a vote taking place.
 	/*!
 	 *  If the vote is not from the current term or later, or a vote is already
@@ -198,6 +217,17 @@ protected:
 	 *  \param log The log entry to update with
 	 */
 	void handle_state(const raft_log::LogEntry& log) noexcept(false);
+
+	//! Handles the state change required to add an explicit term notification
+	//! without writing to the log file.
+	/*!
+	 *  This function is responsible for updating internal state to reflect the
+	 *  addition of an explicit new term marker. It also checks that the term
+	 *  isn't older than the current one, throwing if that's not the case.
+	 *
+	 *  \param term The explicit term marker to update with.
+	 */
+	void handle_state(const raft_log::NewTerm& term) noexcept(false);
 
 	//! Handles the state change required to add a vote without writing to
 	//! the log file.
