@@ -9,20 +9,25 @@ public:
 	typedef std::function<void (const std::string&, const raft_rpc::append_entries&)> append_entries_type;
 	typedef std::function<void (const std::string&, const raft_rpc::request_vote&)> request_vote_type;
 	typedef std::function<void (uint32_t milliseconds)> timeout_type;
+	typedef std::function<void (const Json::Value&)> commit_type;
 
 	rpc_handlers() = default;
-	rpc_handlers(const append_entries_type& append_entries, const request_vote_type& request_vote,
-			const timeout_type& request_timeout);
+	rpc_handlers(const append_entries_type& append_entries, const
+			request_vote_type& request_vote, const timeout_type& request_timeout,
+			const commit_type& commit);
 
 	void append_entries(const std::string& endpoint, const raft_rpc::append_entries& rpc);
 
 	void request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc);
 
 	void request_timeout(uint32_t milliseconds);
+
+	void commit(const Json::Value& value);
 protected:
 	append_entries_type append_entries_;
 	request_vote_type request_vote_;
 	timeout_type request_timeout_;
+	commit_type commit_;
 };
 
 //! Class providing the volatile state & RPC handling for Raft

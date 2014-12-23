@@ -12,10 +12,12 @@
 #include "raftstate.hpp"
 
 rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
-		const request_vote_type& request_vote, const timeout_type& request_timeout)
+		const request_vote_type& request_vote, const timeout_type& request_timeout,
+		const commit_type& commit)
 	:append_entries_(append_entries),
 	request_vote_(request_vote),
-	request_timeout_(request_timeout)
+	request_timeout_(request_timeout),
+	commit_(commit)
 {
 }
 
@@ -27,6 +29,16 @@ void rpc_handlers::append_entries(const std::string& endpoint, const raft_rpc::a
 void rpc_handlers::request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc)
 {
 	request_vote_(endpoint, rpc);
+}
+
+void rpc_handlers::request_timeout(uint32_t milliseconds)
+{
+	request_timeout_(milliseconds);
+}
+
+void rpc_handlers::commit(const Json::Value& value)
+{
+	commit_(value);
 }
 
 RaftState::RaftState(const std::string& id, const std::vector<std::string>& nodes,

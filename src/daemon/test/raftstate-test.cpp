@@ -55,6 +55,8 @@ public:
 
 	std::vector<uint32_t> request_timeout_args_;
 
+	std::vector<Json::Value> commit_args_;
+
 protected:
 	fs::path tmp_log_;
 	bool handler_called_;
@@ -99,6 +101,11 @@ rpc_handlers test_fixture::handler()
 			{
 				handler_called_ = true;
 				request_timeout_args_.push_back(timeout);
+			},
+			[this](const Json::Value& value)
+			{
+				handler_called_ = true;
+				commit_args_.push_back(value);
 			});
 }
 
