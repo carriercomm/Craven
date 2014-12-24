@@ -74,6 +74,14 @@ namespace raft_log
 			entry_exists(uint32_t term, uint32_t index);
 		};
 
+		//! Exception thrown when addition of an entry would cause the term to
+		//! decrease
+		struct term_conflict : std::runtime_error
+		{
+			term_conflict(uint32_t proposed_term, uint32_t conflicting_term,
+					uint32_t index);
+		};
+
 		//! Exception thrown when an entry is invalidated that does not exist.
 		struct entry_missing : std::runtime_error
 		{

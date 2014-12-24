@@ -180,6 +180,12 @@ raft_log::exceptions::entry_exists::entry_exists(uint32_t term, uint32_t index)
 {
 }
 
+raft_log::exceptions::term_conflict::term_conflict(uint32_t proposed_term, uint32_t conflicting_term,
+		uint32_t index)
+	:std::runtime_error(boost::str(boost::format("Addition of entry with index %|s| and term %|s| would cause a decrease in term from %|s|") % index % proposed_term % conflicting_term))
+{
+}
+
 
 raft_log::exceptions::entry_missing::entry_missing(uint32_t index)
 	:std::runtime_error(boost::str(boost::format("No entry with index %|s|") % index))
@@ -366,18 +372,30 @@ void RaftLog::recover_line(const Json::Value& root, uint32_t line_number)
 
 void RaftLog::handle_state(const raft_log::LogEntry& entry) noexcept(false)
 {
-
 	if(entry.index() <= last_index())
 	{
-		auto stale_entry = log_[entry.index() - 1];
-		if(stale_entry.term() < entry.term())
+		//Check the preceeding entry's term for conflict
+		if(entry.index() > 2 && log_[entry.index() - 2].term() > entry.term())
+			throw raft_log::exceptions::term_conflict(entry.term(),
+					log_[entry.index() - 2].term(), entry.index());
+
+		//Clear invalid entries
+		invalidate(entry.index());
+
+		//Add this entry
+		log_.push_back(entry);
+
+		//Want a quiet ignore if the term is lower, but still bump up if term is
+		//greater.
+		if(entry.term() > term_)
 		{
-			invalidate(stale_entry.index());
-			log_.push_back(entry);
-			handle_state(static_cast<const raft_log::Loggable&>(entry));
+			term_ = entry.term();
+			last_vote_ = boost::none;
+
+			//If we have a handler to call for a new term, call it.
+			if(new_term_handler_)
+				new_term_handler_(term_);
 		}
-		else
-			throw raft_log::exceptions::entry_exists(entry.term(), entry.index());
 	}
 	else if(entry.index() == last_index() + 1)
 	{
