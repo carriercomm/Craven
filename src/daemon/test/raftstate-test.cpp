@@ -229,8 +229,10 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_term_with_new_ind
 	{
 		RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
+		std::vector<std::tuple<uint32_t, Json::Value>> entries{std::make_tuple(2u, json_help::parse(R"({"foo": "bar"})"))};
+
 		raft_rpc::append_entries request(2, "bar", 1, 2,
-				{json_help::parse(R"({"foo": "bar"})")}, 1);
+				entries, 1);
 
 		auto result = sut.append_entries(request);
 
@@ -286,7 +288,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_index_late_with_n
 	{
 		RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
-		std::vector<Json::Value> entries{json_help::parse(R"({"foo": "bar"})")};
+		std::vector<std::tuple<uint32_t, Json::Value>> entries{std::make_tuple(2u, json_help::parse(R"({"foo": "bar"})"))};
 
 		raft_rpc::append_entries request(2, "bar", 2, 3, entries, 2);
 
@@ -383,7 +385,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log_appends_entries, te
 	{
 		RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
-		std::vector<Json::Value> entries{json_help::parse(R"({"foo": "bar"})")};
+		std::vector<std::tuple<uint32_t, Json::Value>> entries{std::make_tuple(2u, json_help::parse(R"({"foo": "bar"})"))};
 
 		raft_rpc::append_entries request(2, "bar", 2, 2, entries, 2);
 
@@ -833,14 +835,3 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_fallback_to_follower_on_newer_
 	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
 	BOOST_CHECK(!sut.leader());
 }
-
-BOOST_FIXTURE_TEST_CASE(leader_matchindex_changes_commit_updates, test_fixture)
-{
-	BOOST_REQUIRE(false);
-}
-
-BOOST_FIXTURE_TEST_CASE(leader_client_request_appends_entry, test_fixture)
-{
-	BOOST_REQUIRE(false);
-}
-
