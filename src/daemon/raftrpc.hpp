@@ -10,7 +10,7 @@ namespace raft_rpc
 	public:
 		append_entries(uint32_t term, const std::string& leader_id,
 				uint32_t prev_log_term, uint32_t prev_log_index, const
-				std::vector<Json::Value>& entries, uint32_t leader_commit);
+				std::vector<std::tuple<uint32_t, Json::Value>>& entries, uint32_t leader_commit);
 
 		append_entries(const Json::Value& root);
 
@@ -23,7 +23,7 @@ namespace raft_rpc
 		uint32_t prev_log_index() const;
 		uint32_t prev_log_term() const;
 
-		std::vector<Json::Value> entries() const;
+		std::vector<std::tuple<uint32_t, Json::Value>> entries() const;
 
 		uint32_t leader_commit() const;
 
@@ -38,7 +38,7 @@ namespace raft_rpc
 
 		//! Stores the term and index of prev log, in that order.
 		std::tuple<uint32_t, uint32_t> prev_log_;
-		std::vector<Json::Value> entries_;
+		std::vector<std::tuple<uint32_t, Json::Value>> entries_;
 		uint32_t leader_commit_;
 
 	};

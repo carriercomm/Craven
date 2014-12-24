@@ -98,3 +98,32 @@ std::vector<Json::Value> json_help::checked_from_json<std::vector<Json::Value>>(
 
 	return value;
 }
+
+template<>
+std::vector<std::tuple<uint32_t, Json::Value>> json_help::checked_from_json
+	<std::vector<std::tuple<uint32_t, Json::Value>>>(
+			const Json::Value& root, const std::string& key, const std::string& msg)
+{
+	membership_check(root, key, msg);
+
+	if(!root[key].isArray())
+		throw std::runtime_error(msg + " " + key + " is not an array");
+
+	std::vector<std::tuple<uint32_t, Json::Value>> value;
+	value.reserve(root[key].size());
+
+	for(const Json::Value& val : root[key])
+	{
+		if(!val.isArray() || val.size() != 2)
+			throw std::runtime_error(msg + " " + key + " is not an array of two-tuples.");
+
+		if(!val[0u].isInt() || val[0u].asInt() < 0)
+			throw std::runtime_error(msg + " " + key + " contains an invalid pair.");
+
+		value.push_back(std::make_tuple(static_cast<uint32_t>(val[0u].asInt()), val[1u]));
+
+	}
+
+	return value;
+
+}

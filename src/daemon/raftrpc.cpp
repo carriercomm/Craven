@@ -19,7 +19,7 @@ namespace raft_rpc
 
 	append_entries::append_entries(uint32_t term, const std::string& leader_id,
 			uint32_t prev_log_term, uint32_t prev_log_index, const
-			std::vector<Json::Value>& entries, uint32_t leader_commit)
+			std::vector<std::tuple<uint32_t, Json::Value>>& entries, uint32_t leader_commit)
 		:term_(term),
 		leader_id_(leader_id),
 		prev_log_(std::make_tuple(prev_log_term, prev_log_index)),
@@ -45,7 +45,7 @@ namespace raft_rpc
 				checked_from_json<uint32_t>(root, "prev_log_term"),
 				checked_from_json<uint32_t>(root, "prev_log_index"));
 
-		entries_ = checked_from_json<std::vector<Json::Value>>(root, "entries");
+		entries_ = checked_from_json<std::vector<std::tuple<uint32_t, Json::Value>>>(root, "entries");
 
 		leader_commit_ = checked_from_json<uint32_t>(root, "leader_commit");
 	}
@@ -62,7 +62,11 @@ namespace raft_rpc
 		Json::Value entries;
 		entries.resize(entries_.size());
 		for(unsigned int i = 0; i < entries_.size(); ++i)
-			entries[i] = entries_[i];
+		{
+			entries[i].resize(2);
+			entries[i][0] = std::get<0>(entries_[i]);
+			entries[i][1] = std::get<1>(entries_[i]);
+		}
 
 		root["entries"] = entries;
 		root["leader_commit"] = leader_commit_;
@@ -95,7 +99,7 @@ namespace raft_rpc
 		return std::get<0>(prev_log_);
 	}
 
-	std::vector<Json::Value> append_entries::entries() const
+	std::vector<std::tuple<uint32_t, Json::Value>> append_entries::entries() const
 	{
 		return entries_;
 	}

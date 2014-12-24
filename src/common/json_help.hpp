@@ -22,4 +22,7 @@ namespace json_help
 
 	template<>
 	std::vector<Json::Value> checked_from_json<std::vector<Json::Value>>(const Json::Value& root, const std::string& key, const std::string& msg);
+
+	template<>
+	std::vector<std::tuple<uint32_t, Json::Value>> checked_from_json<std::vector<std::tuple<uint32_t, Json::Value>>>(const Json::Value& root, const std::string& key, const std::string& msg);
 }
