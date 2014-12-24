@@ -43,6 +43,28 @@ namespace raft_rpc
 
 	};
 
+	class append_entries_response
+	{
+	public:
+		append_entries_response(const append_entries& request, uint32_t term, bool success);
+		append_entries_response(const Json::Value& root);
+
+		operator Json::Value() const;
+
+		append_entries request() const;
+		uint32_t term() const;
+		bool success() const;
+
+	private:
+		template <typename T>
+		T checked_from_json(const Json::Value& root, const std::string& key) const;
+
+	protected:
+		append_entries request_;
+		uint32_t term_;
+		bool success_;
+	};
+
 	class request_vote
 	{
 	public:
@@ -70,5 +92,27 @@ namespace raft_rpc
 
 		//! Stores the term and index, in that order
 		std::tuple<uint32_t, uint32_t> last_log_;
+	};
+
+	class request_vote_response
+	{
+	public:
+		request_vote_response(const request_vote& request, uint32_t term, bool vote_granted);
+		request_vote_response(const Json::Value& root);
+
+		operator Json::Value() const;
+
+		request_vote request() const;
+		uint32_t term() const;
+		bool vote_granted() const;
+
+	private:
+		template <typename T>
+		T checked_from_json(const Json::Value& root, const std::string& key) const;
+
+	protected:
+		request_vote request_;
+		uint32_t term_;
+		bool vote_granted_;
 	};
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "raftlog.hpp"
 
 //! Class (so I can clean up the interface) providing RPC callbacks
@@ -71,7 +73,8 @@ public:
 	std::tuple<uint32_t, bool> append_entries(const raft_rpc::append_entries& rpc);
 
 	//! The response handler for append_entries
-	void append_entries_response(const std::string& from, uint32_t term, bool success);
+	void append_entries_response(const std::string& from,
+			const raft_rpc::append_entries_response& rpc);
 
 	//! RequestVote RPC
 	/*!
@@ -87,7 +90,8 @@ public:
 	std::tuple<uint32_t, bool> request_vote(const raft_rpc::request_vote& rpc);
 
 	//! The response handler for request_vote
-	void request_vote_response(const std::string& from, uint32_t term, bool voted);
+	void request_vote_response(const std::string& from,
+			const raft_rpc::request_vote_response& rpc);
 
 	std::string id() const;
 
@@ -103,14 +107,33 @@ public:
 	 */
 	boost::optional<std::string> leader() const;
 
+	void client_request(const Json::Value& action,
+			const std::function<void (bool)>& result_callback);
+
 
 protected:
 	std::string id_;
 	std::vector<std::string> nodes_;
+	boost::optional<std::string> leader_;
 
 	RaftLog log_;
 
 	State state_;
 
 	rpc_handlers handlers_;
+
+	//volatile state on all servers
+	uint32_t commit_index_;
+	uint32_t last_applied_;
+
+	//volatile state on leaders
+
+	//! A map to each node's next_index and match_index
+	std::unordered_map<std::string, std::tuple<uint32_t, uint32_t>> client_index_;
+
+	//! Helper function to apply all committed log entries
+	void commit_available();
+
+	//! Term update handler
+	void term_update(uint32_t term);
 };

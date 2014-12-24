@@ -15,6 +15,9 @@ namespace json_help
 	uint32_t checked_from_json<uint32_t>(const Json::Value& root, const std::string& key, const std::string& msg);
 
 	template<>
+	bool checked_from_json<bool>(const Json::Value& root, const std::string& key, const std::string& msg);
+
+	template<>
 	std::string checked_from_json<std::string>(const Json::Value& root, const std::string& key, const std::string& msg);
 
 	template<>

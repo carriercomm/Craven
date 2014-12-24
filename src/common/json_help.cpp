@@ -47,6 +47,17 @@ uint32_t json_help::checked_from_json<uint32_t>(const Json::Value& root, const s
 }
 
 template<>
+bool json_help::checked_from_json<bool>(const Json::Value& root, const std::string& key, const std::string& msg)
+{
+	membership_check(root, key, msg);
+
+	if(!root[key].isBool())
+		throw std::runtime_error(msg + " " + key + " is not a bool");
+
+	return root[key].asBool();
+}
+
+template<>
 std::string json_help::checked_from_json<std::string>(const  Json::Value& root, const std::string& key, const std::string& msg)
 {
 	membership_check(root, key, msg);

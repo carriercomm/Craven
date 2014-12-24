@@ -110,6 +110,58 @@ namespace raft_rpc
 	}
 
 	template <typename T>
+	T append_entries_response::checked_from_json(const Json::Value& root, const std::string& key) const
+	{
+		return json_help::checked_from_json<T>(root, key, "Bad json for append_entries RPC response:");
+	}
+
+	append_entries_response::append_entries_response(const append_entries& request, uint32_t term, bool success)
+		:request_(request),
+		term_(term),
+		success_(success)
+	{
+	}
+
+	append_entries_response::append_entries_response(const Json::Value& root)
+		:request_(root["request"])
+	{
+		std::string type = checked_from_json<std::string>(root, "type");
+
+		if(!(type == "append_entries_response"))
+			throw std::runtime_error("RPC not append_entries_response");
+
+		term_ = checked_from_json<uint32_t>(root, "term");
+		success_ = checked_from_json<bool>(root, "success");
+	}
+
+	append_entries_response::operator Json::Value() const
+	{
+		Json::Value root;
+
+		root["type"] = "append_entries_response";
+		root["term"] = term_;
+		root["success"] = success_;
+		root["request"] = request_;
+
+		return root;
+	}
+
+	append_entries append_entries_response::request() const
+	{
+		return request_;
+	}
+
+	uint32_t append_entries_response::term() const
+	{
+		return term_;
+	}
+
+	bool append_entries_response::success() const
+	{
+		return success_;
+	}
+
+	template <typename T>
 	T request_vote::checked_from_json(const Json::Value& root, const std::string& key) const
 	{
 		return json_help::checked_from_json<T>(root, key, "Bad json for request_vote RPC:");
@@ -177,5 +229,59 @@ namespace raft_rpc
 	uint32_t request_vote::last_log_term() const
 	{
 		return std::get<0>(last_log_);
+	}
+
+	template <typename T>
+	T request_vote_response::checked_from_json(const Json::Value& root, const std::string& key) const
+	{
+		return json_help::checked_from_json<T>(root, key, "Bad json for request_vote RPC response:");
+	}
+
+	request_vote_response::request_vote_response(const request_vote& request, uint32_t term, bool vote_granted)
+		:request_(request),
+		term_(term),
+		vote_granted_(vote_granted)
+	{
+	}
+
+	request_vote_response::request_vote_response(const Json::Value& root)
+		:request_(root["request"])
+	{
+		std::string type = checked_from_json<std::string>(root, "type");
+
+		if(!(type == "request_vote_response"))
+			throw std::runtime_error("RPC not request_vote_response");
+
+		term_ = checked_from_json<uint32_t>(root, "term");
+		vote_granted_ = checked_from_json<bool>(root, "vote_granted");
+
+		request_ = request_vote(root["request"]);
+	}
+
+	request_vote_response::operator Json::Value() const
+	{
+		Json::Value root;
+
+		root["type"] = "request_vote_response";
+		root["term"] = term_;
+		root["vote_granted"] = vote_granted_;
+		root["request"] = request_;
+
+		return root;
+	}
+
+	request_vote request_vote_response::request() const
+	{
+		return request_;
+	}
+
+	uint32_t request_vote_response::term() const
+	{
+		return term_;
+	}
+
+	bool request_vote_response::vote_granted() const
+	{
+		return vote_granted_;
 	}
 }

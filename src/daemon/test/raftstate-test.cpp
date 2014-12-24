@@ -602,8 +602,16 @@ BOOST_FIXTURE_TEST_CASE(candidate_receiving_majority_votes_switches_to_leader_fi
 
 	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
 
+	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::request_vote>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::request_vote_response rvr(std::get<1>(*bar_request), 3, true);
+
 	//Only need one for a majority
-	sut.request_vote_response("bar", 3, true);
+	sut.request_vote_response("bar", rvr);
 
 	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
 	BOOST_CHECK(sut.leader());
@@ -729,8 +737,16 @@ BOOST_FIXTURE_TEST_CASE(leader_timeout_sends_heartbeats, test_fixture)
 
 	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
 
+	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::request_vote>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::request_vote_response rvr(std::get<1>(*bar_request), 3, true);
+
 	//Only need one for a majority
-	sut.request_vote_response("bar", 3, true);
+	sut.request_vote_response("bar", rvr);
 
 	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
 
@@ -772,14 +788,31 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_arrives_does_nothing_if_up_to_
 
 	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
 
+	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::request_vote>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::request_vote_response rvr(std::get<1>(*bar_request), 3, true);
+
 	//Only need one for a majority
-	sut.request_vote_response("bar", 3, true);
+	sut.request_vote_response("bar", rvr);
 
 	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
 
 	append_entries_args_.clear();
 
-	sut.append_entries_response("foo", 3, true);
+	auto bar_append = std::find_if(append_entries_args_.begin(), append_entries_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::append_entries>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::append_entries_response aer(std::get<1>(*bar_append), 3, true);
+
+	//Only need one for a majority
+	sut.append_entries_response("bar", aer);
 
 	BOOST_CHECK_EQUAL(append_entries_args_.size(), 0);
 }
@@ -794,14 +827,31 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_decrement_next_index_on_failur
 
 	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
 
+	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::request_vote>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::request_vote_response rvr(std::get<1>(*bar_request), 3, true);
+
 	//Only need one for a majority
-	sut.request_vote_response("bar", 3, true);
+	sut.request_vote_response("bar", rvr);
 
 	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
 
 	append_entries_args_.clear();
 
-	sut.append_entries_response("foo", 3, false);
+	auto bar_append = std::find_if(append_entries_args_.begin(), append_entries_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::append_entries>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::append_entries_response aer(std::get<1>(*bar_append), 3, false);
+
+	//Only need one for a majority
+	sut.append_entries_response("bar", aer);
 
 	BOOST_REQUIRE_EQUAL(append_entries_args_.size(), 1);
 	BOOST_REQUIRE_EQUAL(std::get<0>(append_entries_args_[0]), "foo");
@@ -823,14 +873,31 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_fallback_to_follower_on_newer_
 
 	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
 
+	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::request_vote>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::request_vote_response rvr(std::get<1>(*bar_request), 3, true);
+
 	//Only need one for a majority
-	sut.request_vote_response("bar", 3, true);
+	sut.request_vote_response("bar", rvr);
 
 	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
 
 	append_entries_args_.clear();
 
-	sut.append_entries_response("foo", 4, false);
+	auto bar_append = std::find_if(append_entries_args_.begin(), append_entries_args_.end(),
+			[](const std::tuple<std::string, raft_rpc::append_entries>& a) -> bool
+			{
+				return std::get<0>(a) == "bar";
+			});
+
+	raft_rpc::append_entries_response aer(std::get<1>(*bar_append), 4, false);
+
+	//Only need one for a majority
+	sut.append_entries_response("bar", aer);
 
 	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
 	BOOST_CHECK(!sut.leader());
