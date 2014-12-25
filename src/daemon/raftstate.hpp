@@ -8,9 +8,15 @@
 class rpc_handlers
 {
 public:
+	//! Specifies what timeout the state machine wants
+	enum timeout_length {
+		leader_timeout, //!< Setup a timeout suitable for a leader
+		election_timeout //!< Setup a timeout suitable to trigger a new election
+	};
+
 	typedef std::function<void (const std::string&, const raft_rpc::append_entries&)> append_entries_type;
 	typedef std::function<void (const std::string&, const raft_rpc::request_vote&)> request_vote_type;
-	typedef std::function<void (uint32_t milliseconds)> timeout_type;
+	typedef std::function<void (timeout_length)> timeout_type;
 	typedef std::function<void (const Json::Value&)> commit_type;
 
 	rpc_handlers() = default;
@@ -22,7 +28,7 @@ public:
 
 	void request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc);
 
-	void request_timeout(uint32_t milliseconds);
+	void request_timeout(timeout_length length);
 
 	void commit(const Json::Value& value);
 protected:
@@ -38,7 +44,8 @@ class RaftState
 public:
 	//! Constructor for the RaftState instance.
 	/*!
-	 *  \param nodes The list of nodes in the Raft system.
+	 *  \param id The ID of this node
+	 *  \param nodes The list of nodes in the Raft system (not including this one).
 	 *  \param log_file The path to the raft write-ahead log file
 	 *  \param handlers A structure containing the RPC callbacks for this instance
 	 *  to communicate with others (possibly over the network -- that detail is
@@ -126,6 +133,9 @@ protected:
 	uint32_t commit_index_;
 	uint32_t last_applied_;
 
+	//volatile state on candidates
+	std::set<std::string> votes_;
+
 	//volatile state on leaders
 
 	//! A map to each node's next_index and match_index
@@ -136,4 +146,30 @@ protected:
 
 	//! Term update handler
 	void term_update(uint32_t term);
+
+	//! Checks to see if any more entries can be committed and does so.
+	/*!
+	 *  This function is only invoked while the machine is running as a leader;
+	 *  otherwise the commit_index can only be updated by the term's leader.
+	 */
+	void check_commit();
+
+	//! Performs a global heartbeat: up-to-date nodes are sent empty
+	//! append_requests while others are sent the next batch of entries.
+	void heartbeat();
+
+	//! Performs a heartbeat at a single node.
+	void heartbeat(const std::string& node);
+
+	//! Handles transition to follower
+	void transition_follower();
+
+	//! Handles transition to candidate
+	void transition_candidate();
+
+	//! Handles transition to leader
+	void transition_leader();
+
+	//! Calculates the number of nodes required for a majority
+	uint32_t calculate_majority();
 };
