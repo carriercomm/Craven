@@ -262,27 +262,9 @@ uint32_t RaftLog::last_index() const noexcept
 	return log_.size();
 }
 
-void RaftLog::write(const raft::log::LogEntry& entry) noexcept(false)
-{
-	handle_state(entry);
-	write_json(entry.write());
-}
-
-void RaftLog::write(const raft::log::NewTerm& term) noexcept(false)
-{
-	handle_state(term);
-	write_json(term.write());
-}
-
 void RaftLog::write(uint32_t term) noexcept(false)
 {
 	write(raft::log::NewTerm(term));
-}
-
-void RaftLog::write(const raft::log::Vote& vote) noexcept(false)
-{
-	handle_state(vote);
-	write_json(vote.write());
 }
 
 void RaftLog::invalidate(uint32_t index) noexcept(false)

@@ -158,25 +158,16 @@ public:
 	 */
 	uint32_t last_index() const noexcept;
 
-	//! Writes a log entry to the file and internal log
-	/*!
-	 *	Will invalidate log entries if that's permissible, but will throw if not.
-	 */
-	void write(const raft::log::LogEntry& entry) noexcept(false);
+	//! Writes a loggable to the log.
+	template <typename Log>
+	void write(const Log& log) noexcept(false)
+	{
+		handle_state(log);
+		write_json(log.write());
+	}
 
-	//! Writes an explicit term update to the file
-	void write(const raft::log::NewTerm& term) noexcept(false);
-
-	//! Helper for wrapping a term number in its log type
+	//Helper for terms
 	void write(uint32_t term) noexcept(false);
-
-	//! Records a vote taking place.
-	/*!
-	 *  If the vote is not from the current term or later, or a vote is already
-	 *  recorded for this term (and is not for the same endpoint), this throws.
-	 *  Otherwise, it updates the last recorded vote and writes to file.
-	 */
-	void write(const raft::log::Vote& vote) noexcept(false);
 
 	//! Invalidates a log entry with a given index.
 	/*!
