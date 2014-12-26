@@ -173,9 +173,9 @@ BOOST_FIXTURE_TEST_CASE(log_entries_append, test_fixture)
 	write_simple();
 	{
 		RaftLog sut(tmp_log().string());
-		sut.write(raft_log::LogEntry(2, 3, Json::Value("fnord")));
-		sut.write(raft_log::LogEntry(2, 4, Json::Value("thud")));
-		sut.write(raft_log::Vote(3, "eris"));
+		sut.write(raft::log::LogEntry(2, 3, Json::Value("fnord")));
+		sut.write(raft::log::LogEntry(2, 4, Json::Value("thud")));
+		sut.write(raft::log::Vote(3, "eris"));
 	}
 
 	std::ifstream log(tmp_log().string());
@@ -235,9 +235,9 @@ BOOST_FIXTURE_TEST_CASE(log_entries_appended_recoverable, test_fixture)
 	write_simple();
 	{
 		RaftLog sut(tmp_log().string());
-		sut.write(raft_log::LogEntry(2, 3, Json::Value("fnord")));
-		sut.write(raft_log::LogEntry(2, 4, Json::Value("thud")));
-		sut.write(raft_log::Vote(3, "eris"));
+		sut.write(raft::log::LogEntry(2, 3, Json::Value("fnord")));
+		sut.write(raft::log::LogEntry(2, 4, Json::Value("thud")));
+		sut.write(raft::log::Vote(3, "eris"));
 	}
 
 	RaftLog sut(tmp_log().string());
@@ -309,7 +309,7 @@ BOOST_FIXTURE_TEST_CASE(overwriting_invalid_log_entry_ok, test_fixture)
 
 	sut.invalidate(2);
 
-	sut.write(raft_log::LogEntry(2, 2, Json::Value("foo")));
+	sut.write(raft::log::LogEntry(2, 2, Json::Value("foo")));
 }
 
 BOOST_FIXTURE_TEST_CASE(writing_stale_vote_throws, test_fixture)
@@ -325,7 +325,7 @@ BOOST_FIXTURE_TEST_CASE(writing_stale_vote_throws, test_fixture)
 
 	RaftLog sut(tmp_log().string());
 
-	BOOST_REQUIRE_THROW(sut.write(raft_log::Vote(2, "eris")), std::runtime_error);
+	BOOST_REQUIRE_THROW(sut.write(raft::log::Vote(2, "eris")), std::runtime_error);
 
 }
 
@@ -334,7 +334,7 @@ BOOST_FIXTURE_TEST_CASE(writing_vote_for_same_term_throws, test_fixture)
 	write_simple();
 	RaftLog sut(tmp_log().string());
 
-	BOOST_REQUIRE_THROW(sut.write(raft_log::Vote(1, "eris")), raft_log::exceptions::vote_exists);
+	BOOST_REQUIRE_THROW(sut.write(raft::log::Vote(1, "eris")), raft::log::exceptions::vote_exists);
 }
 
 BOOST_FIXTURE_TEST_CASE(writing_duplicate_vote_silent, test_fixture)
@@ -342,7 +342,7 @@ BOOST_FIXTURE_TEST_CASE(writing_duplicate_vote_silent, test_fixture)
 	write_simple();
 	RaftLog sut(tmp_log().string());
 
-	sut.write(raft_log::Vote(1, "endpoint1"));
+	sut.write(raft::log::Vote(1, "endpoint1"));
 }
 
 BOOST_FIXTURE_TEST_CASE(writing_new_vote_for_term_ok, test_fixture)
@@ -350,7 +350,7 @@ BOOST_FIXTURE_TEST_CASE(writing_new_vote_for_term_ok, test_fixture)
 	write_simple();
 	RaftLog sut(tmp_log().string());
 
-	sut.write(raft_log::Vote(2, "eris"));
+	sut.write(raft::log::Vote(2, "eris"));
 }
 
 BOOST_FIXTURE_TEST_CASE(new_term_handler_not_called_during_recovery, test_fixture)
@@ -384,12 +384,12 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_called_on_write, test_fixture)
 				called = true;
 			});
 
-	sut.write(raft_log::Vote(2, "eris"));
+	sut.write(raft::log::Vote(2, "eris"));
 	BOOST_REQUIRE_MESSAGE(called, "New term handler not called for vote");
 
 	called = false;
 
-	sut.write(raft_log::LogEntry(3, 2, Json::Value("foo")));
+	sut.write(raft::log::LogEntry(3, 2, Json::Value("foo")));
 	BOOST_REQUIRE_MESSAGE(called, "New term handler not called for entry");
 }
 
@@ -416,7 +416,7 @@ BOOST_FIXTURE_TEST_CASE(explicit_term_written, test_fixture)
 	{
 		RaftLog sut(tmp_log().string());
 
-		raft_log::NewTerm term(3);
+		raft::log::NewTerm term(3);
 
 		sut.write(term);
 	}
@@ -446,7 +446,7 @@ BOOST_FIXTURE_TEST_CASE(stale_explicit_term_fails, test_fixture)
 	RaftLog sut(tmp_log().string());
 	BOOST_CHECK_EQUAL(sut.term(), 2);
 
-	raft_log::NewTerm term(1);
+	raft::log::NewTerm term(1);
 
 	BOOST_REQUIRE_THROW(sut.write(term), std::runtime_error);
 }

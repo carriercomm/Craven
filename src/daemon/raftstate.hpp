@@ -14,8 +14,8 @@ public:
 		election_timeout //!< Setup a timeout suitable to trigger a new election
 	};
 
-	typedef std::function<void (const std::string&, const raft_rpc::append_entries&)> append_entries_type;
-	typedef std::function<void (const std::string&, const raft_rpc::request_vote&)> request_vote_type;
+	typedef std::function<void (const std::string&, const raft::rpc::append_entries&)> append_entries_type;
+	typedef std::function<void (const std::string&, const raft::rpc::request_vote&)> request_vote_type;
 	typedef std::function<void (timeout_length)> timeout_type;
 	typedef std::function<void (const Json::Value&)> commit_type;
 
@@ -24,9 +24,9 @@ public:
 			request_vote_type& request_vote, const timeout_type& request_timeout,
 			const commit_type& commit);
 
-	void append_entries(const std::string& endpoint, const raft_rpc::append_entries& rpc);
+	void append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc);
 
-	void request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc);
+	void request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc);
 
 	void request_timeout(timeout_length length);
 
@@ -77,11 +77,11 @@ public:
 	 *  element is true if this node has an entry that matches prev_log_* -- i.e.
 	 *  the logs are consistent up to that index.
 	 */
-	std::tuple<uint32_t, bool> append_entries(const raft_rpc::append_entries& rpc);
+	std::tuple<uint32_t, bool> append_entries(const raft::rpc::append_entries& rpc);
 
 	//! The response handler for append_entries
 	void append_entries_response(const std::string& from,
-			const raft_rpc::append_entries_response& rpc);
+			const raft::rpc::append_entries_response& rpc);
 
 	//! RequestVote RPC
 	/*!
@@ -94,11 +94,11 @@ public:
 	 *  candidate is out of date, it'll update itself with this); the second is
 	 *  true if this node votes for the candidate.
 	 */
-	std::tuple<uint32_t, bool> request_vote(const raft_rpc::request_vote& rpc);
+	std::tuple<uint32_t, bool> request_vote(const raft::rpc::request_vote& rpc);
 
 	//! The response handler for request_vote
 	void request_vote_response(const std::string& from,
-			const raft_rpc::request_vote_response& rpc);
+			const raft::rpc::request_vote_response& rpc);
 
 	std::string id() const;
 

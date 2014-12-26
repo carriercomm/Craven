@@ -25,12 +25,12 @@ rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
 {
 }
 
-void rpc_handlers::append_entries(const std::string& endpoint, const raft_rpc::append_entries& rpc)
+void rpc_handlers::append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc)
 {
 	append_entries_(endpoint, rpc);
 }
 
-void rpc_handlers::request_vote(const std::string& endpoint, const raft_rpc::request_vote& rpc)
+void rpc_handlers::request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc)
 {
 	request_vote_(endpoint, rpc);
 }
@@ -80,7 +80,7 @@ RaftState::State RaftState::state() const
 	return state_;
 }
 
-std::tuple<uint32_t, bool> RaftState::append_entries(const raft_rpc::append_entries& rpc)
+std::tuple<uint32_t, bool> RaftState::append_entries(const raft::rpc::append_entries& rpc)
 {
 	//Stale
 	if(rpc.term() < log_.term())
@@ -118,7 +118,7 @@ std::tuple<uint32_t, bool> RaftState::append_entries(const raft_rpc::append_entr
 
 		if(rpc.term() > log_.term())
 		{
-			raft_log::NewTerm nt(rpc.term());
+			raft::log::NewTerm nt(rpc.term());
 			log_.write(nt);
 		}
 
@@ -134,7 +134,7 @@ std::tuple<uint32_t, bool> RaftState::append_entries(const raft_rpc::append_entr
 				{
 					std::tuple<uint32_t, Json::Value> entry = rpc.entries()[i];
 
-					raft_log::LogEntry log_entry(std::get<0>(entry),
+					raft::log::LogEntry log_entry(std::get<0>(entry),
 							//Indexes start from one after prev_log_index
 							i + 1 + rpc.prev_log_index(),
 							std::get<1>(entry));
@@ -168,7 +168,7 @@ std::tuple<uint32_t, bool> RaftState::append_entries(const raft_rpc::append_entr
 }
 
 void RaftState::append_entries_response(const std::string& from,
-		const raft_rpc::append_entries_response& rpc)
+		const raft::rpc::append_entries_response& rpc)
 {
 	if(rpc.term() == log_.term())
 	{
@@ -210,7 +210,7 @@ void RaftState::append_entries_response(const std::string& from,
 }
 
 
-std::tuple<uint32_t, bool> RaftState::request_vote(const raft_rpc::request_vote& rpc)
+std::tuple<uint32_t, bool> RaftState::request_vote(const raft::rpc::request_vote& rpc)
 {
 	//Stale
 	if(rpc.term() < log_.term())
@@ -259,7 +259,7 @@ std::tuple<uint32_t, bool> RaftState::request_vote(const raft_rpc::request_vote&
 
 	if(vote)
 	{
-		raft_log::Vote vote(rpc.term(), rpc.candidate_id());
+		raft::log::Vote vote(rpc.term(), rpc.candidate_id());
 		log_.write(vote);
 	}
 
@@ -268,7 +268,7 @@ std::tuple<uint32_t, bool> RaftState::request_vote(const raft_rpc::request_vote&
 }
 
 void RaftState::request_vote_response(const std::string& from,
-		const raft_rpc::request_vote_response& rpc)
+		const raft::rpc::request_vote_response& rpc)
 {
 	if(rpc.term() == log_.term())
 	{
@@ -375,7 +375,7 @@ void RaftState::heartbeat(const std::string& node)
 		//send an empty heartbeat
 		auto last_entry = log_[log_.last_index()];
 
-		raft_rpc::append_entries msg(log_.term(), id_,
+		raft::rpc::append_entries msg(log_.term(), id_,
 				last_entry.term(), last_entry.index(),
 				{}, commit_index_);
 
@@ -394,7 +394,7 @@ void RaftState::heartbeat(const std::string& node)
 			prev_log = std::make_tuple(entry.term(), entry.index());
 		}
 
-		raft_rpc::append_entries msg(log_.term(), id_,
+		raft::rpc::append_entries msg(log_.term(), id_,
 				std::get<0>(prev_log), std::get<1>(prev_log),
 				{}, commit_index_);
 		handlers_.append_entries(node, msg);
@@ -412,7 +412,7 @@ void RaftState::heartbeat(const std::string& node)
 
 		auto prev_log = log_[from_log - 1];
 
-		raft_rpc::append_entries msg(log_.term(), id_,
+		raft::rpc::append_entries msg(log_.term(), id_,
 				prev_log.term(), prev_log.index(),
 				entries, commit_index_);
 
@@ -435,7 +435,7 @@ void RaftState::transition_candidate()
 	votes_.insert(id_);
 
 	//Make a note of that
-	log_.write(raft_log::Vote(log_.term(), id_));
+	log_.write(raft::log::Vote(log_.term(), id_));
 
 	//Send off vote requests.
 	for(const std::string& node : nodes_)
@@ -444,7 +444,7 @@ void RaftState::transition_candidate()
 		if(log_.last_index() > 0)
 			last_log = std::make_tuple(log_[log_.last_index()].term(), log_.last_index());
 
-		raft_rpc::request_vote msg(log_.term(), id_,
+		raft::rpc::request_vote msg(log_.term(), id_,
 				std::get<0>(last_log), std::get<1>(last_log));
 
 		handlers_.request_vote(node, msg);
