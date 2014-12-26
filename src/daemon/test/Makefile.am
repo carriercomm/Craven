@@ -1,4 +1,4 @@
-check_PROGRAMS = connection_pool dispatch raftlog raftstate
+check_PROGRAMS = connection_pool dispatch raftlog raftstate raftclient
 
 connection_pool_SOURCES = connection_pool-test.cpp
 
@@ -23,4 +23,11 @@ raftstate_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS)
 raftstate_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(JSONCPP_LIBS)
 raftstate_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(JSONCPP_LDFLAGS)
 
+raftclient_SOURCES = raftclient-test.cpp ../raftclient.cpp ../raftstate.cpp ../raftlog.cpp ../raftrpc.cpp ../../common/json_help.cpp
+
+raftclient_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS)
+raftclient_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(JSONCPP_LIBS)
+raftclient_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(JSONCPP_LDFLAGS)
+
 TESTS = $(check_PROGRAMS)
+XFAIL_TESTS = raftclient

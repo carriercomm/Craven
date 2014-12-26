@@ -45,6 +45,7 @@ connection_pool
 dispatch
 raftlog
 raftstate
+raftclient
 
 #Ctags & cscope
 **/tags
