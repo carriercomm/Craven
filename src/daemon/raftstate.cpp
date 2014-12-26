@@ -316,6 +316,11 @@ boost::optional<std::string> RaftState::leader() const
 	return leader_;
 }
 
+const RaftLog& RaftState::log() const
+{
+	return log_;
+}
+
 void RaftState::commit_available()
 {
 	for(; last_applied_ < commit_index_ && last_applied_ < log_.last_index();

@@ -114,8 +114,7 @@ public:
 	 */
 	boost::optional<std::string> leader() const;
 
-	void client_request(const Json::Value& action,
-			const std::function<void (bool)>& result_callback);
+	const RaftLog& log() const;
 
 
 protected:
