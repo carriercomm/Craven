@@ -16,47 +16,10 @@
 #include "raftstate.hpp"
 #include "raftclient.hpp"
 
-template <typename T>
-T raft::request::Request::checked_from_json(const Json::Value& root, const std::string& key) const
-{
-	return json_help::checked_from_json<T>(root, key, "Bad json for raft request:");
-}
-
 namespace raft
 {
 	namespace request
 	{
-		Request::Request(const std::string& from, const std::string& key)
-			:from_(from),
-			key_(key)
-		{
-		}
-
-		Request::Request(const Json::Value& root)
-		{
-			from_ = checked_from_json<std::string>(root, "from");
-			key_ = checked_from_json<std::string>(root, "key");
-		}
-
-		Request::operator Json::Value() const
-		{
-			Json::Value root;
-			root["from"] = from_;
-			root["key"] = key_;
-
-			return root;
-		}
-
-		std::string Request::from() const
-		{
-			return from_;
-		}
-
-		std::string Request::key() const
-		{
-			return key_;
-		}
-
 		Update::Update(const std::string& from, const std::string& key,
 			   const std::string& old_version, const std::string& new_version)
 			:Request(from, key),
@@ -208,4 +171,58 @@ namespace raft
 			return version_;
 		}
 	}
+}
+
+std::ostream& operator <<(std::ostream& os, const raft::request::Update& update)
+{
+	return os << json_help::write(update);
+}
+
+std::ostream& operator <<(std::ostream& os, const raft::request::Delete& del);
+std::ostream& operator <<(std::ostream& os, const raft::request::Rename& rename);
+std::ostream& operator <<(std::ostream& os, const raft::request::Add& add);
+
+ClientHandlers::ClientHandlers(const send_request_type& send_request, const append_to_log_type& append_to_log,
+		const leader_type& leader)
+	:send_request_(send_request),
+	append_to_log_(append_to_log),
+	leader_(leader)
+{
+}
+
+void ClientHandlers::send_request(const std::string& to, const Json::Value& request) const
+{
+	send_request_(to, request);
+}
+
+void ClientHandlers::append_to_log(const Json::Value& request) const
+{
+	append_to_log_(request);
+}
+
+boost::optional<std::string> ClientHandlers::leader() const
+{
+	return leader_();
+}
+
+RaftClient::RaftClient(const std::string& id, ClientHandlers& handlers)
+	:id_(id),
+	handlers_(handlers)
+{
+	throw std::runtime_error("Not yet implemented");
+}
+
+void RaftClient::commit_handler(const Json::Value& root)
+{
+	throw std::runtime_error("Not yet implemented");
+}
+
+bool RaftClient::exists(const std::string& key) const noexcept
+{
+	throw std::runtime_error("Not yet implemented");
+}
+
+std::tuple<std::string, std::string> RaftClient::operator [](const std::string& key) noexcept(false)
+{
+	throw std::runtime_error("Not yet implemented");
 }
