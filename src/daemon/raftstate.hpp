@@ -56,7 +56,7 @@ namespace raft
 		 *  erasure, allowing untemplated testing.
 		 */
 		State(const std::string& id, const std::vector<std::string>& nodes,
-				const std::string& log_file, const Handlers& handlers);
+				const std::string& log_file, Handlers& handlers);
 
 		//! Handler called on timeout.
 		/*!
@@ -130,7 +130,7 @@ namespace raft
 
 		Status state_;
 
-		Handlers handlers_;
+		Handlers& handlers_;
 
 		//volatile state on all servers
 		uint32_t commit_index_;

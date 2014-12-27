@@ -46,7 +46,7 @@ public:
 	fs::path tmp_log() const;
 	bool handler_called() const;
 
-	raft::State::Handlers handler();
+	raft::State::Handlers& handler();
 
 	std::vector<std::tuple<std::string, raft::rpc::append_entries>>
 		append_entries_args_;
@@ -61,33 +61,13 @@ public:
 protected:
 	fs::path tmp_log_;
 	bool handler_called_;
+	raft::State::Handlers handler_;
 };
 
 test_fixture::test_fixture()
 	:tmp_log_(fs::temp_directory_path() / fs::unique_path()),
-	handler_called_(false)
-{
-
-}
-
-test_fixture::~test_fixture()
-{
-	fs::remove(tmp_log_);
-}
-
-fs::path test_fixture::tmp_log() const
-{
-	return tmp_log_;
-}
-
-bool test_fixture::handler_called() const
-{
-	return handler_called_;
-}
-
-raft::State::Handlers test_fixture::handler()
-{
-	return raft::State::Handlers(
+	handler_called_(false),
+	handler_(raft::State::Handlers(
 			[this](const std::string& to, const raft::rpc::append_entries& rpc)
 			{
 				handler_called_ = true;
@@ -107,7 +87,29 @@ raft::State::Handlers test_fixture::handler()
 			{
 				handler_called_ = true;
 				commit_args_.push_back(value);
-			});
+			}))
+{
+
+}
+
+test_fixture::~test_fixture()
+{
+	fs::remove(tmp_log_);
+}
+
+fs::path test_fixture::tmp_log() const
+{
+	return tmp_log_;
+}
+
+bool test_fixture::handler_called() const
+{
+	return handler_called_;
+}
+
+raft::State::Handlers& test_fixture::handler()
+{
+	return handler_;
 }
 
 void test_fixture::write_for_stale() const

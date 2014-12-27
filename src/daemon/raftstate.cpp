@@ -46,7 +46,7 @@ void raft::State::Handlers::commit(const Json::Value& value)
 }
 
 raft::State::State(const std::string& id, const std::vector<std::string>& nodes,
-		const std::string& log_file, const State::Handlers& handlers)
+		const std::string& log_file, State::Handlers& handlers)
 	:id_(id),
 	nodes_(nodes),
 	log_(log_file, std::bind(&raft::State::term_update, this, std::placeholders::_1)),
