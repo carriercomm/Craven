@@ -191,11 +191,18 @@ void RaftClient::commit_handler(const Json::Value& root)
 	if(type == "update")
 	{
 		raft::request::Update entry(root);
+
+		BOOST_LOG_TRIVIAL(info) << "Committing update on key: " << entry.key()
+			<< " version: " << entry.old_version() << " -> " << entry.new_version();
+
 		commit_if_valid(entry);
 	}
 	else if(type == "delete")
 	{
 		raft::request::Delete entry(root);
+		BOOST_LOG_TRIVIAL(info) << "Committing delete on key: " << entry.key()
+			<< " version: " << entry.version();
+
 		auto commit_valid = valid(entry, version_map_);
 		if(commit_valid == request_invalid && version_map_.count(entry.key()) == 1)
 			throw std::runtime_error("Bad commit: conflicts");
@@ -205,11 +212,17 @@ void RaftClient::commit_handler(const Json::Value& root)
 	else if(type == "rename")
 	{
 		raft::request::Rename entry(root);
+		BOOST_LOG_TRIVIAL(info) << "Committing rename on key: " << entry.key()
+			<< " -> " << entry.new_key() << " version: " << entry.version();
+
 		commit_if_valid(entry);
 	}
 	else if(type == "add")
 	{
 		raft::request::Add entry(root);
+		BOOST_LOG_TRIVIAL(info) << "Committing add on key: " << entry.key()
+			<< " version: " << entry.version();
+
 		commit_if_valid(entry);
 	}
 	else throw std::runtime_error("Bad commit RPC: unknown type " + type);
