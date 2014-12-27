@@ -73,7 +73,8 @@ public:
 
 
 	//! Construct the dispatch
-	TopLevelDispatch()
+	TopLevelDispatch(connection_pool_type& pool)
+		:pool_(pool)
 	{
 		register_["dispatch"] = [this](const Json::Value& msg, const
 				Callback& cb)
@@ -143,14 +144,42 @@ public:
 	 *  \param id The name of the module in RPC.
 	 *
 	 *  \param f The module-level dispatcher's dispatch handler.
+	 *
+	 *  \returns A function that can be used to send RPCs from your module. The
+	 *  first argument of the function is the target node, the second the target
+	 *  module. The final argument is the message to send.
 	 */
 	template <typename Callable>
-	void connect_dispatcher(const std::string& id, Callable&& f)
+	std::function<void(const std::string&, const std::string&, const Json::Value&)>
+		connect_dispatcher(const std::string& id, Callable&& f)
 	{
 		if(register_.count(id))
 			throw dispatcher_exists(id);
 
 		register_[id] = f;
+
+		return [this, id](const std::string& node, const std::string& module, const Json::Value& msg)
+		{
+			Json::Value root;
+			root["module"] = module;
+			root["reply"] = id;
+			root["content"] = msg;
+
+			try
+			{
+				pool_.send_targeted(node, json_help::write(root));
+			}
+			catch(std::exception& ex)
+			{
+				BOOST_LOG_TRIVIAL(error) << "Error sending marshalled RPC from " << id
+					<< " to " << module << " on " << node << ": " << ex.what();
+			}
+			catch(...)
+			{
+				BOOST_LOG_TRIVIAL(error) << "Unknown error sending marshalled RPC";
+			}
+
+		};
 	}
 
 	//! Checks to see if the module id has a handler registered
@@ -170,6 +199,8 @@ public:
 	}
 
 protected:
+	connection_pool_type& pool_;
+
 	std::unordered_map<std::string, std::function<void (const Json::Value&,
 			const Callback&)>> register_;
 

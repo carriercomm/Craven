@@ -87,6 +87,13 @@ struct connection_pool_mock
 
 		callback_details* details_;
 	};
+
+	void send_targeted(const std::string& to, const std::string& msg)
+	{
+		send_targeted_args_.push_back(std::make_tuple(to, msg));
+	};
+
+	std::vector<std::tuple<std::string, std::string>> send_targeted_args_;
 };
 
 typedef  TopLevelDispatch<connection_pool_mock> dispatch_type;
@@ -112,7 +119,8 @@ BOOST_AUTO_TEST_CASE(dispatch_targets_pass_through)
 	Module m1;
 	Module m2;
 
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 
 	sut.connect_dispatcher("m1", m1.handler());
 	sut.connect_dispatcher("m2", m2.handler());
@@ -141,7 +149,8 @@ BOOST_AUTO_TEST_CASE(callbacks_pass_through)
 {
 	Module m1;
 
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 
 	sut.connect_dispatcher("m1", m1.handler());
 
@@ -178,7 +187,8 @@ BOOST_AUTO_TEST_CASE(dispatch_to_unknown_silent)
 {
 	Module m1;
 
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 
 	sut.connect_dispatcher("m1", m1.handler());
 
@@ -198,7 +208,8 @@ BOOST_AUTO_TEST_CASE(connecting_existing_handler_throws)
 	Module m1;
 	Module m2;
 
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 
 	sut.connect_dispatcher("m1", m1.handler());
 	BOOST_REQUIRE_THROW(sut.connect_dispatcher("m1", m2.handler()), dispatch_type::dispatcher_exists);
@@ -207,13 +218,15 @@ BOOST_AUTO_TEST_CASE(connecting_existing_handler_throws)
 
 BOOST_AUTO_TEST_CASE(disconnecting_non_existant_hander_silent)
 {
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 	sut.disconnect("fnoooord");
 }
 
 BOOST_AUTO_TEST_CASE(disconnecting_dispatch_throws)
 {
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 	BOOST_REQUIRE_THROW(sut.disconnect("dispatch"), dispatch_type::invalid_name);
 }
 
@@ -221,7 +234,8 @@ BOOST_AUTO_TEST_CASE(bad_json_parse_error_response)
 {
 	Module m1;
 
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 
 	sut.connect_dispatcher("m1", m1.handler());
 
@@ -246,7 +260,8 @@ BOOST_AUTO_TEST_CASE(bad_json_bad_format)
 {
 	Module m1;
 
-	dispatch_type sut;
+	connection_pool_mock cpm;
+	dispatch_type sut(cpm);
 
 	sut.connect_dispatcher("m1", m1.handler());
 
