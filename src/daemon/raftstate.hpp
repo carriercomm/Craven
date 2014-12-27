@@ -6,44 +6,45 @@
 
 namespace raft
 {
-	//! Class (so I can clean up the interface) providing RPC callbacks
-	class rpc_handlers
-	{
-	public:
-		//! Specifies what timeout the state machine wants
-		enum timeout_length {
-			leader_timeout, //!< Setup a timeout suitable for a leader
-			election_timeout //!< Setup a timeout suitable to trigger a new election
-		};
-
-		typedef std::function<void (const std::string&, const raft::rpc::append_entries&)> append_entries_type;
-		typedef std::function<void (const std::string&, const raft::rpc::request_vote&)> request_vote_type;
-		typedef std::function<void (timeout_length)> timeout_type;
-		typedef std::function<void (const Json::Value&)> commit_type;
-
-		rpc_handlers() = default;
-		rpc_handlers(const append_entries_type& append_entries, const
-				request_vote_type& request_vote, const timeout_type& request_timeout,
-				const commit_type& commit);
-
-		void append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc);
-
-		void request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc);
-
-		void request_timeout(timeout_length length);
-
-		void commit(const Json::Value& value);
-	protected:
-		append_entries_type append_entries_;
-		request_vote_type request_vote_;
-		timeout_type request_timeout_;
-		commit_type commit_;
-	};
 
 	//! Class providing the volatile state & RPC handling for Raft
 	class State
 	{
 	public:
+		//! Class (so I can clean up the interface) providing RPC callbacks
+		class Handlers
+		{
+		public:
+			//! Specifies what timeout the state machine wants
+			enum timeout_length {
+				leader_timeout, //!< Setup a timeout suitable for a leader
+				election_timeout //!< Setup a timeout suitable to trigger a new election
+			};
+
+			typedef std::function<void (const std::string&, const raft::rpc::append_entries&)> append_entries_type;
+			typedef std::function<void (const std::string&, const raft::rpc::request_vote&)> request_vote_type;
+			typedef std::function<void (timeout_length)> timeout_type;
+			typedef std::function<void (const Json::Value&)> commit_type;
+
+			Handlers() = default;
+			Handlers(const append_entries_type& append_entries, const
+					request_vote_type& request_vote, const timeout_type& request_timeout,
+					const commit_type& commit);
+
+			void append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc);
+
+			void request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc);
+
+			void request_timeout(timeout_length length);
+
+			void commit(const Json::Value& value);
+		protected:
+			append_entries_type append_entries_;
+			request_vote_type request_vote_;
+			timeout_type request_timeout_;
+			commit_type commit_;
+		};
+
 		//! Constructor for the raft::State instance.
 		/*!
 		 *  \param id The ID of this node
@@ -55,7 +56,7 @@ namespace raft
 		 *  erasure, allowing untemplated testing.
 		 */
 		State(const std::string& id, const std::vector<std::string>& nodes,
-				const std::string& log_file, const rpc_handlers& handlers);
+				const std::string& log_file, const Handlers& handlers);
 
 		//! Handler called on timeout.
 		/*!
@@ -129,7 +130,7 @@ namespace raft
 
 		Status state_;
 
-		rpc_handlers handlers_;
+		Handlers handlers_;
 
 		//volatile state on all servers
 		uint32_t commit_index_;

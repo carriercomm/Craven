@@ -15,7 +15,7 @@
 #include "raftrpc.hpp"
 #include "raftstate.hpp"
 
-raft::rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
+raft::State::Handlers::Handlers(const append_entries_type& append_entries,
 		const request_vote_type& request_vote, const timeout_type& request_timeout,
 		const commit_type& commit)
 	:append_entries_(append_entries),
@@ -25,28 +25,28 @@ raft::rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
 {
 }
 
-void raft::rpc_handlers::append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc)
+void raft::State::Handlers::append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc)
 {
 	append_entries_(endpoint, rpc);
 }
 
-void raft::rpc_handlers::request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc)
+void raft::State::Handlers::request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc)
 {
 	request_vote_(endpoint, rpc);
 }
 
-void raft::rpc_handlers::request_timeout(timeout_length length)
+void raft::State::Handlers::request_timeout(timeout_length length)
 {
 	request_timeout_(length);
 }
 
-void raft::rpc_handlers::commit(const Json::Value& value)
+void raft::State::Handlers::commit(const Json::Value& value)
 {
 	commit_(value);
 }
 
 raft::State::State(const std::string& id, const std::vector<std::string>& nodes,
-		const std::string& log_file, const rpc_handlers& handlers)
+		const std::string& log_file, const State::Handlers& handlers)
 	:id_(id),
 	nodes_(nodes),
 	log_(log_file, std::bind(&raft::State::term_update, this, std::placeholders::_1)),
@@ -66,12 +66,12 @@ void raft::State::timeout()
 		log_.write(log_.term() + 1);
 		//Perform the transition
 		transition_candidate();
-		handlers_.request_timeout(rpc_handlers::election_timeout);
+		handlers_.request_timeout(State::Handlers::election_timeout);
 	}
 	else
 	{
 		heartbeat();
-		handlers_.request_timeout(rpc_handlers::leader_timeout);
+		handlers_.request_timeout(State::Handlers::leader_timeout);
 	}
 }
 
@@ -114,7 +114,7 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 	if(follower_state == state_)
 	{
 		//Reset the timeout
-		handlers_.request_timeout(rpc_handlers::election_timeout);
+		handlers_.request_timeout(State::Handlers::election_timeout);
 
 		if(rpc.term() > log_.term())
 		{

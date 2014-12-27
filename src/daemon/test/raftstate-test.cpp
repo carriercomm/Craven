@@ -46,7 +46,7 @@ public:
 	fs::path tmp_log() const;
 	bool handler_called() const;
 
-	raft::rpc_handlers handler();
+	raft::State::Handlers handler();
 
 	std::vector<std::tuple<std::string, raft::rpc::append_entries>>
 		append_entries_args_;
@@ -54,7 +54,7 @@ public:
 	std::vector<std::tuple<std::string, raft::rpc::request_vote>>
 		request_vote_args_;
 
-	std::vector<raft::rpc_handlers::timeout_length> request_timeout_args_;
+	std::vector<raft::State::Handlers::timeout_length> request_timeout_args_;
 
 	std::vector<Json::Value> commit_args_;
 
@@ -85,9 +85,9 @@ bool test_fixture::handler_called() const
 	return handler_called_;
 }
 
-raft::rpc_handlers test_fixture::handler()
+raft::State::Handlers test_fixture::handler()
 {
-	return raft::rpc_handlers(
+	return raft::State::Handlers(
 			[this](const std::string& to, const raft::rpc::append_entries& rpc)
 			{
 				handler_called_ = true;
@@ -98,7 +98,7 @@ raft::rpc_handlers test_fixture::handler()
 				handler_called_ = true;
 				request_vote_args_.push_back(std::make_tuple(to, rpc));
 			},
-			[this](raft::rpc_handlers::timeout_length timeout)
+			[this](raft::State::Handlers::timeout_length timeout)
 			{
 				handler_called_ = true;
 				request_timeout_args_.push_back(timeout);
