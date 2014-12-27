@@ -9,8 +9,11 @@ namespace raft
 		{
 		public:
 			typedef Derived derived_type;
+			typedef Derived& reference;
+			typedef const Derived& const_reference;
 
 
+		protected:
 			Request(const std::string& from, const std::string& key)
 				:from_(from),
 				key_(key)
@@ -32,17 +35,19 @@ namespace raft
 				return root;
 			}
 
-			bool operator==(const Request<Derived>& ot) const
+		public:
+
+			bool operator==(const Request<Derived>& ot) const noexcept
 			{
 				return from_ == ot.from_ && key_ == ot.key_;
 			}
 
-			std::string from() const
+			std::string from() const noexcept
 			{
 				return from_;
 			}
 
-			std::string key() const
+			std::string key() const noexcept
 			{
 				return key_;
 			}
@@ -52,13 +57,12 @@ namespace raft
 				return os << json_help::write(derived);
 			}
 
-
 		protected:
 			std::string from_;
 			std::string key_;
 
 			template <typename T>
-			T checked_from_json(const Json::Value& root, const std::string& key) const
+			static T checked_from_json(const Json::Value& root, const std::string& key)
 			{
 				return json_help::checked_from_json<T>(root, key, "Bad json for raft request:");
 			}
@@ -74,15 +78,51 @@ namespace raft
 
 			operator Json::Value() const;
 
-			std::string old_version() const;
-			std::string new_version() const;
+			std::string old_version() const noexcept;
+			std::string new_version() const noexcept;
 
 		protected:
 			std::string old_version_;
 			std::string new_version_;
 		};
 
-		class Delete : public Request<Delete>
+		template <typename Derived>
+		class VersionRequest : public Request<Derived>
+		{
+		protected:
+			VersionRequest(const std::string& from, const std::string& key,
+					const std::string& version)
+				:Request<Derived>::Request(from, key),
+				version_(version)
+			{
+			}
+
+			VersionRequest(const Json::Value& root)
+				:Request<Derived>::Request(root),
+				version_(Request<Derived>::template checked_from_json<std::string>(root, "version"))
+			{
+			}
+
+			operator Json::Value() const
+			{
+				auto root = Request<Derived>::operator Json::Value();
+
+				root["version"] = version_;
+
+				return root;
+			}
+
+		public:
+			std::string version() const noexcept
+			{
+				return version_;
+			}
+
+		protected:
+			std::string version_;
+		};
+
+		class Delete : public VersionRequest<Delete>
 		{
 		public:
 			Delete(const std::string& from, const std::string& key,
@@ -92,13 +132,9 @@ namespace raft
 
 			operator Json::Value() const;
 
-			std::string version() const;
-
-		protected:
-			std::string version_;
 		};
 
-		class Rename : public Request<Rename>
+		class Rename : public VersionRequest<Rename>
 		{
 		public:
 			Rename(const std::string& from, const std::string& key,
@@ -108,15 +144,13 @@ namespace raft
 
 			operator Json::Value() const;
 
-			std::string new_key() const;
-			std::string version() const;
+			std::string new_key() const noexcept;
 
 		protected:
 			std::string new_key_;
-			std::string version_;
 		};
 
-		class Add : public Request<Add>
+		class Add : public VersionRequest<Add>
 		{
 		public:
 			Add(const std::string& from, const std::string& key,
@@ -125,10 +159,6 @@ namespace raft
 
 			operator Json::Value() const;
 
-			std::string version() const;
-
-		protected:
-			std::string version_;
 		};
 
 	}
@@ -197,7 +227,29 @@ public:
 	template <typename Derived>
 	void request(const Derived& request)
 	{
-		throw std::runtime_error("Not yet implemented");
+		const boost::optional<std::string> leader_id = handlers_.leader();
+		if(leader_id)
+		{
+			if(*leader_id == id_)
+			{
+				auto request_validity = valid(request);
+				if(request_validity == request_valid)
+				{
+					BOOST_LOG_TRIVIAL(info) << "Request valid";
+					apply_to(request, pending_version_map_);
+					handlers_.append_to_log(request);
+				}
+				else if(request_validity == request_done)
+					BOOST_LOG_TRIVIAL(info) << "Request done";
+				else
+					BOOST_LOG_TRIVIAL(info) << "Request invalid";
+				//else ignore
+			}
+			else
+				if(!done(request, version_map_))
+					handlers_.send_request(*leader_id, request);
+		}
+		//else ignore
 	}
 
 	//! Commit an entry
@@ -222,11 +274,114 @@ public:
 	 */
 	std::tuple<std::string, std::string> operator [](const std::string& key) noexcept(false);
 
+	//! Enum defining if a request is valid
+	enum validity {request_invalid = 0, //!< The request conflicts with the log
+		request_valid, //!< The request does not conflict
+		request_done //!< The request has already been fulfilled
+	};
+
+	//! Checks if a request is valid
+	/*!
+	 *  \param request An instance of one of
+	 *  raft::request::{Add,Delete,Rename,Update}
+	 */
+	template <typename Derived>
+	validity valid(const Derived& request) const noexcept
+	{
+		validity commit_valid = valid(request, version_map_);
+		validity pending_valid = valid(request, pending_version_map_);
+
+		auto leader_id = handlers_.leader();
+		if(leader_id && *leader_id == id_)
+		{
+			switch(pending_valid)
+			{
+			case request_valid:
+			case request_done:
+				return pending_valid;
+				break;
+
+			default:
+				return commit_valid;
+			}
+
+		}
+		else
+			return commit_valid;
+	}
+
 protected:
 	std::string id_;
 
 	ClientHandlers& handlers_;
+	typedef std::unordered_map<std::string,
+			std::tuple<std::string, std::string>> version_map_type;
 
-	std::unordered_map<std::string,
-		std::tuple<std::string, std::string>> version_map_;
+	//! Latest committed versions. 0: version 1: requesting node
+	version_map_type version_map_;
+
+	//! Leader only: latest versions awaiting commit. Same as version_map_
+	version_map_type pending_version_map_;
+
+	//! Helper for commit
+	template <typename Derived>
+	void commit_if_valid(const Derived& entry)
+	{
+		auto commit_valid = valid(entry, version_map_);
+		if(commit_valid == request_invalid)
+			throw std::runtime_error("Bad commit: conflicts");
+
+		if(commit_valid == request_valid)
+			apply_to(entry, version_map_);
+	}
+
+	void apply_to(const raft::request::Update& update, version_map_type& version_map);
+	void apply_to(const raft::request::Delete& update, version_map_type& version_map);
+	void apply_to(const raft::request::Rename& update, version_map_type& version_map);
+	void apply_to(const raft::request::Add& update, version_map_type& version_map);
+
+
+	bool check_conflict(const raft::request::Update& update) const;
+	bool check_conflict(const raft::request::Delete& del) const;
+	bool check_conflict(const raft::request::Rename& rename) const;
+	bool check_conflict(const raft::request::Add& add) const;
+
+	//! Checks a request is valid against a map
+	template <typename Derived>
+	validity valid(const Derived& request, const version_map_type& version_map) const noexcept
+	{
+		try
+		{
+			if(done(request, version_map))
+				return request_done;
+
+			return check_conflict(request) ? request_invalid : request_valid;
+		}
+		catch(std::exception& ex)
+		{
+			BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::valid(). Ignoring. Details: "
+				<< ex.what();
+		}
+		catch(...)
+		{
+			BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::valid(). Ignoring.";
+		}
+		return request_invalid;
+	}
+
+	//! Check if the request has already been applied in map
+	/*!
+	 *  \param request The request to check with
+	 *  \param version_map The version map to check in
+	 */
+	bool done(raft::request::Update::const_reference request, const version_map_type& version_map) const noexcept;
+
+	//! \overload
+	bool done(raft::request::Delete::const_reference request, const version_map_type& version_map) const noexcept;
+
+	//! \overload
+	bool done(raft::request::Rename::const_reference request, const version_map_type& version_map) const noexcept;
+
+	//! \overload
+	bool done(raft::request::Add::const_reference request, const version_map_type& version_map) const noexcept;
 };
