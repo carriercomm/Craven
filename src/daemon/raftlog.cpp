@@ -221,7 +221,7 @@ raft::log::exceptions::json_bad_type::json_bad_type(const std::string& member, c
 
 }
 
-RaftLog::RaftLog(const char* file_name, std::function<void(uint32_t)> term_handler)
+raft::Log::Log(const char* file_name, std::function<void(uint32_t)> term_handler)
 	:stream_(file_name, std::ios::in | std::ios::out | std::ios::app),
 	//We don't want to call this during recovery
 	new_term_handler_(nullptr),
@@ -237,37 +237,37 @@ RaftLog::RaftLog(const char* file_name, std::function<void(uint32_t)> term_handl
 	stream_.clear();
 }
 
-RaftLog::RaftLog(const std::string& file_name, std::function<void(uint32_t)> term_handler)
-	:RaftLog(file_name.c_str(), term_handler)
+raft::Log::Log(const std::string& file_name, std::function<void(uint32_t)> term_handler)
+	:Log(file_name.c_str(), term_handler)
 {
 }
 
-RaftLog::RaftLog(const boost::filesystem::path& file_name, std::function<void(uint32_t)> term_handler)
-	:RaftLog(file_name.c_str(), term_handler)
+raft::Log::Log(const boost::filesystem::path& file_name, std::function<void(uint32_t)> term_handler)
+	:Log(file_name.c_str(), term_handler)
 {
 }
 
-uint32_t RaftLog::term() const noexcept
+uint32_t raft::Log::term() const noexcept
 {
 	return term_;
 }
 
-boost::optional<std::string> RaftLog::last_vote() const noexcept
+boost::optional<std::string> raft::Log::last_vote() const noexcept
 {
 	return last_vote_;
 }
 
-uint32_t RaftLog::last_index() const noexcept
+uint32_t raft::Log::last_index() const noexcept
 {
 	return log_.size();
 }
 
-void RaftLog::write(uint32_t term) noexcept(false)
+void raft::Log::write(uint32_t term) noexcept(false)
 {
 	write(raft::log::NewTerm(term));
 }
 
-void RaftLog::invalidate(uint32_t index) noexcept(false)
+void raft::Log::invalidate(uint32_t index) noexcept(false)
 {
 	if(index > last_index())
 		throw raft::log::exceptions::entry_missing(index);
@@ -277,25 +277,25 @@ void RaftLog::invalidate(uint32_t index) noexcept(false)
 
 }
 
-bool RaftLog::valid(const raft::log::LogEntry entry) const noexcept
+bool raft::Log::valid(const raft::log::LogEntry entry) const noexcept
 {
 	return (entry.index() <= last_index()
 			&& entry.term() > (*this)[entry.index()].term())
 			|| entry.index() == last_index() +1;
 }
 
-bool RaftLog::match(uint32_t term, uint32_t index) const noexcept
+bool raft::Log::match(uint32_t term, uint32_t index) const noexcept
 {
 	return (index < log_.size() + 1) && (*this)[index].term() == term;
 }
 
-raft::log::LogEntry RaftLog::operator[](uint32_t index) const noexcept(false)
+raft::log::LogEntry raft::Log::operator[](uint32_t index) const noexcept(false)
 {
 	//Bounds checking can be done by the vector
 	return log_[index - 1]; //-1 because entries number from 1 and indexes from 0
 }
 
-void RaftLog::recover()
+void raft::Log::recover()
 {
 	//seek to start of file
 	stream_.seekg(0, std::ios::beg);
@@ -325,7 +325,7 @@ void RaftLog::recover()
 		<< " index: " << log_.size();
 }
 
-void RaftLog::recover_line(const Json::Value& root, uint32_t line_number)
+void raft::Log::recover_line(const Json::Value& root, uint32_t line_number)
 {
 	if(!root["type"].isString())
 		throw raft::log::exceptions::json_bad_type("type", "string");
@@ -352,7 +352,7 @@ void RaftLog::recover_line(const Json::Value& root, uint32_t line_number)
 
 }
 
-void RaftLog::handle_state(const raft::log::LogEntry& entry) noexcept(false)
+void raft::Log::handle_state(const raft::log::LogEntry& entry) noexcept(false)
 {
 	if(entry.index() <= last_index())
 	{
@@ -391,12 +391,12 @@ void RaftLog::handle_state(const raft::log::LogEntry& entry) noexcept(false)
 
 }
 
-void RaftLog::handle_state(const raft::log::NewTerm& term) noexcept(false)
+void raft::Log::handle_state(const raft::log::NewTerm& term) noexcept(false)
 {
 	handle_state(static_cast<const raft::log::Loggable&>(term));
 }
 
-void RaftLog::handle_state(const raft::log::Vote& vote) noexcept(false)
+void raft::Log::handle_state(const raft::log::Vote& vote) noexcept(false)
 {
 	handle_state(static_cast<const raft::log::Loggable&>(vote));
 
@@ -410,7 +410,7 @@ void RaftLog::handle_state(const raft::log::Vote& vote) noexcept(false)
 
 }
 
-void RaftLog::handle_state(const raft::log::Loggable& entry) noexcept(false)
+void raft::Log::handle_state(const raft::log::Loggable& entry) noexcept(false)
 {
 	if(entry.term() > term_)
 	{
@@ -426,7 +426,7 @@ void RaftLog::handle_state(const raft::log::Loggable& entry) noexcept(false)
 						"Stale term: %s, current: %s") % entry.term() % term_));
 }
 
-void RaftLog::write_json(const Json::Value& root)
+void raft::Log::write_json(const Json::Value& root)
 {
 	std::string line = json_help::write(root);
 

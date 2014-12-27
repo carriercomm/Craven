@@ -119,142 +119,142 @@ namespace raft
 			};
 		}
 	}
-}
 
-//! Manages the Raft write-ahead log.
-class RaftLog
-{
-public:
-	//! Construct the log manager from a provided file.
-	/*!
-	 *  \param file_name The name of the file to use as the Raft log. It will
-	 *  be opened in read/append mode and the state of the Raft log determined
-	 *  from it.
-	 *
-	 *  \param term_handler The handler to call when the term count advances.
-	 */
-	RaftLog(const char* file_name, std::function<void(uint32_t)> term_handler = nullptr);
-
-	//! \overload
-	RaftLog(const std::string& file_name, std::function<void(uint32_t)> term_handler = nullptr);
-
-	//! \overload
-	RaftLog(const boost::filesystem::path& file_name, std::function<void(uint32_t)> term_handler = nullptr);
-
-	//! Retrieve the current election term from the log.
-	uint32_t term() const noexcept;
-
-	//! Retrieve the node we voted for in the current term.
-	/*!
-	 *  If no vote was made this election term, the optional return value will
-	 *  be null.
-	 */
-	boost::optional<std::string> last_vote() const noexcept;
-
-	//! Retrieve the last known log index
-	/*!
-	 *  Note that indexes are numbered from one. (i.e. the 0th index means we have
-	 *  no log entries).
-	 */
-	uint32_t last_index() const noexcept;
-
-	//! Writes a loggable to the log.
-	template <typename Log>
-	void write(const Log& log) noexcept(false)
+	//! Manages the Raft write-ahead log.
+	class Log
 	{
-		handle_state(log);
-		write_json(log.write());
-	}
+	public:
+		//! Construct the log manager from a provided file.
+		/*!
+		 *  \param file_name The name of the file to use as the Raft log. It will
+		 *  be opened in read/append mode and the state of the Raft log determined
+		 *  from it.
+		 *
+		 *  \param term_handler The handler to call when the term count advances.
+		 */
+		Log(const char* file_name, std::function<void(uint32_t)> term_handler = nullptr);
 
-	//Helper for terms
-	void write(uint32_t term) noexcept(false);
+		//! \overload
+		Log(const std::string& file_name, std::function<void(uint32_t)> term_handler = nullptr);
 
-	//! Invalidates a log entry with a given index.
-	/*!
-	 *  This function throws if the index does not exist.
-	 */
-	void invalidate(uint32_t index) noexcept(false);
+		//! \overload
+		Log(const boost::filesystem::path& file_name, std::function<void(uint32_t)> term_handler = nullptr);
 
-	//! Checks to see if the given log entry is valid.
-	/*!
-	 *  In this context, valid means that it can be added to the log.
-	 */
-	bool valid(const raft::log::LogEntry entry) const noexcept;
+		//! Retrieve the current election term from the log.
+		uint32_t term() const noexcept;
 
-	//! Checks to see if the given log index/term match our log
-	/*!
-	 *	This function checks the log to see if an entry with the same term and
-	 *	index exist. If index is greater than the last we know about this returns
-	 *	false.
-	 */
-	bool match(uint32_t term, uint32_t index) const noexcept;
+		//! Retrieve the node we voted for in the current term.
+		/*!
+		 *  If no vote was made this election term, the optional return value will
+		 *  be null.
+		 */
+		boost::optional<std::string> last_vote() const noexcept;
 
-	//! Retrieves the log entry at index, throwing if it doesn't exist.
-	raft::log::LogEntry operator[](uint32_t index) const noexcept(false);
+		//! Retrieve the last known log index
+		/*!
+		 *  Note that indexes are numbered from one. (i.e. the 0th index means we have
+		 *  no log entries).
+		 */
+		uint32_t last_index() const noexcept;
 
-protected:
-	std::fstream stream_;
+		//! Writes a loggable to the log.
+		template <typename Log>
+		void write(const Log& log) noexcept(false)
+		{
+			handle_state(log);
+			write_json(log.write());
+		}
 
-	std::function<void(uint32_t)> new_term_handler_;
+		//Helper for terms
+		void write(uint32_t term) noexcept(false);
 
-	uint32_t term_;
-	boost::optional<std::string> last_vote_;
+		//! Invalidates a log entry with a given index.
+		/*!
+		 *  This function throws if the index does not exist.
+		 */
+		void invalidate(uint32_t index) noexcept(false);
 
-	std::vector<raft::log::LogEntry> log_;
+		//! Checks to see if the given log entry is valid.
+		/*!
+		 *  In this context, valid means that it can be added to the log.
+		 */
+		bool valid(const raft::log::LogEntry entry) const noexcept;
 
-	void recover();
+		//! Checks to see if the given log index/term match our log
+		/*!
+		 *	This function checks the log to see if an entry with the same term and
+		 *	index exist. If index is greater than the last we know about this returns
+		 *	false.
+		 */
+		bool match(uint32_t term, uint32_t index) const noexcept;
 
-	void recover_line(const Json::Value& root, uint32_t line_number);
+		//! Retrieves the log entry at index, throwing if it doesn't exist.
+		raft::log::LogEntry operator[](uint32_t index) const noexcept(false);
 
-	//! Handles the state change required to add a log entry without writing to
-	//! the log file.
-	/*!
-	 *  This function is responsible for updating internal state to reflect the
-	 *  addition of the log entry log. It performs sanity checks too: that the
-	 *  index and term make sense, throwing if they don't.
-	 *
-	 *  This function is used in log recovery & writing and makes a call to
-	 *  handle_state(const raft::log::Loggable) to check the term.
-	 *
-	 *  \param log The log entry to update with
-	 */
-	void handle_state(const raft::log::LogEntry& log) noexcept(false);
+	protected:
+		std::fstream stream_;
 
-	//! Handles the state change required to add an explicit term notification
-	//! without writing to the log file.
-	/*!
-	 *  This function is responsible for updating internal state to reflect the
-	 *  addition of an explicit new term marker. It also checks that the term
-	 *  isn't older than the current one, throwing if that's not the case.
-	 *
-	 *  \param term The explicit term marker to update with.
-	 */
-	void handle_state(const raft::log::NewTerm& term) noexcept(false);
+		std::function<void(uint32_t)> new_term_handler_;
 
-	//! Handles the state change required to add a vote without writing to
-	//! the log file.
-	/*!
-	 *  This function is responsible for updating internal state to reflect a new
-	 *  vote. It performs sanity checks too: that there hasn't been a vote made
-	 *  this term already and that the vote is from the current term or later,
-	 *  throwing if these fail.
-	 *
-	 *  This function is used in log recovery & writing and makes a call to
-	 *  handle_state(const raft::log::Loggable) to check the term.
-	 *
-	 *  \param vote The vote to update with
-	 */
-	void handle_state(const raft::log::Vote& vote) noexcept(false);
+		uint32_t term_;
+		boost::optional<std::string> last_vote_;
 
-	//! Checks the validity of the term on the loggable, updating the internal
-	//! state to match if it's later.
-	/*!
-	 *  This function is used in log recovery & writing.
-	 *
-	 *  \param entry The loggable holding the proposed election term
-	 */
-	void handle_state(const raft::log::Loggable& entry) noexcept(false);
+		std::vector<raft::log::LogEntry> log_;
 
-	//! Write the given JSON to the end of the log
-	void write_json(const Json::Value& root);
-};
+		void recover();
+
+		void recover_line(const Json::Value& root, uint32_t line_number);
+
+		//! Handles the state change required to add a log entry without writing to
+		//! the log file.
+		/*!
+		 *  This function is responsible for updating internal state to reflect the
+		 *  addition of the log entry log. It performs sanity checks too: that the
+		 *  index and term make sense, throwing if they don't.
+		 *
+		 *  This function is used in log recovery & writing and makes a call to
+		 *  handle_state(const raft::log::Loggable) to check the term.
+		 *
+		 *  \param log The log entry to update with
+		 */
+		void handle_state(const raft::log::LogEntry& log) noexcept(false);
+
+		//! Handles the state change required to add an explicit term notification
+		//! without writing to the log file.
+		/*!
+		 *  This function is responsible for updating internal state to reflect the
+		 *  addition of an explicit new term marker. It also checks that the term
+		 *  isn't older than the current one, throwing if that's not the case.
+		 *
+		 *  \param term The explicit term marker to update with.
+		 */
+		void handle_state(const raft::log::NewTerm& term) noexcept(false);
+
+		//! Handles the state change required to add a vote without writing to
+		//! the log file.
+		/*!
+		 *  This function is responsible for updating internal state to reflect a new
+		 *  vote. It performs sanity checks too: that there hasn't been a vote made
+		 *  this term already and that the vote is from the current term or later,
+		 *  throwing if these fail.
+		 *
+		 *  This function is used in log recovery & writing and makes a call to
+		 *  handle_state(const raft::log::Loggable) to check the term.
+		 *
+		 *  \param vote The vote to update with
+		 */
+		void handle_state(const raft::log::Vote& vote) noexcept(false);
+
+		//! Checks the validity of the term on the loggable, updating the internal
+		//! state to match if it's later.
+		/*!
+		 *  This function is used in log recovery & writing.
+		 *
+		 *  \param entry The loggable holding the proposed election term
+		 */
+		void handle_state(const raft::log::Loggable& entry) noexcept(false);
+
+		//! Write the given JSON to the end of the log
+		void write_json(const Json::Value& root);
+	};
+}

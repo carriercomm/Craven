@@ -39,7 +39,7 @@ public:
 	std::vector<std::tuple<std::string, Json::Value>> send_request_args_;
 	std::vector<Json::Value> append_to_log_args_;
 
-	ClientHandlers handler_;
+	raft::Client::Handlers handler_;
 };
 
 test_fixture::test_fixture()
@@ -62,7 +62,7 @@ test_fixture::test_fixture()
 
 BOOST_FIXTURE_TEST_CASE(commit_handler_add_on_non_existent_key_success, test_fixture)
 {
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -75,7 +75,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_add_on_non_existent_key_success, test_fix
 BOOST_FIXTURE_TEST_CASE(commit_handler_add_on_existing_key_different_version_fail, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -88,7 +88,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_add_on_existing_key_different_version_fai
 BOOST_FIXTURE_TEST_CASE(commit_handler_add_on_existing_key_same_version_success, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -102,7 +102,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_add_on_existing_key_same_version_success,
 BOOST_FIXTURE_TEST_CASE(commit_handler_delete_on_existing_key_same_version_success, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -117,7 +117,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_delete_on_existing_key_same_version_succe
 BOOST_FIXTURE_TEST_CASE(commit_handler_delete_on_existing_key_different_version_fail, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -129,7 +129,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_delete_on_existing_key_different_version_
 
 BOOST_FIXTURE_TEST_CASE(commit_handler_delete_on_missing_key_nop, test_fixture)
 {
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	BOOST_REQUIRE(!sut.exists("fnord"));
 
@@ -141,7 +141,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_delete_on_missing_key_nop, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(commit_handler_update_on_missing_key_fail, test_fixture)
 {
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	BOOST_REQUIRE(!sut.exists("fnord"));
 
@@ -154,7 +154,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_update_on_missing_key_fail, test_fixture)
 BOOST_FIXTURE_TEST_CASE(commit_handler_update_on_key_wrong_version_fail, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -171,7 +171,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_update_on_key_wrong_version_fail, test_fi
 BOOST_FIXTURE_TEST_CASE(commit_handler_update_on_key_right_version_success, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -189,7 +189,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_update_on_key_right_version_success, test
 BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_missing_key_but_new_key_exists_and_correct_version_success, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -206,7 +206,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_missing_key_but_new_key_exists_
 
 BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_missing_key_missing_new_key_fail, test_fixture)
 {
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	BOOST_REQUIRE(!sut.exists("fnord"));
 
@@ -221,7 +221,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_missing_key_missing_new_key_fai
 BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_key_wrong_version_fail, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -240,7 +240,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_key_wrong_version_fail, test_fi
 BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_key_right_version_success, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -258,7 +258,7 @@ BOOST_FIXTURE_TEST_CASE(commit_handler_rename_on_key_right_version_success, test
 BOOST_FIXTURE_TEST_CASE(update_forwarded_to_leader, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.request(raft::request::Update("eris", "foo", "bar", "baz"));
 
@@ -278,7 +278,7 @@ BOOST_FIXTURE_TEST_CASE(update_forwarded_to_leader, test_fixture)
 BOOST_FIXTURE_TEST_CASE(delete_forwarded_to_leader, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 	sut.commit_handler(raft::request::Add("foo", "foo", "bar"));
 
 	sut.request(raft::request::Delete("eris", "foo", "bar"));
@@ -298,7 +298,7 @@ BOOST_FIXTURE_TEST_CASE(delete_forwarded_to_leader, test_fixture)
 BOOST_FIXTURE_TEST_CASE(rename_forwarded_to_leader, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.request(raft::request::Rename("eris", "foo", "thud", "bar"));
 
@@ -318,7 +318,7 @@ BOOST_FIXTURE_TEST_CASE(rename_forwarded_to_leader, test_fixture)
 BOOST_FIXTURE_TEST_CASE(add_forwarded_to_leader, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.request(raft::request::Add("eris", "foo", "bar"));
 
@@ -338,7 +338,7 @@ BOOST_FIXTURE_TEST_CASE(add_forwarded_to_leader, test_fixture)
 BOOST_FIXTURE_TEST_CASE(non_leader_ignore_committed_add, test_fixture)
 {
 	//Setup the existing key
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 
 	sut.commit_handler(raft::request::Add("foo", "fnord", "bar"));
 
@@ -352,7 +352,7 @@ BOOST_FIXTURE_TEST_CASE(non_leader_ignore_committed_add, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(non_leader_ignore_committed_update, test_fixture)
 {
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 	sut.commit_handler(raft::request::Add("eris", "fnord", "bar"));
 	BOOST_REQUIRE(sut.exists("fnord"));
 
@@ -364,7 +364,7 @@ BOOST_FIXTURE_TEST_CASE(non_leader_ignore_committed_update, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(non_leader_ignore_committed_rename, test_fixture)
 {
-	RaftClient sut("eris", handler_);
+	raft::Client sut("eris", handler_);
 	sut.commit_handler(raft::request::Add("eris", "fnord", "bar"));
 
 	BOOST_REQUIRE(sut.exists("fnord"));
@@ -379,7 +379,7 @@ BOOST_FIXTURE_TEST_CASE(non_leader_ignore_committed_rename, test_fixture)
 BOOST_FIXTURE_TEST_CASE(leader_add_no_key_success, test_fixture)
 {
 	//Now a leader
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	raft::request::Add request("eris", "fnord", "foo");
 	sut.request(request);
@@ -394,7 +394,7 @@ BOOST_FIXTURE_TEST_CASE(leader_add_no_key_success, test_fixture)
 BOOST_FIXTURE_TEST_CASE(leader_add_key_same_version_ignored, test_fixture)
 {
 	//Now a leader
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	raft::request::Add request("eris", "fnord", "foo");
 	sut.request(request);
@@ -413,7 +413,7 @@ BOOST_FIXTURE_TEST_CASE(leader_add_key_same_version_ignored, test_fixture)
 BOOST_FIXTURE_TEST_CASE(leader_add_key_wrong_version_ignored, test_fixture)
 {
 	//Now a leader
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	raft::request::Add request("eris", "fnord", "foo");
 	sut.request(request);
@@ -431,7 +431,7 @@ BOOST_FIXTURE_TEST_CASE(leader_add_key_wrong_version_ignored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_delete_key_right_version_success, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 
@@ -449,7 +449,7 @@ BOOST_FIXTURE_TEST_CASE(leader_delete_key_right_version_success, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_delete_key_wrong_version_ignored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 
@@ -462,7 +462,7 @@ BOOST_FIXTURE_TEST_CASE(leader_delete_key_wrong_version_ignored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_delete_no_key_ingored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	raft::request::Delete request("eris", "fnord", "bar");
 	sut.request(request);
@@ -474,7 +474,7 @@ BOOST_FIXTURE_TEST_CASE(leader_delete_no_key_ingored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_update_key_right_version_success, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 
@@ -490,7 +490,7 @@ BOOST_FIXTURE_TEST_CASE(leader_update_key_right_version_success, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_update_key_wrong_version_ignored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 
@@ -503,7 +503,7 @@ BOOST_FIXTURE_TEST_CASE(leader_update_key_wrong_version_ignored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_update_no_key_ignored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	raft::request::Update request("eris", "fnord", "bar", "baz");
 	sut.request(request);
@@ -515,7 +515,7 @@ BOOST_FIXTURE_TEST_CASE(leader_update_no_key_ignored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_rename_key_right_version_success, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 
@@ -531,7 +531,7 @@ BOOST_FIXTURE_TEST_CASE(leader_rename_key_right_version_success, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_rename_key_wrong_version_ignored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 
@@ -544,7 +544,7 @@ BOOST_FIXTURE_TEST_CASE(leader_rename_key_wrong_version_ignored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_rename_no_key_ignored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	raft::request::Rename request("eris", "fnord", "thud", "bar");
 	sut.request(request);
@@ -555,7 +555,7 @@ BOOST_FIXTURE_TEST_CASE(leader_rename_no_key_ignored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(leader_rename_new_key_exists_same_version_ignored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 	sut.commit_handler(raft::request::Add("eris", "thud", "bar"));
@@ -569,7 +569,7 @@ BOOST_FIXTURE_TEST_CASE(leader_rename_new_key_exists_same_version_ignored, test_
 
 BOOST_FIXTURE_TEST_CASE(leader_rename_new_key_exists_different_version_ignored, test_fixture)
 {
-	RaftClient sut("discordia", handler_);
+	raft::Client sut("discordia", handler_);
 
 	sut.commit_handler(raft::request::Add("eris", "fnord", "foo"));
 	sut.commit_handler(raft::request::Add("eris", "thud", "bar"));

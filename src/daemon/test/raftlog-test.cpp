@@ -77,21 +77,21 @@ fs::path test_fixture::tmp_log() const
 
 BOOST_FIXTURE_TEST_CASE(empty_log_correct_term, test_fixture)
 {
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_EQUAL(sut.term(), 0);
 }
 
 BOOST_FIXTURE_TEST_CASE(empty_log_correct_vote, test_fixture)
 {
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE(!sut.last_vote());
 }
 
 BOOST_FIXTURE_TEST_CASE(empty_log_correct_last_index, test_fixture)
 {
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_EQUAL(sut.last_index(), 0);
 }
@@ -101,7 +101,7 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_term_explicit, test_fixture)
 {
 	write_simple();
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_EQUAL(sut.term(), 1);
 }
@@ -117,7 +117,7 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_term_implicit, test_fixture)
 
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 	BOOST_REQUIRE_EQUAL(sut.term(), 2);
 }
 
@@ -125,7 +125,7 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_term_implicit, test_fixture)
 BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_vote_explicit, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE(sut.last_vote());
 	BOOST_REQUIRE_EQUAL(sut.last_vote().get(), "endpoint1");
@@ -141,7 +141,7 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_vote_implicit, test_fixture)
 
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 	BOOST_REQUIRE(!sut.last_vote());
 }
 
@@ -155,14 +155,14 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_vote_implicit_overwrite, test_fix
 			<< std::endl;
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 	BOOST_REQUIRE(!sut.last_vote());
 }
 
 BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_entry_index, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_EQUAL(sut.last_index(), 2);
 }
@@ -172,7 +172,7 @@ BOOST_FIXTURE_TEST_CASE(log_entries_append, test_fixture)
 {
 	write_simple();
 	{
-		RaftLog sut(tmp_log().string());
+		raft::Log sut(tmp_log().string());
 		sut.write(raft::log::LogEntry(2, 3, Json::Value("fnord")));
 		sut.write(raft::log::LogEntry(2, 4, Json::Value("thud")));
 		sut.write(raft::log::Vote(3, "eris"));
@@ -234,13 +234,13 @@ BOOST_FIXTURE_TEST_CASE(log_entries_appended_recoverable, test_fixture)
 {
 	write_simple();
 	{
-		RaftLog sut(tmp_log().string());
+		raft::Log sut(tmp_log().string());
 		sut.write(raft::log::LogEntry(2, 3, Json::Value("fnord")));
 		sut.write(raft::log::LogEntry(2, 4, Json::Value("thud")));
 		sut.write(raft::log::Vote(3, "eris"));
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_CHECK_EQUAL(sut.term(), 3);
 	BOOST_CHECK_EQUAL(sut.last_vote().get(), "eris");
@@ -266,7 +266,7 @@ BOOST_FIXTURE_TEST_CASE(log_entries_appended_recoverable, test_fixture)
 BOOST_FIXTURE_TEST_CASE(last_known_entry_index_correct, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_EQUAL(sut.last_index(), sut[sut.last_index()].index());
 }
@@ -283,7 +283,7 @@ BOOST_FIXTURE_TEST_CASE(invalidated_entries_overwritten_on_recovery, test_fixtur
 			<< R"({"term":3,"type":"entry","index":2,"action":"discordia"})" << "\n";
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_CHECK_EQUAL(sut.last_index(), 2);
 	BOOST_CHECK_EQUAL(sut.term(), 3);
@@ -295,7 +295,7 @@ BOOST_FIXTURE_TEST_CASE(invalidated_entries_overwritten_on_recovery, test_fixtur
 BOOST_FIXTURE_TEST_CASE(invalidating_log_entry_invalidates_all_following, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	sut.invalidate(1);
 
@@ -305,7 +305,7 @@ BOOST_FIXTURE_TEST_CASE(invalidating_log_entry_invalidates_all_following, test_f
 BOOST_FIXTURE_TEST_CASE(overwriting_invalid_log_entry_ok, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	sut.invalidate(2);
 
@@ -323,7 +323,7 @@ BOOST_FIXTURE_TEST_CASE(writing_stale_vote_throws, test_fixture)
 			<< R"({"term":3,"type":"entry","index":5,"action":"discordia"})" << "\n";
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_THROW(sut.write(raft::log::Vote(2, "eris")), std::runtime_error);
 
@@ -332,7 +332,7 @@ BOOST_FIXTURE_TEST_CASE(writing_stale_vote_throws, test_fixture)
 BOOST_FIXTURE_TEST_CASE(writing_vote_for_same_term_throws, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_THROW(sut.write(raft::log::Vote(1, "eris")), raft::log::exceptions::vote_exists);
 }
@@ -340,7 +340,7 @@ BOOST_FIXTURE_TEST_CASE(writing_vote_for_same_term_throws, test_fixture)
 BOOST_FIXTURE_TEST_CASE(writing_duplicate_vote_silent, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	sut.write(raft::log::Vote(1, "endpoint1"));
 }
@@ -348,7 +348,7 @@ BOOST_FIXTURE_TEST_CASE(writing_duplicate_vote_silent, test_fixture)
 BOOST_FIXTURE_TEST_CASE(writing_new_vote_for_term_ok, test_fixture)
 {
 	write_simple();
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	sut.write(raft::log::Vote(2, "eris"));
 }
@@ -365,7 +365,7 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_not_called_during_recovery, test_fixtur
 
 	bool called = false;
 
-	RaftLog sut(tmp_log().string(), [&called](uint32_t term)
+	raft::Log sut(tmp_log().string(), [&called](uint32_t term)
 			{
 				called = true;
 			});
@@ -379,7 +379,7 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_called_on_write, test_fixture)
 
 	bool called = false;
 
-	RaftLog sut(tmp_log().string(), [&called](uint32_t term)
+	raft::Log sut(tmp_log().string(), [&called](uint32_t term)
 			{
 				called = true;
 			});
@@ -403,7 +403,7 @@ BOOST_FIXTURE_TEST_CASE(explicit_term_loaded_properly, test_fixture)
 			<< std::endl;
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 
 	BOOST_REQUIRE_EQUAL(sut.term(), 2);
 
@@ -414,7 +414,7 @@ BOOST_FIXTURE_TEST_CASE(explicit_term_written, test_fixture)
 	write_simple();
 
 	{
-		RaftLog sut(tmp_log().string());
+		raft::Log sut(tmp_log().string());
 
 		raft::log::NewTerm term(3);
 
@@ -443,7 +443,7 @@ BOOST_FIXTURE_TEST_CASE(stale_explicit_term_fails, test_fixture)
 			<< std::endl;
 	}
 
-	RaftLog sut(tmp_log().string());
+	raft::Log sut(tmp_log().string());
 	BOOST_CHECK_EQUAL(sut.term(), 2);
 
 	raft::log::NewTerm term(1);

@@ -15,7 +15,7 @@
 #include "raftrpc.hpp"
 #include "raftstate.hpp"
 
-rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
+raft::rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
 		const request_vote_type& request_vote, const timeout_type& request_timeout,
 		const commit_type& commit)
 	:append_entries_(append_entries),
@@ -25,31 +25,31 @@ rpc_handlers::rpc_handlers(const append_entries_type& append_entries,
 {
 }
 
-void rpc_handlers::append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc)
+void raft::rpc_handlers::append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc)
 {
 	append_entries_(endpoint, rpc);
 }
 
-void rpc_handlers::request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc)
+void raft::rpc_handlers::request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc)
 {
 	request_vote_(endpoint, rpc);
 }
 
-void rpc_handlers::request_timeout(timeout_length length)
+void raft::rpc_handlers::request_timeout(timeout_length length)
 {
 	request_timeout_(length);
 }
 
-void rpc_handlers::commit(const Json::Value& value)
+void raft::rpc_handlers::commit(const Json::Value& value)
 {
 	commit_(value);
 }
 
-RaftState::RaftState(const std::string& id, const std::vector<std::string>& nodes,
+raft::State::State(const std::string& id, const std::vector<std::string>& nodes,
 		const std::string& log_file, const rpc_handlers& handlers)
 	:id_(id),
 	nodes_(nodes),
-	log_(log_file, std::bind(&RaftState::term_update, this, std::placeholders::_1)),
+	log_(log_file, std::bind(&raft::State::term_update, this, std::placeholders::_1)),
 	state_(follower_state),
 	handlers_(handlers),
 	commit_index_(0),
@@ -57,7 +57,7 @@ RaftState::RaftState(const std::string& id, const std::vector<std::string>& node
 {
 }
 
-void RaftState::timeout()
+void raft::State::timeout()
 {
 	if(follower_state == state_ || candidate_state == state_)
 	{
@@ -75,12 +75,12 @@ void RaftState::timeout()
 	}
 }
 
-RaftState::State RaftState::state() const
+raft::State::Status raft::State::state() const
 {
 	return state_;
 }
 
-std::tuple<uint32_t, bool> RaftState::append_entries(const raft::rpc::append_entries& rpc)
+std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_entries& rpc)
 {
 	//Stale
 	if(rpc.term() < log_.term())
@@ -167,7 +167,7 @@ std::tuple<uint32_t, bool> RaftState::append_entries(const raft::rpc::append_ent
 	return std::make_tuple(log_.term(), false);
 }
 
-void RaftState::append_entries_response(const std::string& from,
+void raft::State::append_entries_response(const std::string& from,
 		const raft::rpc::append_entries_response& rpc)
 {
 	if(rpc.term() == log_.term())
@@ -210,7 +210,7 @@ void RaftState::append_entries_response(const std::string& from,
 }
 
 
-std::tuple<uint32_t, bool> RaftState::request_vote(const raft::rpc::request_vote& rpc)
+std::tuple<uint32_t, bool> raft::State::request_vote(const raft::rpc::request_vote& rpc)
 {
 	//Stale
 	if(rpc.term() < log_.term())
@@ -267,7 +267,7 @@ std::tuple<uint32_t, bool> RaftState::request_vote(const raft::rpc::request_vote
 	return std::make_tuple(log_.term(), vote);
 }
 
-void RaftState::request_vote_response(const std::string& from,
+void raft::State::request_vote_response(const std::string& from,
 		const raft::rpc::request_vote_response& rpc)
 {
 	if(rpc.term() == log_.term())
@@ -296,39 +296,49 @@ void RaftState::request_vote_response(const std::string& from,
 	} //else ignore it; it's stale
 }
 
-std::string RaftState::id() const
+std::string raft::State::id() const
 {
 	return id_;
 }
 
-std::vector<std::string> RaftState::nodes() const
+std::vector<std::string> raft::State::nodes() const
 {
 	return nodes_;
 }
 
-uint32_t RaftState::term() const
+uint32_t raft::State::term() const
 {
 	return log_.term();
 }
 
-boost::optional<std::string> RaftState::leader() const
+boost::optional<std::string> raft::State::leader() const
 {
 	return leader_;
 }
 
-const RaftLog& RaftState::log() const
+const raft::Log& raft::State::log() const
 {
 	return log_;
 }
 
-void RaftState::commit_available()
+void raft::State::append(const Json::Value& root)
+{
+	if(leader_ && *leader_ == id_)
+	{
+		raft::log::LogEntry entry(log_.term(), log_.last_index() + 1, root);
+		log_.write(entry);
+	}
+		throw std::logic_error("This node is not the leader");
+}
+
+void raft::State::commit_available()
 {
 	for(; last_applied_ < commit_index_ && last_applied_ < log_.last_index();
 			++last_applied_)
 		handlers_.commit(log_[last_applied_ + 1].action());
 }
 
-void RaftState::term_update(uint32_t term)
+void raft::State::term_update(uint32_t term)
 {
 	assert(term == log_.term());
 	BOOST_LOG_TRIVIAL(info) << "Raft state machine updating to new term: " << term;
@@ -336,7 +346,7 @@ void RaftState::term_update(uint32_t term)
 }
 
 
-void RaftState::check_commit()
+void raft::State::check_commit()
 {
 	uint32_t trial_index = commit_index_ + 1;
 	while(trial_index < log_.last_index())
@@ -361,13 +371,13 @@ void RaftState::check_commit()
 	}
 }
 
-void RaftState::heartbeat()
+void raft::State::heartbeat()
 {
 	for(const std::string& node : nodes_)
 		heartbeat(node);
 }
 
-void RaftState::heartbeat(const std::string& node)
+void raft::State::heartbeat(const std::string& node)
 {
 	if(std::get<0>(client_index_[node]) == log_.last_index() + 1)
 	{
@@ -420,13 +430,13 @@ void RaftState::heartbeat(const std::string& node)
 	}
 }
 
-void RaftState::transition_follower()
+void raft::State::transition_follower()
 {
 	state_ = follower_state;
 	leader_ = boost::none;
 }
 
-void RaftState::transition_candidate()
+void raft::State::transition_candidate()
 {
 	state_ = candidate_state;
 	votes_.clear();
@@ -451,7 +461,7 @@ void RaftState::transition_candidate()
 	}
 }
 
-void RaftState::transition_leader()
+void raft::State::transition_leader()
 {
 	state_ = leader_state;
 	client_index_.clear();
@@ -464,7 +474,7 @@ void RaftState::transition_leader()
 	heartbeat();
 }
 
-uint32_t RaftState::calculate_majority()
+uint32_t raft::State::calculate_majority()
 {
 	//nodes_.size() + 1 because we're not stored in nodes
 	return ((nodes_.size() + 1) / 2) + 1;

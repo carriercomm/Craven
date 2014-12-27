@@ -156,7 +156,7 @@ namespace raft
 }
 
 
-ClientHandlers::ClientHandlers(const send_request_type& send_request, const append_to_log_type& append_to_log,
+raft::Client::Handlers::Handlers(const send_request_type& send_request, const append_to_log_type& append_to_log,
 		const leader_type& leader)
 	:send_request_(send_request),
 	append_to_log_(append_to_log),
@@ -164,28 +164,28 @@ ClientHandlers::ClientHandlers(const send_request_type& send_request, const appe
 {
 }
 
-void ClientHandlers::send_request(const std::string& to, const Json::Value& request) const
+void raft::Client::Handlers::send_request(const std::string& to, const Json::Value& request) const
 {
 	send_request_(to, request);
 }
 
-void ClientHandlers::append_to_log(const Json::Value& request) const
+void raft::Client::Handlers::append_to_log(const Json::Value& request) const
 {
 	append_to_log_(request);
 }
 
-boost::optional<std::string> ClientHandlers::leader() const
+boost::optional<std::string> raft::Client::Handlers::leader() const
 {
 	return leader_();
 }
 
-RaftClient::RaftClient(const std::string& id, ClientHandlers& handlers)
+raft::Client::Client(const std::string& id, raft::Client::Handlers& handlers)
 	:id_(id),
 	handlers_(handlers)
 {
 }
 
-void RaftClient::commit_handler(const Json::Value& root)
+void raft::Client::commit_handler(const Json::Value& root)
 {
 	const std::string type = json_help::checked_from_json<std::string>(root, "type", "Bad commit RPC:");
 	if(type == "update")
@@ -228,39 +228,39 @@ void RaftClient::commit_handler(const Json::Value& root)
 	else throw std::runtime_error("Bad commit RPC: unknown type " + type);
 }
 
-bool RaftClient::exists(const std::string& key) const noexcept
+bool raft::Client::exists(const std::string& key) const noexcept
 {
 	return version_map_.count(key) == 1;
 }
 
-std::tuple<std::string, std::string> RaftClient::operator [](const std::string& key) noexcept(false)
+std::tuple<std::string, std::string> raft::Client::operator [](const std::string& key) noexcept(false)
 {
 	return version_map_.at(key);
 }
 
-void RaftClient::apply_to(const raft::request::Update& update, version_map_type& version_map)
+void raft::Client::apply_to(const raft::request::Update& update, version_map_type& version_map)
 {
 	version_map[update.key()] = std::make_tuple(update.new_version(), update.from());
 }
 
-void RaftClient::apply_to(const raft::request::Delete& update, version_map_type& version_map)
+void raft::Client::apply_to(const raft::request::Delete& update, version_map_type& version_map)
 {
 	version_map.erase(update.key());
 }
 
-void RaftClient::apply_to(const raft::request::Rename& update, version_map_type& version_map)
+void raft::Client::apply_to(const raft::request::Rename& update, version_map_type& version_map)
 {
 	version_map[update.new_key()] = std::make_tuple(std::get<0>(version_map[update.key()]),
 			update.from());
 	version_map.erase(update.key());
 }
 
-void RaftClient::apply_to(const raft::request::Add& update, version_map_type& version_map)
+void raft::Client::apply_to(const raft::request::Add& update, version_map_type& version_map)
 {
 	version_map[update.key()] = std::make_tuple(update.version(), update.from());
 }
 
-bool RaftClient::check_conflict(const raft::request::Update& update) const
+bool raft::Client::check_conflict(const raft::request::Update& update) const
 {
 	if(pending_version_map_.count(update.key()))
 		return std::get<0>(pending_version_map_.at(update.key())) != update.old_version();
@@ -270,7 +270,7 @@ bool RaftClient::check_conflict(const raft::request::Update& update) const
 		return true;
 }
 
-bool RaftClient::check_conflict(const raft::request::Delete& del) const
+bool raft::Client::check_conflict(const raft::request::Delete& del) const
 {
 	if(pending_version_map_.count(del.key()))
 		return std::get<0>(pending_version_map_.at(del.key())) != del.version();
@@ -280,7 +280,7 @@ bool RaftClient::check_conflict(const raft::request::Delete& del) const
 	return true;
 }
 
-bool RaftClient::check_conflict(const raft::request::Rename& rename) const
+bool raft::Client::check_conflict(const raft::request::Rename& rename) const
 {
 	if(!(pending_version_map_.count(rename.new_key()) == 1
 		|| version_map_.count(rename.new_key()) == 1))
@@ -294,13 +294,13 @@ bool RaftClient::check_conflict(const raft::request::Rename& rename) const
 	return true;
 }
 
-bool RaftClient::check_conflict(const raft::request::Add& add) const
+bool raft::Client::check_conflict(const raft::request::Add& add) const
 {
 	return version_map_.count(add.key()) == 1 || pending_version_map_.count(add.key()) == 1;
 }
 
 
-bool RaftClient::done(raft::request::Update::const_reference request, const version_map_type& version_map) const noexcept
+bool raft::Client::done(raft::request::Update::const_reference request, const version_map_type& version_map) const noexcept
 {
 	try
 	{
@@ -309,24 +309,24 @@ bool RaftClient::done(raft::request::Update::const_reference request, const vers
 	}
 	catch(std::exception& ex)
 	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::done(Update...). Ignoring. Details: "
+		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Update...). Ignoring. Details: "
 			<< ex.what();
 	}
 	catch(...)
 	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::done(Update...). Ignoring.";
+		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Update...). Ignoring.";
 	}
 
 	return false;
 }
 
-bool RaftClient::done(raft::request::Delete::const_reference request, const version_map_type& version_map) const noexcept
+bool raft::Client::done(raft::request::Delete::const_reference request, const version_map_type& version_map) const noexcept
 {
 	//can't tell if the've been done
 	return false;
 }
 
-bool RaftClient::done(raft::request::Rename::const_reference request, const version_map_type& version_map) const noexcept
+bool raft::Client::done(raft::request::Rename::const_reference request, const version_map_type& version_map) const noexcept
 {
 	try
 	{
@@ -335,18 +335,18 @@ bool RaftClient::done(raft::request::Rename::const_reference request, const vers
 	}
 	catch(std::exception& ex)
 	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::done(Rename...). Ignoring. Details: "
+		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Rename...). Ignoring. Details: "
 			<< ex.what();
 	}
 	catch(...)
 	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::done(Rename...). Ignoring.";
+		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Rename...). Ignoring.";
 	}
 
 	return false;
 }
 
-bool RaftClient::done(raft::request::Add::const_reference request, const version_map_type& version_map) const noexcept
+bool raft::Client::done(raft::request::Add::const_reference request, const version_map_type& version_map) const noexcept
 {
 	try
 	{
@@ -355,12 +355,12 @@ bool RaftClient::done(raft::request::Add::const_reference request, const version
 	}
 	catch(std::exception& ex)
 	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::done(Add...). Ignoring. Details: "
+		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Add...). Ignoring. Details: "
 			<< ex.what();
 	}
 	catch(...)
 	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in RaftClient::done(Add...). Ignoring.";
+		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Add...). Ignoring.";
 	}
 
 	return false;

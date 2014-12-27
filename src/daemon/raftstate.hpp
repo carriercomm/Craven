@@ -4,171 +4,175 @@
 
 #include "raftlog.hpp"
 
-//! Class (so I can clean up the interface) providing RPC callbacks
-class rpc_handlers
+namespace raft
 {
-public:
-	//! Specifies what timeout the state machine wants
-	enum timeout_length {
-		leader_timeout, //!< Setup a timeout suitable for a leader
-		election_timeout //!< Setup a timeout suitable to trigger a new election
+	//! Class (so I can clean up the interface) providing RPC callbacks
+	class rpc_handlers
+	{
+	public:
+		//! Specifies what timeout the state machine wants
+		enum timeout_length {
+			leader_timeout, //!< Setup a timeout suitable for a leader
+			election_timeout //!< Setup a timeout suitable to trigger a new election
+		};
+
+		typedef std::function<void (const std::string&, const raft::rpc::append_entries&)> append_entries_type;
+		typedef std::function<void (const std::string&, const raft::rpc::request_vote&)> request_vote_type;
+		typedef std::function<void (timeout_length)> timeout_type;
+		typedef std::function<void (const Json::Value&)> commit_type;
+
+		rpc_handlers() = default;
+		rpc_handlers(const append_entries_type& append_entries, const
+				request_vote_type& request_vote, const timeout_type& request_timeout,
+				const commit_type& commit);
+
+		void append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc);
+
+		void request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc);
+
+		void request_timeout(timeout_length length);
+
+		void commit(const Json::Value& value);
+	protected:
+		append_entries_type append_entries_;
+		request_vote_type request_vote_;
+		timeout_type request_timeout_;
+		commit_type commit_;
 	};
 
-	typedef std::function<void (const std::string&, const raft::rpc::append_entries&)> append_entries_type;
-	typedef std::function<void (const std::string&, const raft::rpc::request_vote&)> request_vote_type;
-	typedef std::function<void (timeout_length)> timeout_type;
-	typedef std::function<void (const Json::Value&)> commit_type;
+	//! Class providing the volatile state & RPC handling for Raft
+	class State
+	{
+	public:
+		//! Constructor for the raft::State instance.
+		/*!
+		 *  \param id The ID of this node
+		 *  \param nodes The list of nodes in the Raft system (not including this one).
+		 *  \param log_file The path to the raft write-ahead log file
+		 *  \param handlers A structure containing the RPC callbacks for this instance
+		 *  to communicate with others (possibly over the network -- that detail is
+		 *  hidden from this class). The callback additionally provide neat type
+		 *  erasure, allowing untemplated testing.
+		 */
+		State(const std::string& id, const std::vector<std::string>& nodes,
+				const std::string& log_file, const rpc_handlers& handlers);
 
-	rpc_handlers() = default;
-	rpc_handlers(const append_entries_type& append_entries, const
-			request_vote_type& request_vote, const timeout_type& request_timeout,
-			const commit_type& commit);
+		//! Handler called on timeout.
+		/*!
+		 *  This is the handler called by the RPC provider when the timeout fires.
+		 */
+		void timeout();
 
-	void append_entries(const std::string& endpoint, const raft::rpc::append_entries& rpc);
+		enum Status {follower_state, candidate_state, leader_state};
 
-	void request_vote(const std::string& endpoint, const raft::rpc::request_vote& rpc);
+		//! Returns the type of Raft node this instance is currently being.
+		Status state() const;
 
-	void request_timeout(timeout_length length);
+		//! AppendEntries RPC from the Raft paper.
+		/*!
+		 *  This function is used to signify to the raft::State instance that an
+		 *  AppendEntries RPC has arrived.
+		 *
+		 *  \param rpc The RPC's arguments
+		 *
+		 *  \returns A tuple: the first element is the term of this node, the second
+		 *  element is true if this node has an entry that matches prev_log_* -- i.e.
+		 *  the logs are consistent up to that index.
+		 */
+		std::tuple<uint32_t, bool> append_entries(const raft::rpc::append_entries& rpc);
 
-	void commit(const Json::Value& value);
-protected:
-	append_entries_type append_entries_;
-	request_vote_type request_vote_;
-	timeout_type request_timeout_;
-	commit_type commit_;
-};
+		//! The response handler for append_entries
+		void append_entries_response(const std::string& from,
+				const raft::rpc::append_entries_response& rpc);
 
-//! Class providing the volatile state & RPC handling for Raft
-class RaftState
-{
-public:
-	//! Constructor for the RaftState instance.
-	/*!
-	 *  \param id The ID of this node
-	 *  \param nodes The list of nodes in the Raft system (not including this one).
-	 *  \param log_file The path to the raft write-ahead log file
-	 *  \param handlers A structure containing the RPC callbacks for this instance
-	 *  to communicate with others (possibly over the network -- that detail is
-	 *  hidden from this class). The callback additionally provide neat type
-	 *  erasure, allowing untemplated testing.
-	 */
-	RaftState(const std::string& id, const std::vector<std::string>& nodes,
-			const std::string& log_file, const rpc_handlers& handlers);
+		//! RequestVote RPC
+		/*!
+		 *  This function is used to signify to the raft::State instance that a
+		 *  RequestVote RPC has arrived.
+		 *
+		 *  \param rpc The rpc's arguments
+		 *
+		 *  \returns A tuple: the first element is the term of this node (if the
+		 *  candidate is out of date, it'll update itself with this); the second is
+		 *  true if this node votes for the candidate.
+		 */
+		std::tuple<uint32_t, bool> request_vote(const raft::rpc::request_vote& rpc);
 
-	//! Handler called on timeout.
-	/*!
-	 *  This is the handler called by the RPC provider when the timeout fires.
-	 */
-	void timeout();
+		//! The response handler for request_vote
+		void request_vote_response(const std::string& from,
+				const raft::rpc::request_vote_response& rpc);
 
-	enum State {follower_state, candidate_state, leader_state};
+		std::string id() const;
 
-	//! Returns the type of Raft node this instance is currently being.
-	State state() const;
+		std::vector<std::string> nodes() const;
 
-	//! AppendEntries RPC from the Raft paper.
-	/*!
-	 *  This function is used to signify to the RaftState instance that an
-	 *  AppendEntries RPC has arrived.
-	 *
-	 *  \param rpc The RPC's arguments
-	 *
-	 *  \returns A tuple: the first element is the term of this node, the second
-	 *  element is true if this node has an entry that matches prev_log_* -- i.e.
-	 *  the logs are consistent up to that index.
-	 */
-	std::tuple<uint32_t, bool> append_entries(const raft::rpc::append_entries& rpc);
+		//! Retrieve the current term
+		uint32_t term() const;
 
-	//! The response handler for append_entries
-	void append_entries_response(const std::string& from,
-			const raft::rpc::append_entries_response& rpc);
+		//! Return the current leader, if their identity is known.
+		/*!
+		 *  \returns boost::none if the leader for this term is not known or has not
+		 *  yet been elected (which is indistinguishable).
+		 */
+		boost::optional<std::string> leader() const;
 
-	//! RequestVote RPC
-	/*!
-	 *  This function is used to signify to the RaftState instance that a
-	 *  RequestVote RPC has arrived.
-	 *
-	 *  \param rpc The rpc's arguments
-	 *
-	 *  \returns A tuple: the first element is the term of this node (if the
-	 *  candidate is out of date, it'll update itself with this); the second is
-	 *  true if this node votes for the candidate.
-	 */
-	std::tuple<uint32_t, bool> request_vote(const raft::rpc::request_vote& rpc);
+		const Log& log() const;
 
-	//! The response handler for request_vote
-	void request_vote_response(const std::string& from,
-			const raft::rpc::request_vote_response& rpc);
+		void append(const Json::Value& root);
 
-	std::string id() const;
+	protected:
+		std::string id_;
+		std::vector<std::string> nodes_;
+		boost::optional<std::string> leader_;
 
-	std::vector<std::string> nodes() const;
+		Log log_;
 
-	//! Retrieve the current term
-	uint32_t term() const;
+		Status state_;
 
-	//! Return the current leader, if their identity is known.
-	/*!
-	 *  \returns boost::none if the leader for this term is not known or has not
-	 *  yet been elected (which is indistinguishable).
-	 */
-	boost::optional<std::string> leader() const;
+		rpc_handlers handlers_;
 
-	const RaftLog& log() const;
+		//volatile state on all servers
+		uint32_t commit_index_;
+		uint32_t last_applied_;
 
+		//volatile state on candidates
+		std::set<std::string> votes_;
 
-protected:
-	std::string id_;
-	std::vector<std::string> nodes_;
-	boost::optional<std::string> leader_;
+		//volatile state on leaders
 
-	RaftLog log_;
+		//! A map to each node's next_index and match_index
+		std::unordered_map<std::string, std::tuple<uint32_t, uint32_t>> client_index_;
 
-	State state_;
+		//! Helper function to apply all committed log entries
+		void commit_available();
 
-	rpc_handlers handlers_;
+		//! Term update handler
+		void term_update(uint32_t term);
 
-	//volatile state on all servers
-	uint32_t commit_index_;
-	uint32_t last_applied_;
+		//! Checks to see if any more entries can be committed and does so.
+		/*!
+		 *  This function is only invoked while the machine is running as a leader;
+		 *  otherwise the commit_index can only be updated by the term's leader.
+		 */
+		void check_commit();
 
-	//volatile state on candidates
-	std::set<std::string> votes_;
+		//! Performs a global heartbeat: up-to-date nodes are sent empty
+		//! append_requests while others are sent the next batch of entries.
+		void heartbeat();
 
-	//volatile state on leaders
+		//! Performs a heartbeat at a single node.
+		void heartbeat(const std::string& node);
 
-	//! A map to each node's next_index and match_index
-	std::unordered_map<std::string, std::tuple<uint32_t, uint32_t>> client_index_;
+		//! Handles transition to follower
+		void transition_follower();
 
-	//! Helper function to apply all committed log entries
-	void commit_available();
+		//! Handles transition to candidate
+		void transition_candidate();
 
-	//! Term update handler
-	void term_update(uint32_t term);
+		//! Handles transition to leader
+		void transition_leader();
 
-	//! Checks to see if any more entries can be committed and does so.
-	/*!
-	 *  This function is only invoked while the machine is running as a leader;
-	 *  otherwise the commit_index can only be updated by the term's leader.
-	 */
-	void check_commit();
-
-	//! Performs a global heartbeat: up-to-date nodes are sent empty
-	//! append_requests while others are sent the next batch of entries.
-	void heartbeat();
-
-	//! Performs a heartbeat at a single node.
-	void heartbeat(const std::string& node);
-
-	//! Handles transition to follower
-	void transition_follower();
-
-	//! Handles transition to candidate
-	void transition_candidate();
-
-	//! Handles transition to leader
-	void transition_leader();
-
-	//! Calculates the number of nodes required for a majority
-	uint32_t calculate_majority();
-};
+		//! Calculates the number of nodes required for a majority
+		uint32_t calculate_majority();
+	};
+}

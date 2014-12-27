@@ -46,7 +46,7 @@ public:
 	fs::path tmp_log() const;
 	bool handler_called() const;
 
-	rpc_handlers handler();
+	raft::rpc_handlers handler();
 
 	std::vector<std::tuple<std::string, raft::rpc::append_entries>>
 		append_entries_args_;
@@ -54,7 +54,7 @@ public:
 	std::vector<std::tuple<std::string, raft::rpc::request_vote>>
 		request_vote_args_;
 
-	std::vector<rpc_handlers::timeout_length> request_timeout_args_;
+	std::vector<raft::rpc_handlers::timeout_length> request_timeout_args_;
 
 	std::vector<Json::Value> commit_args_;
 
@@ -85,9 +85,9 @@ bool test_fixture::handler_called() const
 	return handler_called_;
 }
 
-rpc_handlers test_fixture::handler()
+raft::rpc_handlers test_fixture::handler()
 {
-	return rpc_handlers(
+	return raft::rpc_handlers(
 			[this](const std::string& to, const raft::rpc::append_entries& rpc)
 			{
 				handler_called_ = true;
@@ -98,7 +98,7 @@ rpc_handlers test_fixture::handler()
 				handler_called_ = true;
 				request_vote_args_.push_back(std::make_tuple(to, rpc));
 			},
-			[this](rpc_handlers::timeout_length timeout)
+			[this](raft::rpc_handlers::timeout_length timeout)
 			{
 				handler_called_ = true;
 				request_timeout_args_.push_back(timeout);
@@ -120,10 +120,10 @@ void test_fixture::write_for_stale() const
 
 BOOST_FIXTURE_TEST_CASE(starts_as_follower, test_fixture)
 {
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK_MESSAGE(!handler_called(), "Handlers shouldn't be called on startup");
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 
@@ -132,10 +132,10 @@ BOOST_FIXTURE_TEST_CASE(stale_append_entries_rejected_with_correct_term, test_fi
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::append_entries request(1, "bar", 1, 1, {}, 1);
 
@@ -144,7 +144,7 @@ BOOST_FIXTURE_TEST_CASE(stale_append_entries_rejected_with_correct_term, test_fi
 	BOOST_REQUIRE_EQUAL(std::get<0>(result), 2);
 	BOOST_REQUIRE(!std::get<1>(result));
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(stale_request_vote_rejected_with_correct_term, test_fixture)
@@ -155,10 +155,10 @@ BOOST_FIXTURE_TEST_CASE(stale_request_vote_rejected_with_correct_term, test_fixt
 			<< R"({"term":2,"type":"vote","for":"foo"})" << '\n';
 	}
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::request_vote request(1, "bar", 1, 1);
 
@@ -167,14 +167,14 @@ BOOST_FIXTURE_TEST_CASE(stale_request_vote_rejected_with_correct_term, test_fixt
 	BOOST_REQUIRE_EQUAL(std::get<0>(result), 2);
 	BOOST_REQUIRE(!std::get<1>(result));
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(append_entries_from_new_term_updates_term, test_fixture)
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	raft::rpc::append_entries request(3, "bar", 2, 2, {}, 2);
 
@@ -187,14 +187,14 @@ BOOST_FIXTURE_TEST_CASE(append_entries_from_new_term_updates_term, test_fixture)
 	BOOST_REQUIRE_MESSAGE(sut.leader(), "Leader cannot be none for this term.");
 	BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_term, test_fixture)
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	raft::rpc::append_entries request(2, "bar", 1, 2, {}, 1);
 
@@ -208,7 +208,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_term, test_fixtur
 	BOOST_REQUIRE(sut.leader());
 	BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_term_with_new_indices, test_fixture)
@@ -216,7 +216,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_term_with_new_ind
 	write_for_stale();
 
 	{
-		RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+		raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 		std::vector<std::tuple<uint32_t, Json::Value>> entries{std::make_tuple(2u, json_help::parse(R"({"foo": "bar"})"))};
 
@@ -233,7 +233,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_term_with_new_ind
 		BOOST_REQUIRE(sut.leader());
 		BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-		BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+		BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 	}
 
 	std::ifstream log(tmp_log().string());
@@ -251,7 +251,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_term_with_new_ind
 BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_index_late, test_fixture)
 {
 	write_for_stale();
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	raft::rpc::append_entries request(2, "bar", 2, 3, {}, 2);
 
@@ -265,7 +265,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_index_late, test_
 	BOOST_REQUIRE(sut.leader());
 	BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_index_late_with_new_indices, test_fixture)
@@ -273,7 +273,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_index_late_with_n
 	write_for_stale();
 
 	{
-		RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+		raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 		std::vector<std::tuple<uint32_t, Json::Value>> entries{std::make_tuple(2u, json_help::parse(R"({"foo": "bar"})"))};
 
@@ -289,7 +289,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_incorrect_prev_log_index_late_with_n
 		BOOST_REQUIRE(sut.leader());
 		BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-		BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+		BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 	}
 
 	std::ifstream log(tmp_log().string());
@@ -309,7 +309,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log, test_fixture)
 	write_for_stale();
 
 	{
-		RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+		raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 		raft::rpc::append_entries request(2, "bar", 2, 2, {}, 2);
 
@@ -323,7 +323,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log, test_fixture)
 		BOOST_REQUIRE(sut.leader());
 		BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-		BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+		BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 	}
 
 	std::ifstream log(tmp_log().string());
@@ -342,7 +342,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log_requests_new_timeou
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	raft::rpc::append_entries request(2, "bar", 2, 2, {}, 2);
 
@@ -356,9 +356,9 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log_requests_new_timeou
 	BOOST_REQUIRE(sut.leader());
 	BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::follower_state);
 	BOOST_CHECK_EQUAL(request_timeout_args_.size(), 1);
 }
 
@@ -367,7 +367,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log_appends_entries, te
 	write_for_stale();
 
 	{
-		RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+		raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 		std::vector<std::tuple<uint32_t, Json::Value>> entries{std::make_tuple(2u, json_help::parse(R"({"foo": "bar"})"))};
 
@@ -383,7 +383,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log_appends_entries, te
 		BOOST_REQUIRE(sut.leader());
 		BOOST_REQUIRE_EQUAL(*sut.leader(), "bar");
 
-		BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+		BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 	}
 
 	std::ifstream log(tmp_log().string());
@@ -411,11 +411,11 @@ BOOST_FIXTURE_TEST_CASE(timeout_switches_to_candidate_state_fires_requests, test
 			<< R"({"term":2,"type":"entry","index":3,"action":"thud"})" << '\n';
 	}
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 	BOOST_REQUIRE_EQUAL(sut.term(), 3);
 	BOOST_REQUIRE(handler_called());
 	BOOST_REQUIRE_EQUAL(request_timeout_args_.size(), 1);
@@ -446,10 +446,10 @@ BOOST_FIXTURE_TEST_CASE(request_vote_already_voted_different_endpoint_reject, te
 			<< R"({"term":2,"type":"vote","for":"foo"})" << '\n';
 	}
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::request_vote request(2, "bar", 1, 1);
 
@@ -458,7 +458,7 @@ BOOST_FIXTURE_TEST_CASE(request_vote_already_voted_different_endpoint_reject, te
 	BOOST_REQUIRE_EQUAL(std::get<0>(result), 2);
 	BOOST_REQUIRE(!std::get<1>(result));
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(request_vote_already_voted_same_endpoint_repeat, test_fixture)
@@ -470,10 +470,10 @@ BOOST_FIXTURE_TEST_CASE(request_vote_already_voted_same_endpoint_repeat, test_fi
 			<< R"({"term":2,"type":"vote","for":"foo"})" << '\n';
 	}
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::request_vote request(2, "foo", 1, 1);
 
@@ -482,17 +482,17 @@ BOOST_FIXTURE_TEST_CASE(request_vote_already_voted_same_endpoint_repeat, test_fi
 	BOOST_REQUIRE_EQUAL(std::get<0>(result), 2);
 	BOOST_REQUIRE(std::get<1>(result));
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(request_vote_first_come_first_served, test_fixture)
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::request_vote request(3, "foo", 2, 3);
 	raft::rpc::request_vote request2(3, "bar", 2, 4);
@@ -516,10 +516,10 @@ BOOST_FIXTURE_TEST_CASE(request_vote_last_log_term_lower_reject, test_fixture)
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::request_vote request(3, "foo", 1, 2);
 
@@ -539,10 +539,10 @@ BOOST_FIXTURE_TEST_CASE(request_vote_last_log_index_lower_reject, test_fixture)
 			<< R"({"term":2,"type":"entry","index":3,"action":"thud"})" << '\n';
 	}
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::request_vote request(3, "foo", 2, 2);
 
@@ -556,10 +556,10 @@ BOOST_FIXTURE_TEST_CASE(request_vote_last_log_later_accept, test_fixture)
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK(!handler_called());
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	raft::rpc::request_vote request(3, "foo", 2, 3);
 
@@ -574,11 +574,11 @@ BOOST_FIXTURE_TEST_CASE(candidate_receiving_majority_votes_switches_to_leader_fi
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
 			[](const std::tuple<std::string, raft::rpc::request_vote>& a) -> bool
@@ -591,7 +591,7 @@ BOOST_FIXTURE_TEST_CASE(candidate_receiving_majority_votes_switches_to_leader_fi
 	//Only need one for a majority
 	sut.request_vote_response("bar", rvr);
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::leader_state);
 	BOOST_CHECK(sut.leader());
 	BOOST_CHECK_EQUAL(*sut.leader(), "eris");
 
@@ -618,11 +618,11 @@ BOOST_FIXTURE_TEST_CASE(receive_append_for_current_term_respond_and_switch_to_fo
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	raft::rpc::append_entries rpc(3, "foo", 2, 2, {}, 2);
 
@@ -631,18 +631,18 @@ BOOST_FIXTURE_TEST_CASE(receive_append_for_current_term_respond_and_switch_to_fo
 	BOOST_CHECK(sut.leader());
 	BOOST_CHECK_EQUAL(*sut.leader(), "foo");
 	BOOST_CHECK_EQUAL(sut.term(), 3);
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
 BOOST_FIXTURE_TEST_CASE(receive_append_for_later_term_respond_and_switch_to_follower, test_fixture)
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	raft::rpc::append_entries rpc(4, "foo", 2, 2, {}, 2);
 
@@ -651,7 +651,7 @@ BOOST_FIXTURE_TEST_CASE(receive_append_for_later_term_respond_and_switch_to_foll
 	BOOST_CHECK(sut.leader());
 	BOOST_CHECK_EQUAL(*sut.leader(), "foo");
 	BOOST_CHECK_EQUAL(sut.term(), 4);
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 }
 
@@ -659,11 +659,11 @@ BOOST_FIXTURE_TEST_CASE(receive_vote_request_for_later_term_respond_and_switch_t
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	raft::rpc::request_vote rpc(4, "foo", 2, 2);
 
@@ -672,7 +672,7 @@ BOOST_FIXTURE_TEST_CASE(receive_vote_request_for_later_term_respond_and_switch_t
 	//Should have no leader; just a vote request
 	BOOST_CHECK(!sut.leader());
 	BOOST_CHECK_EQUAL(sut.term(), 4);
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 }
 
@@ -680,18 +680,18 @@ BOOST_FIXTURE_TEST_CASE(timeout_from_candidate_creates_new_vote_term, test_fixtu
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
 	request_vote_args_.clear();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 	BOOST_REQUIRE_EQUAL(sut.term(), 3);
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 	BOOST_REQUIRE_EQUAL(sut.term(), 4);
 
 	BOOST_REQUIRE_EQUAL(request_vote_args_.size(), 2);
@@ -717,11 +717,11 @@ BOOST_FIXTURE_TEST_CASE(leader_timeout_sends_heartbeats, test_fixture)
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
 			[](const std::tuple<std::string, raft::rpc::request_vote>& a) -> bool
@@ -734,7 +734,7 @@ BOOST_FIXTURE_TEST_CASE(leader_timeout_sends_heartbeats, test_fixture)
 	//Only need one for a majority
 	sut.request_vote_response("bar", rvr);
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::leader_state);
 
 	//Reset the append_entries handler
 	append_entries_args_.clear();
@@ -742,7 +742,7 @@ BOOST_FIXTURE_TEST_CASE(leader_timeout_sends_heartbeats, test_fixture)
 	sut.timeout();
 
 	//check it's still a leader
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::leader_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::leader_state);
 
 	BOOST_REQUIRE_EQUAL(append_entries_args_.size(), 2);
 	BOOST_REQUIRE(std::get<0>(append_entries_args_[0]) == "foo" ||
@@ -768,11 +768,11 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_arrives_does_nothing_if_up_to_
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
 			[](const std::tuple<std::string, raft::rpc::request_vote>& a) -> bool
@@ -785,7 +785,7 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_arrives_does_nothing_if_up_to_
 	//Only need one for a majority
 	sut.request_vote_response("bar", rvr);
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::leader_state);
 
 	auto bar_append = std::find_if(append_entries_args_.begin(), append_entries_args_.end(),
 			[](const std::tuple<std::string, raft::rpc::append_entries>& a) -> bool
@@ -805,11 +805,11 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_decrement_next_index_on_failur
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
 			[](const std::tuple<std::string, raft::rpc::request_vote>& a) -> bool
@@ -822,7 +822,7 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_decrement_next_index_on_failur
 	//Only need one for a majority
 	sut.request_vote_response("bar", rvr);
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::leader_state);
 
 	append_entries_args_.clear();
 
@@ -851,11 +851,11 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_fallback_to_follower_on_newer_
 {
 	write_for_stale();
 
-	RaftState sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	sut.timeout();
 
-	BOOST_REQUIRE_EQUAL(sut.state(), RaftState::candidate_state);
+	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 
 	auto bar_request = std::find_if(request_vote_args_.begin(), request_vote_args_.end(),
 			[](const std::tuple<std::string, raft::rpc::request_vote>& a) -> bool
@@ -868,7 +868,7 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_fallback_to_follower_on_newer_
 	//Only need one for a majority
 	sut.request_vote_response("bar", rvr);
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::leader_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::leader_state);
 
 	append_entries_args_.clear();
 
@@ -883,6 +883,6 @@ BOOST_FIXTURE_TEST_CASE(leader_heartbeat_response_fallback_to_follower_on_newer_
 	//Only need one for a majority
 	sut.append_entries_response("bar", aer);
 
-	BOOST_CHECK_EQUAL(sut.state(), RaftState::follower_state);
+	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 	BOOST_CHECK(!sut.leader());
 }
