@@ -56,6 +56,11 @@ namespace raft
 			return old_version_;
 		}
 
+		std::string Update::version() const noexcept
+		{
+			return new_version_;
+		}
+
 		std::string Update::new_version() const noexcept
 		{
 			return new_version_;
@@ -187,7 +192,6 @@ void RaftClient::commit_handler(const Json::Value& root)
 	{
 		raft::request::Update entry(root);
 		commit_if_valid(entry);
-
 	}
 	else if(type == "delete")
 	{

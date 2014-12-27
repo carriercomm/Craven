@@ -19,6 +19,16 @@
 #include "../raftstate.hpp"
 #include "../raftclient.hpp"
 
+struct disable_logging
+{
+	disable_logging()
+	{
+		boost::log::core::get()->set_logging_enabled(false);
+	}
+};
+
+BOOST_GLOBAL_FIXTURE(disable_logging)
+
 class test_fixture
 {
 public:

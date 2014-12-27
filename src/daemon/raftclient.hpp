@@ -79,6 +79,9 @@ namespace raft
 			operator Json::Value() const;
 
 			std::string old_version() const noexcept;
+			//! Same as new_version; for compatibility
+			std::string version() const noexcept;
+
 			std::string new_version() const noexcept;
 
 		protected:
@@ -246,8 +249,12 @@ public:
 				//else ignore
 			}
 			else
+			{
+				pending_version_map_.clear();
+
 				if(!done(request, version_map_))
 					handlers_.send_request(*leader_id, request);
+			}
 		}
 		//else ignore
 	}
@@ -332,7 +339,15 @@ protected:
 			throw std::runtime_error("Bad commit: conflicts");
 
 		if(commit_valid == request_valid)
+		{
 			apply_to(entry, version_map_);
+
+			//Remove the entry from pending if it's in there
+			if(pending_version_map_.count(entry.key()) == 1 &&
+					std::get<0>(pending_version_map_[entry.key()]) == entry.version())
+				pending_version_map_.erase(entry.key());
+
+		}
 	}
 
 	void apply_to(const raft::request::Update& update, version_map_type& version_map);
