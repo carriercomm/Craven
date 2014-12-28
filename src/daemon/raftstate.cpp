@@ -55,6 +55,7 @@ raft::State::State(const std::string& id, const std::vector<std::string>& nodes,
 	commit_index_(0),
 	last_applied_(0)
 {
+	transition_follower();
 }
 
 void raft::State::timeout()
@@ -64,9 +65,8 @@ void raft::State::timeout()
 		BOOST_LOG_TRIVIAL(info) << "Broadcasting candidacy for new election term.";
 		//update the term
 		log_.write(log_.term() + 1);
-		//Perform the transition
+		//Perform the transition (which will also ask for the timeout)
 		transition_candidate();
-		handlers_.request_timeout(State::Handlers::election_timeout);
 	}
 	else
 	{
@@ -434,6 +434,7 @@ void raft::State::transition_follower()
 {
 	state_ = follower_state;
 	leader_ = boost::none;
+	handlers_.request_timeout(Handlers::election_timeout);
 }
 
 void raft::State::transition_candidate()
@@ -459,6 +460,7 @@ void raft::State::transition_candidate()
 
 		handlers_.request_vote(node, msg);
 	}
+	handlers_.request_timeout(Handlers::election_timeout);
 }
 
 void raft::State::transition_leader()

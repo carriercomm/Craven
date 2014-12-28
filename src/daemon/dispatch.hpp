@@ -202,7 +202,7 @@ protected:
 	connection_pool_type& pool_;
 
 	std::unordered_map<std::string, std::function<void (const Json::Value&,
-			const Callback&)>> register_;
+			Callback)>> register_;
 
 	bool check_message_valid(const Json::Value& msg)
 	{

@@ -80,7 +80,7 @@ test_fixture::test_fixture()
 			},
 			[this](raft::State::Handlers::timeout_length timeout)
 			{
-				handler_called_ = true;
+				//no handler called marking because I don't want to check this
 				request_timeout_args_.push_back(timeout);
 			},
 			[this](const Json::Value& value)
@@ -125,6 +125,7 @@ BOOST_FIXTURE_TEST_CASE(starts_as_follower, test_fixture)
 	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
 
 	BOOST_CHECK_MESSAGE(!handler_called(), "Handlers shouldn't be called on startup");
+	BOOST_CHECK_EQUAL(request_timeout_args_.size(), 1);
 	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 }
 
@@ -361,7 +362,7 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log_requests_new_timeou
 	BOOST_CHECK_EQUAL(sut.state(), raft::State::follower_state);
 
 	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::follower_state);
-	BOOST_CHECK_EQUAL(request_timeout_args_.size(), 1);
+	BOOST_CHECK_EQUAL(request_timeout_args_.size(), 2);
 }
 
 BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log_appends_entries, test_fixture)
@@ -414,13 +415,15 @@ BOOST_FIXTURE_TEST_CASE(timeout_switches_to_candidate_state_fires_requests, test
 	}
 
 	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
+	request_timeout_args_.clear();
 
 	sut.timeout();
 
 	BOOST_REQUIRE_EQUAL(sut.state(), raft::State::candidate_state);
 	BOOST_REQUIRE_EQUAL(sut.term(), 3);
 	BOOST_REQUIRE(handler_called());
-	BOOST_REQUIRE_EQUAL(request_timeout_args_.size(), 1);
+	//Twice because of the inner mechanics of the class
+	BOOST_REQUIRE_EQUAL(request_timeout_args_.size(), 2);
 
 	BOOST_REQUIRE_EQUAL(request_vote_args_.size(), 2);
 	BOOST_REQUIRE(std::get<0>(request_vote_args_[0]) == "foo" ||
