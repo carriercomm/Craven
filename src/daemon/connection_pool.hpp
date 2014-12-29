@@ -139,7 +139,10 @@ public:
 	void add_connection(const uid_type& endpoint, typename connection_type::pointer connection)
 	{
 		if(!connections_.count(endpoint) || !connections_[endpoint]->is_open())
+		{
+			connections[endpoint] = connection;
 			install_handlers(endpoint, connection);
+		}
 	}
 
 	bool exists(const uid_type& endpoint) const
