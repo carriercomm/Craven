@@ -28,7 +28,7 @@ namespace raft
 	Controller::TimerLength::TimerLength(uint32_t seed, uint32_t leader, uint32_t election, uint32_t fuzz)
 		:gen_(seed),
 		leader_(leader - fuzz/2, leader + fuzz/2),
-		election_(election - fuzz/2, leader + fuzz/2)
+		election_(election - fuzz/2, election + fuzz/2)
 	{
 	}
 
