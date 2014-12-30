@@ -91,6 +91,8 @@ public:
 		};
 	}
 
+	TopLevelDispatch(const TopLevelDispatch& ot) = delete;
+
 	//! Dispatch the RPC encoded in msg.
 	/*!
 	 *  This function deserialises an RPC and dispatches it to the
@@ -103,6 +105,8 @@ public:
 	 */
 	void operator()(const std::string& msg, const typename connection_pool_type::Callback& cb)
 	{
+		BOOST_LOG_TRIVIAL(info) << "RPC from: " << cb.endpoint() << ": |"
+			<< msg << "|";
 		Json::Value root;
 		Json::Reader reader;
 		if(reader.parse(msg, root, false))
@@ -119,8 +123,12 @@ public:
 					register_[module_id](root["content"], module_callback);
 				}
 				else
+				{
 					BOOST_LOG_TRIVIAL(warning) << "RPC for unconnected module "
-						<< root["module"];
+						<< module_id;
+					BOOST_LOG_TRIVIAL(warning) << "The registry contains " << register_.size()
+						<< " entries.";
+				}
 			}
 			else
 				respond_with_error("Bad JSON format: need module and content members", cb);
@@ -157,6 +165,9 @@ public:
 			throw dispatcher_exists(id);
 
 		register_[id] = f;
+		assert(!register_.empty());
+		assert(register_.count(id));
+		BOOST_LOG_TRIVIAL(info) << "Connected RPC handler for module \"" << id << "\"";
 
 		return [this, id](const std::string& node, const std::string& module, const Json::Value& msg)
 		{
@@ -185,7 +196,8 @@ public:
 	//! Checks to see if the module id has a handler registered
 	bool connected(const std::string& id) const
 	{
-		return register_.count(id);
+		//Empty in there to avoid what seems to be a GCC bug.
+		return !register_.empty() && register_.count(id);
 	}
 
 	//! Disconnects module id; does nothing if it's not connected.

@@ -286,7 +286,15 @@ bool raft::Log::valid(const raft::log::LogEntry entry) const noexcept
 
 bool raft::Log::match(uint32_t term, uint32_t index) const noexcept
 {
-	return (index < log_.size() + 1) && (*this)[index].term() == term;
+	//special case
+	if(term == 0)
+		return index == 0;
+	BOOST_LOG_TRIVIAL(trace) << "Match: (" << term << ", " << index
+		<<") with ("
+		<< ((index <= log_.size()) ? std::to_string((*this)[index].term()) : "no term")
+		<< ", " << log_.size() << ")";
+
+	return (index <= log_.size()) && (*this)[index].term() == term;
 }
 
 raft::log::LogEntry raft::Log::operator[](uint32_t index) const noexcept(false)
@@ -366,6 +374,7 @@ void raft::Log::handle_state(const raft::log::LogEntry& entry) noexcept(false)
 
 		//Add this entry
 		log_.push_back(entry);
+		BOOST_LOG_TRIVIAL(info) << "Added a log entry, now on index " << last_index();
 
 		//Want a quiet ignore if the term is lower, but still bump up if term is
 		//greater.
@@ -382,6 +391,7 @@ void raft::Log::handle_state(const raft::log::LogEntry& entry) noexcept(false)
 	else if(entry.index() == last_index() + 1)
 	{
 		log_.push_back(entry);
+		BOOST_LOG_TRIVIAL(info) << "Added a log entry, now on index " << last_index();
 		handle_state(static_cast<const raft::log::Loggable&>(entry));
 	}
 	else
@@ -432,4 +442,8 @@ void raft::Log::write_json(const Json::Value& root)
 
 	stream_ << line;
 	stream_.flush();
+
+	//Remove the newline
+	line.pop_back();
+	BOOST_LOG_TRIVIAL(info) << "Wrote to log: " << line;
 }

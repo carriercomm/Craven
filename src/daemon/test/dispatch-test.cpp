@@ -5,6 +5,9 @@
 #include <vector>
 #include <tuple>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 #include <json/json.h>
 #include "../../common/json_help.hpp"
 

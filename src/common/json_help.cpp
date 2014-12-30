@@ -1,6 +1,7 @@
 #include <cstdint>
 
 #include <string>
+#include <sstream>
 #include <vector>
 #include <iterator>
 
@@ -40,10 +41,16 @@ uint32_t json_help::checked_from_json<uint32_t>(const Json::Value& root, const s
 {
 	membership_check(root, key, msg);
 
-	if(!root[key].isInt() || !root[key].asInt() >= 0)
-		throw std::runtime_error(msg + " " + key + " is not a uint");
+	if(root[key].isInt() && root[key].asInt() >= 0)
+		return static_cast<uint32_t>(root[key].asInt());
+	else
+	{
+		std::ostringstream os;
+		os << msg << " " << key << " is not a uint (type: ";
+		os << root[key].type() << ") (root:" << root << ")";
+		throw std::runtime_error(os.str());
+	}
 
-	return static_cast<uint32_t>(root[key].asInt());
 }
 
 template<>
@@ -52,7 +59,7 @@ bool json_help::checked_from_json<bool>(const Json::Value& root, const std::stri
 	membership_check(root, key, msg);
 
 	if(!root[key].isBool())
-		throw std::runtime_error(msg + " " + key + " is not a bool");
+		throw std::runtime_error(msg + " " + key + " is not a bool (value: ");
 
 	return root[key].asBool();
 }

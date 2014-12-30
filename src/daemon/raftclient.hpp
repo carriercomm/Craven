@@ -255,7 +255,11 @@ namespace raft
 					pending_version_map_.clear();
 
 					if(!done(request, version_map_))
+					{
+						BOOST_LOG_TRIVIAL(info) << "Forwarding request to leader: " << request;
+
 						handlers_.send_request(*leader_id, request);
+					}
 				}
 			}
 			//else ignore

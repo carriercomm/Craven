@@ -5,8 +5,21 @@
 #include <memory>
 #include <map>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 #include "../../common/connection.hpp"
 #include "../connection_pool.hpp"
+
+struct disable_logging
+{
+	disable_logging()
+	{
+		boost::log::core::get()->set_logging_enabled(false);
+	}
+};
+
+BOOST_GLOBAL_FIXTURE(disable_logging)
 
 struct connection_mock
 {

@@ -160,7 +160,10 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 			return std::make_tuple(log_.term(), true);
 		}
 		else
+		{
+			BOOST_LOG_TRIVIAL(info) << "No match in log.";
 			return std::make_tuple(log_.term(), false);
+		}
 	}
 
 	//Shouldn't get here, but just in case
@@ -182,13 +185,18 @@ void raft::State::append_entries_response(const std::string& from,
 
 				//We know last_index is the oldest replicated on the other
 				//machine, so the next to send to them is last_index + 1.
-				client_index_[from] = std::make_tuple(last_index + 1, last_index);
+				BOOST_LOG_TRIVIAL(info) << "Updating info for node " << from << " to: (" <<
+					last_index + 1 << ", " << last_index << ", false)";
+				client_index_[from] = std::make_tuple(last_index + 1, last_index, false);
 
 				check_commit();
 
 				//If there are remaining entries, pass them on.
 				if(std::get<0>(client_index_[from]) < log_.last_index())
+				{
+					BOOST_LOG_TRIVIAL(info) << "Responding to succesful append_entries with the remaining log entries.";
 					heartbeat(from);
+				}
 			}
 			else
 			{
@@ -244,6 +252,9 @@ std::tuple<uint32_t, bool> raft::State::request_vote(const raft::rpc::request_vo
 		}
 		//else normal voting rules below
 	}
+	else //no vote; we're a leader or candidate in the current term
+		return std::make_tuple(log_.term(), false);
+
 	bool vote = false;
 
 	if(log_.last_index() != 0)
@@ -323,12 +334,14 @@ const raft::Log& raft::State::log() const
 
 void raft::State::append(const Json::Value& root)
 {
-	if(leader_ && *leader_ == id_)
+	if(static_cast<bool>(leader_) && *leader_ == id_)
 	{
 		raft::log::LogEntry entry(log_.term(), log_.last_index() + 1, root);
 		log_.write(entry);
 	}
-		throw std::logic_error("This node is not the leader");
+	else
+		throw std::logic_error("This node (" + id_ + ") is not the leader: "
+				+ (leader_ ? *leader_ : "no leader") + ".");
 }
 
 void raft::State::commit_available()
@@ -349,12 +362,12 @@ void raft::State::term_update(uint32_t term)
 void raft::State::check_commit()
 {
 	uint32_t trial_index = commit_index_ + 1;
-	while(trial_index < log_.last_index())
+	while(trial_index <= log_.last_index())
 	{
 		if(log_[trial_index].term() == log_.term())
 		{
 			uint32_t number_have = 1;
-			for(const std::pair<std::string, std::tuple<uint32_t, uint32_t>> client
+			for(const std::pair<std::string, std::tuple<uint32_t, uint32_t, bool>> client
 					: client_index_)
 			{
 				if(std::get<1>(std::get<1>(client)) >= trial_index)
@@ -383,47 +396,69 @@ void raft::State::heartbeat(const std::string& node)
 	{
 		BOOST_LOG_TRIVIAL(info) << "Empty heartbeat to " << node;
 		//send an empty heartbeat
-		auto last_entry = log_[log_.last_index()];
+		std::tuple<uint32_t, uint32_t> entry_info(0, 0);
+
+		if(log_.last_index() > 0)
+		{
+			auto last_entry = log_[log_.last_index()];
+			entry_info = std::make_tuple(last_entry.term(), last_entry.index());
+		}
 
 		raft::rpc::append_entries msg(log_.term(), id_,
-				last_entry.term(), last_entry.index(),
+				std::get<0>(entry_info), std::get<1>(entry_info),
 				{}, commit_index_);
 
 		//send the message
 		handlers_.append_entries(node, msg);
 	}
-	else if(std::get<1>(client_index_[node]) == 0)
+	else if(std::get<2>(client_index_[node]))
 	{
 		BOOST_LOG_TRIVIAL(info) << "Finding match_index for " << node;
 		//Still trying to work out the match_index
 		uint32_t next_index = std::get<0>(client_index_[node]);
-		std::tuple<uint32_t, uint32_t> prev_log{0, 0};
-		if(next_index > 1)
+		if(next_index > log_.last_index())
 		{
-			auto entry = log_[next_index - 1];
+			BOOST_LOG_TRIVIAL(info) << "Information for follower " << node
+				<< " is nonsensical, resetting.";
+			client_index_[node] = std::make_tuple(log_.last_index() + 1, 0, true);
+		}
+		else
+		{
+			std::tuple<uint32_t, uint32_t> prev_log{0, 0};
+			if(next_index > 1)
+			{
+				auto entry = log_[next_index - 1];
+				prev_log = std::make_tuple(entry.term(), entry.index());
+			}
+
+			raft::rpc::append_entries msg(log_.term(), id_,
+					std::get<0>(prev_log), std::get<1>(prev_log),
+					{}, commit_index_);
+			handlers_.append_entries(node, msg);
+
+		}
+	}
+	else //plain old update
+	{
+		std::vector<std::tuple<uint32_t, Json::Value>> entries;
+		uint32_t from_log = std::get<0>(client_index_[node]);
+		entries.reserve(log_.last_index() - from_log);
+
+		BOOST_LOG_TRIVIAL(info) << "Update to " << node
+			<< ", adding logs: " << from_log << "--" << log_.last_index();
+
+		for(unsigned int i = from_log; i <= log_.last_index(); ++i)
+			entries.push_back(std::make_tuple(log_[i].term(), log_[i].action()));
+
+		std::tuple<uint32_t, uint32_t> prev_log{0, 0};
+		if(from_log > 1)
+		{
+			auto entry = log_[from_log - 1];
 			prev_log = std::make_tuple(entry.term(), entry.index());
 		}
 
 		raft::rpc::append_entries msg(log_.term(), id_,
 				std::get<0>(prev_log), std::get<1>(prev_log),
-				{}, commit_index_);
-		handlers_.append_entries(node, msg);
-
-	}
-	else //plain old update
-	{
-		BOOST_LOG_TRIVIAL(info) << "Empty heartbeat to " << node;
-		std::vector<std::tuple<uint32_t, Json::Value>> entries;
-		uint32_t from_log = std::get<0>(client_index_[node]);
-		entries.reserve(log_.last_index() - from_log);
-
-		for(unsigned int i = from_log; i < log_.last_index(); ++i)
-			entries.push_back(std::make_tuple(log_[i].term(), log_[i].action()));
-
-		auto prev_log = log_[from_log - 1];
-
-		raft::rpc::append_entries msg(log_.term(), id_,
-				prev_log.term(), prev_log.index(),
 				entries, commit_index_);
 
 		handlers_.append_entries(node, msg);
@@ -471,9 +506,10 @@ void raft::State::transition_leader()
 
 	//Initialise the index
 	for(const std::string& node : nodes_)
-		client_index_[node] = std::make_tuple(log_.last_index() + 1, 0);
+		client_index_[node] = std::make_tuple(log_.last_index() + 1, 0, true);
 
 	heartbeat();
+	handlers_.request_timeout(Handlers::leader_timeout);
 }
 
 uint32_t raft::State::calculate_majority()

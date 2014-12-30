@@ -140,7 +140,7 @@ public:
 	{
 		if(!connections_.count(endpoint) || !connections_[endpoint]->is_open())
 		{
-			connections[endpoint] = connection;
+			connections_[endpoint] = connection;
 			install_handlers(endpoint, connection);
 		}
 	}
@@ -170,6 +170,7 @@ protected:
 		connection->connect_close(
 				[this, endpoint]()
 				{
+					BOOST_LOG_TRIVIAL(info) << "Connection to " << endpoint << "closed.";
 					if(connections_.count(endpoint))
 						connections_.erase(endpoint);
 				});

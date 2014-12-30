@@ -176,6 +176,9 @@ namespace raft
 	void Controller::async_reset_timer(State::Handlers::timeout_length length)
 	{
 		uint32_t to = tl_(length);
+		BOOST_LOG_TRIVIAL(info) << "Timeout requested of length: "
+			<< (length == State::Handlers::election_timeout ? "election" : "leader")
+			<<  ", true: " << to;
 
 		//Post the reset so this can be called from the timer's handler
 		io_.post([this, to]()

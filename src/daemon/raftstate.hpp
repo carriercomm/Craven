@@ -142,7 +142,7 @@ namespace raft
 		//volatile state on leaders
 
 		//! A map to each node's next_index and match_index
-		std::unordered_map<std::string, std::tuple<uint32_t, uint32_t>> client_index_;
+		std::unordered_map<std::string, std::tuple<uint32_t, uint32_t, bool>> client_index_;
 
 		//! Helper function to apply all committed log entries
 		void commit_available();
