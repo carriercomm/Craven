@@ -8,6 +8,9 @@
 #include <iterator>
 #include <array>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>

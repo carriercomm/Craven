@@ -4,6 +4,9 @@
 #include <functional>
 #include <memory>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 #include <boost/signals2.hpp>
 #include <boost/asio.hpp>
 
@@ -134,8 +137,10 @@ namespace util
 
 			//! Handle error codes given by the asio library
 			/*!
-			 *  This function is responsible for throwing true errors & cleanly
+			 *  This function is responsible for handling true errors & cleanly
 			 *  shutting the socket down when it received an end of file
+			 *
+			 *  At the moment, it just logs the error and shuts down.
 			 *
 			 *  \returns True if the calling handler is allowed to continue; false o/w
 			 */
@@ -144,25 +149,22 @@ namespace util
 				if(ec)
 				{
 					if(ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted)
-						throw boost::system::system_error(ec);
-					else
+						BOOST_LOG_TRIVIAL(warning) << "Shutting down socket: " << ec.message();
+					if(ec)
 					{
-						if(ec == boost::asio::error::eof)
-						{
-							auto shared(this->shared_from_this());
+						auto shared(this->shared_from_this());
 
-							auto conn = connection_.lock();
+						auto conn = connection_.lock();
 
-							//Can't execute close in any of the handlers that call this function
-							conn->socket_->get_io_service().post(
-									[this, shared, conn]()
-									{
-										conn->close();
-									});
-						}
-
-						return false;
+						//Can't execute close in any of the handlers that call this function
+						conn->socket_->get_io_service().post(
+								[this, shared, conn]()
+								{
+									conn->close();
+								});
 					}
+
+					return false;
 				}
 
 				return true;

@@ -2,6 +2,9 @@
 #include <string>
 #include <vector>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif //HAVE_CONFIG_H
