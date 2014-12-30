@@ -10,6 +10,16 @@ AC_PROG_CXX
 AC_PROG_LIBTOOL
 
 PKG_CHECK_MODULES([JSONCPP], [jsoncpp])
+AC_CHECK_HEADERS(b64/encode.h, [], [AC_MSG_ERROR([This project requires libb64])],
+[
+#define BUFFERSIZE 1048576
+#include <b64/encode.h>
+])
+AC_CHECK_HEADERS(b64/decode.h, [AC_SUBST(LIBB64_CPPFLAGS, ["-DBUFFERSIZE 1048576"])], [AC_MSG_ERROR([This project requires libb64])],
+[
+#define BUFFERSIZE 1048576
+#include <b64/decode.h>
+])
 
 BOOST_REQUIRE([1.56])
 BOOST_SYSTEM
