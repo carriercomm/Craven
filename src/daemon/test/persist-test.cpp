@@ -34,6 +34,7 @@ struct test_fixture
 test_fixture::test_fixture()
 	:temp_root_(fs::temp_directory_path() / fs::unique_path())
 {
+	fs::create_directory(temp_root_);
 }
 
 test_fixture::~test_fixture()
@@ -101,17 +102,22 @@ BOOST_FIXTURE_TEST_CASE(existing_keys_and_versions_are_recovered, test_fixture)
 
 	for(const std::pair<std::string, std::string>& key_version : keys)
 	{
-		fs::fstream tmp(temp_root_ / std::get<0>(key_version) / std::get<0>(key_version));
+		fs::path p(temp_root_ / std::get<0>(key_version) / std::get<1>(key_version));
+		fs::create_directory(p.parent_path());
+		fs::ofstream tmp(p);
 
 		tmp << std::get<0>(key_version) << " " << std::get<1>(key_version) << "\n";
+		BOOST_CHECK(!tmp.fail());
 	}
 
 	change::persistence sut(temp_root_);
 
 	for(const std::pair<std::string, std::string>& key_version : keys)
 	{
-		BOOST_CHECK(sut.exists(std::get<0>(key_version)));
-		BOOST_CHECK(sut.exists(std::get<0>(key_version), std::get<1>(key_version)));
+		BOOST_CHECK_MESSAGE(sut.exists(std::get<0>(key_version)), "Check exists(" + std::get<0>(key_version) + ") failed");
+		BOOST_CHECK_MESSAGE(sut.exists(std::get<0>(key_version), std::get<1>(key_version)),
+				"Check exists(" + std::get<0>(key_version) + ", "
+				+ std::get<1>(key_version) + ") failed");
 	}
 }
 
