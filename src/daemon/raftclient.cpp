@@ -208,6 +208,13 @@ void raft::Client::commit_handler(const Json::Value& root)
 			throw std::runtime_error("Bad commit: conflicts");
 
 		apply_to(entry, version_map_);
+		//Remove the entry from pending if it's in there
+		if(pending_version_map_.count(entry.key()) == 1 &&
+				std::get<0>(pending_version_map_[entry.key()]) == entry.version())
+			pending_version_map_.erase(entry.key());
+
+		//Notify the commit handlers
+		commit_(entry.key(), entry.version());
 	}
 	else if(type == "rename")
 	{

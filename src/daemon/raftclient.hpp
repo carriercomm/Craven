@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <boost/signals2.hpp>
 
 namespace raft
 {
@@ -323,6 +324,17 @@ namespace raft
 				return commit_valid;
 		}
 
+		//! Connect a function to be called on commit of a new key/version
+		/*!
+		 *  \param f A callable of function signature void (const std::string&,
+		 *  const std::string&)
+		 */
+		template <typename Callable>
+		boost::signals2::connection connect_commit(Callable&& f)
+		{
+			return commit_.connect(std::forward<Callable>(f));
+		}
+
 	protected:
 		std::string id_;
 
@@ -335,6 +347,8 @@ namespace raft
 
 		//! Leader only: latest versions awaiting commit. Same as version_map_
 		version_map_type pending_version_map_;
+
+		boost::signals2::signal<void (const std::string& const std::string&)> commit_;
 
 		//! Helper for commit
 		template <typename Derived>
@@ -352,6 +366,9 @@ namespace raft
 				if(pending_version_map_.count(entry.key()) == 1 &&
 						std::get<0>(pending_version_map_[entry.key()]) == entry.version())
 					pending_version_map_.erase(entry.key());
+
+				//Notify the commit handlers
+				commit_(entry.key(), entry.version());
 
 			}
 		}
