@@ -1,5 +1,6 @@
 #pragma once
 
+
 namespace change
 {
 	namespace rpc
@@ -71,6 +72,7 @@ namespace change
 			//! Error code to report the status of the request
 			enum error_code {
 				ok,			//!< The request was fine
+				eof,		//!< File transfer complete
 				no_key,		//!< No such key on file
 				no_version	//!< No such version on file
 			};
@@ -104,4 +106,92 @@ namespace change
 			error_code ec_;
 		};
 	}
+
+	//! The class handling change transfer
+	class change_transfer
+	{
+	public:
+		//! Represents a scratch file
+		class scratch
+		{
+			friend change_transfer;
+			scratch(const boost::filesystem::path& root_storage,
+					const std::string& key, const std::string& version);
+		public:
+
+			boost::filesystem::path operator()() const;
+
+			std::string key() const;
+			std::string version() const;
+
+		protected:
+			boost::filesystem::path root_storage_;
+			std::string key_, version_;
+		};
+
+		//! Construct the class
+		/*!
+		 *  \param root_storage The path to the root storage directory
+		 *  \param send_handler The send handler, expected to wrap the provided
+		 *  json in the required RPC labels.
+		 */
+		change_transfer(const boost::filesystem::path& root_storage,
+				const std::function<void (const std::string&, const Json::Value&)> send_handler,
+				raft::Client& raft_client);
+
+		//! Handler for request rpcs
+		rpc::response request(const rpc::request& rpc);
+
+		//! Handler for response rpcs
+		void response(const rpc::response& rpc);
+
+		//! Handler for commit notificiations
+		void commit_handler(const std::string& from, const std::string& key,
+				const std::string& version);
+
+		//! Returns true if the key provided is known
+		bool exists(const std::string& key) const;
+
+		//! Returns true if the version exists for the provided key
+		bool exists(const std::string& key, const std::string& version) const;
+
+		//! Returns the versions available for the specified key
+		std::vector<std::string> versions(const std::string& key) const;
+
+		//! Functor overload to retrieve the file containing the specified version
+		//! of the specified key.
+		boost::filesystem::path operator()(const std::string& key, const std::string& version) const;
+
+		//! Convenience for pointer access to operator()()
+		boost::filesystem::path get(const std::string& key, const std::string& version) const;
+
+		//! Creates a scratch file for the specified key, starting from version.
+		/*!
+		 *  This function creates a scratch file for the specified key, where
+		 *  changes can be stored until they're ready to be added to the system.
+		 *
+		 *  The scratch starts out with the version's content, so is suitable for
+		 *  read operations too. If a previous call to open() has been made
+		 *  without an intervening call to close(), this function will return the
+		 *  existing scratch, ignoring the version.
+		 *
+		 *  Call close(key) to finalise this scratch into a referenceable version.
+		 */
+		scratch open(const std::string& key, const std::string& version);
+
+		//! Generates a version that can be added to raft in an update RPC.
+		std::string close(const scratch& scratch_info);
+
+		//! Deletes a scratch
+		void kill(const scratch& scratch_info);
+
+		//! Produces a new key from a scratch. Fails if that key exists.
+		void rename(const std::string& new_key, const scratch& scratch_info);
+
+	protected:
+		boost::filesystem::path root_storage_;
+		std::function<void (const std::string&, const Json::Value&)> send_handler_;
+		raft::Client& raft_client_;
+
+	};
 }
