@@ -326,8 +326,8 @@ namespace raft
 
 		//! Connect a function to be called on commit of a new key/version
 		/*!
-		 *  \param f A callable of function signature void (const std::string&,
-		 *  const std::string&)
+		 *  \param f A callable of function signature void (const std::string&
+		 *  from, const std::string& key, *  const std::string& value)
 		 */
 		template <typename Callable>
 		boost::signals2::connection connect_commit(Callable&& f)
@@ -348,7 +348,7 @@ namespace raft
 		//! Leader only: latest versions awaiting commit. Same as version_map_
 		version_map_type pending_version_map_;
 
-		boost::signals2::signal<void (const std::string& const std::string&)> commit_;
+		boost::signals2::signal<void (const std::string&, const std::string&, const std::string&)> commit_;
 
 		//! Helper for commit
 		template <typename Derived>
@@ -368,7 +368,7 @@ namespace raft
 					pending_version_map_.erase(entry.key());
 
 				//Notify the commit handlers
-				commit_(entry.key(), entry.version());
+				commit_(entry.from(), entry.key(), entry.version());
 
 			}
 		}

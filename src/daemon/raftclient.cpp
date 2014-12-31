@@ -214,7 +214,7 @@ void raft::Client::commit_handler(const Json::Value& root)
 			pending_version_map_.erase(entry.key());
 
 		//Notify the commit handlers
-		commit_(entry.key(), entry.version());
+		commit_(entry.from(), entry.key(), entry.version());
 	}
 	else if(type == "rename")
 	{
