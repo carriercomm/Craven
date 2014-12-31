@@ -47,6 +47,7 @@ raftlog
 raftstate
 raftclient
 rafttest
+persist
 
 #Ctags & cscope
 **/tags

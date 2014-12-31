@@ -1,4 +1,4 @@
-check_PROGRAMS = connection_pool dispatch raftlog raftstate raftclient
+check_PROGRAMS = connection_pool dispatch raftlog raftstate raftclient persist
 
 connection_pool_SOURCES = connection_pool-test.cpp
 
@@ -29,4 +29,11 @@ raftclient_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS)
 raftclient_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(JSONCPP_LIBS)
 raftclient_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(JSONCPP_LDFLAGS)
 
+persist_SOURCES = persist-test.cpp ../persist.cpp
+
+persist_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBB64_CPPFLAGS)
+persist_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
+persist_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
+
 TESTS = $(check_PROGRAMS)
+XFAIL_TESTS = persist

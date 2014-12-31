@@ -15,7 +15,7 @@ AC_CHECK_HEADERS(b64/encode.h, [], [AC_MSG_ERROR([This project requires libb64])
 #define BUFFERSIZE 1048576
 #include <b64/encode.h>
 ])
-AC_CHECK_HEADERS(b64/decode.h, [AC_SUBST(LIBB64_CPPFLAGS, ["-DBUFFERSIZE 1048576"])], [AC_MSG_ERROR([This project requires libb64])],
+AC_CHECK_HEADERS(b64/decode.h, [AC_SUBST(LIBB64_CPPFLAGS, ["-DBUFFERSIZE=1048576"])], [AC_MSG_ERROR([This project requires libb64])],
 [
 #define BUFFERSIZE 1048576
 #include <b64/decode.h>
