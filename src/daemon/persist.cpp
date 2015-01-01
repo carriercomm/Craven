@@ -87,4 +87,9 @@ namespace change
 		return root_ / key / version;
 	}
 
+	fs::path persistence::root() const
+	{
+		return root_;
+	}
+
 }

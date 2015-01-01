@@ -30,6 +30,8 @@ namespace change
 		 */
 		boost::filesystem::path add(const std::string& key, const std::string& version);
 
+		boost::filesystem::path root() const;
+
 	protected:
 		//! Maps from the keys to the set of available versions
 		std::unordered_multimap<std::string, std::string> versions_;
