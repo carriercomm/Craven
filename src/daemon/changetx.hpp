@@ -118,13 +118,28 @@ namespace change
 		{
 			friend change_transfer;
 			scratch(persistence& root,
-					const std::string& key, const std::string& version);
+					const std::string& key, const std::string& version)
+				:key_(key),
+				version_(version)
+			{
+				throw std::runtime_error("Not yet implemented");
+			}
 		public:
 
-			boost::filesystem::path operator()() const;
+			boost::filesystem::path operator()() const
+			{
+				throw std::runtime_error("Not yet implemented");
+			}
 
-			std::string key() const;
-			std::string version() const;
+			std::string key() const
+			{
+				return key_;
+			}
+
+			std::string version() const
+			{
+				return version_;
+			}
 
 		protected:
 			boost::filesystem::path resolved_;
@@ -139,36 +154,70 @@ namespace change
 		 */
 		change_transfer(const boost::filesystem::path& root_storage,
 				const std::function<void (const std::string&, const Json::Value&)> send_handler,
-				Client& raft_client);
+				Client& raft_client)
+			:root_(root_storage),
+			send_handler_(send_handler),
+			raft_client_(raft_client)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
 
 		//! Continue any in-progress transfers.
-		void tick();
+		void tick()
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Handler for request rpcs
-		rpc::response request(const rpc::request& rpc);
+		rpc::response request(const rpc::request& rpc)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Handler for response rpcs
-		void response(const rpc::response& rpc);
+		void response(const rpc::response& rpc)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Handler for commit notificiations
 		void commit_handler(const std::string& from, const std::string& key,
-				const std::string& version);
+				const std::string& version)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Returns true if the key provided is known
-		bool exists(const std::string& key) const;
+		bool exists(const std::string& key) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Returns true if the version exists for the provided key
-		bool exists(const std::string& key, const std::string& version) const;
+		bool exists(const std::string& key, const std::string& version) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Returns the versions available for the specified key
-		std::vector<std::string> versions(const std::string& key) const;
+		std::vector<std::string> versions(const std::string& key) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Functor overload to retrieve the file containing the specified version
 		//! of the specified key.
-		boost::filesystem::path operator()(const std::string& key, const std::string& version) const;
+		boost::filesystem::path operator()(const std::string& key, const std::string& version) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Convenience for pointer access to operator()()
-		boost::filesystem::path get(const std::string& key, const std::string& version) const;
+		boost::filesystem::path get(const std::string& key, const std::string& version) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Creates a scratch file for the specified key, starting from version.
 		/*!
@@ -182,22 +231,37 @@ namespace change
 		 *
 		 *  Call close(key) to finalise this scratch into a referenceable version.
 		 */
-		scratch open(const std::string& key, const std::string& version);
+		scratch open(const std::string& key, const std::string& version)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Generates a version that can be added to raft in an update RPC.
-		std::string close(const scratch& scratch_info);
+		std::string close(const scratch& scratch_info)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Creates a new scratch for a key
-		scratch add(const std::string& key);
+		scratch add(const std::string& key)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Deletes a scratch
-		void kill(const scratch& scratch_info);
+		void kill(const scratch& scratch_info)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 		//! Produces a new key from a scratch. Fails if that key exists.
 		/*!
 		 *  \returns The version of the new key that was created.
 		 */
-		std::string rename(const std::string& new_key, const scratch& scratch_info);
+		std::string rename(const std::string& new_key, const scratch& scratch_info)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
 
 	protected:
 		persistence root_;
@@ -206,102 +270,4 @@ namespace change
 
 	};
 
-	change_transfer::scratch::scratch(persistence& root,
-					const std::string& key, const std::string& version)
-		:key_(key),
-		version_(version)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	fs::path change_transfer::scratch::operator()() const
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	std::string change_transfer::scratch::key() const
-	{
-		return key_;
-	}
-
-	std::string change_transfer::scratch::version() const
-	{
-		return version_;
-	}
-
-	change_transfer::change_transfer(const boost::filesystem::path& root_storage,
-				const std::function<void (const std::string&, const Json::Value&)> send_handler,
-				raft::Client& raft_client)
-		:root_(root_storage),
-		send_handler_(send_handler),
-		raft_client_(raft_client)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	rpc::response change_transfer::request(const rpc::request& rpc)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	void change_transfer::response(const rpc::response& rpc)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	void change_transfer::commit_handler(const std::string& from, const std::string& key,
-			const std::string& version)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	bool change_transfer::exists(const std::string& key) const
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	bool change_transfer::exists(const std::string& key, const std::string& version) const
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	std::vector<std::string> change_transfer::versions(const std::string& key) const
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	fs::path change_transfer::operator()(const std::string& key, const std::string& version) const
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	fs::path change_transfer::get(const std::string& key, const std::string& version) const
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	change_transfer::scratch change_transfer::open(const std::string& key, const std::string& version)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	std::string change_transfer::close(const scratch& scratch_info)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	change_transfer::scratch change_transfer::add(const std::string& key)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	void change_transfer::kill(const scratch& scratch_info)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
-
-	std::string change_transfer::rename(const std::string& new_key, const scratch& scratch_info)
-	{
-		throw std::runtime_error("Not yet implemented");
-	}
 }
