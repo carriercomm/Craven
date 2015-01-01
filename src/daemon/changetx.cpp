@@ -1,8 +1,17 @@
 #include <string>
 #include <sstream>
 
+#include <boost/filesystem.hpp>
+
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
+namespace fs = boost::filesystem;
+
 #include <json/json.h>
 #include <json_help.hpp>
+
+#include "raftclient.hpp"
 
 #include "changetx.hpp"
 
@@ -140,4 +149,5 @@ namespace change
 			return ec_;
 		}
 	}
+
 }

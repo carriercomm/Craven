@@ -1,5 +1,7 @@
 #pragma once
 
+#include "persist.hpp"
+
 namespace change
 {
 	namespace rpc
@@ -71,6 +73,7 @@ namespace change
 			//! Error code to report the status of the request
 			enum error_code {
 				ok,			//!< The request was fine
+				eof,		//!< File transfer complete
 				no_key,		//!< No such key on file
 				no_version	//!< No such version on file
 			};
@@ -104,4 +107,177 @@ namespace change
 			error_code ec_;
 		};
 	}
+
+	//! The class handling change transfer
+	template <typename Client>
+	class change_transfer
+	{
+	public:
+		//! Represents a scratch file
+		class scratch
+		{
+			friend change_transfer;
+			scratch(persistence& root,
+					const std::string& key, const std::string& version)
+				:key_(key),
+				version_(version)
+			{
+				throw std::runtime_error("Not yet implemented");
+			}
+		public:
+
+			boost::filesystem::path operator()() const
+			{
+				throw std::runtime_error("Not yet implemented");
+			}
+
+			std::string key() const
+			{
+				return key_;
+			}
+
+			std::string version() const
+			{
+				return version_;
+			}
+
+		protected:
+			boost::filesystem::path resolved_;
+			std::string key_, version_;
+		};
+
+		//! Construct the class
+		/*!
+		 *  \param root_storage The path to the root storage directory
+		 *  \param send_handler The send handler, expected to wrap the provided
+		 *  json in the required RPC labels.
+		 *  \param raft_client The raft client
+		 */
+		change_transfer(const boost::filesystem::path& root_storage,
+				const std::function<void (const std::string&, const Json::Value&)> send_handler,
+				Client& raft_client, std::size_t chunk_limit = 450)
+			:root_(root_storage),
+			send_handler_(send_handler),
+			raft_client_(raft_client),
+			chunk_limit_(chunk_limit)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+
+		//! Continue any in-progress transfers.
+		void tick()
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Handler for request rpcs
+		rpc::response request(const rpc::request& rpc)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Handler for response rpcs
+		void response(const std::string& from, const rpc::response& rpc)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Handler for commit notificiations
+		void commit_handler(const std::string& from, const std::string& key,
+				const std::string& version)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Returns true if the key provided is known
+		bool exists(const std::string& key) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Returns true if the version exists for the provided key
+		bool exists(const std::string& key, const std::string& version) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Returns the versions available for the specified key, not including
+		//! scratches.
+		std::vector<std::string> versions(const std::string& key) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Returns all available scratches for the specified key
+		std::vector<scratch> scratches(const std::string& key) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Functor overload to retrieve the file containing the specified version
+		//! of the specified key.
+		boost::filesystem::path operator()(const std::string& key, const std::string& version) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Convenience for pointer access to operator()()
+		boost::filesystem::path get(const std::string& key, const std::string& version) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Creates a scratch file for the specified key, starting from version.
+		/*!
+		 *  This function creates a scratch file for the specified key, where
+		 *  changes can be stored until they're ready to be added to the system.
+		 *
+		 *  The scratch starts out with the version's content, so is suitable for
+		 *  read operations too. If a previous call to open() has been made
+		 *  without an intervening call to close(), this function will return the
+		 *  existing scratch, ignoring the version.
+		 *
+		 *  Call close(key) to finalise this scratch into a referenceable version.
+		 */
+		scratch open(const std::string& key, const std::string& version)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Generates a version that can be added to raft in an update RPC.
+		std::string close(const scratch& scratch_info)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Creates a new scratch for a key
+		scratch add(const std::string& key)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Deletes a scratch
+		void kill(const scratch& scratch_info)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Produces a new key from a scratch. Fails if that key exists.
+		/*!
+		 *  \returns The version of the new key that was created.
+		 */
+		std::string rename(const std::string& new_key, const scratch& scratch_info)
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+	protected:
+		persistence root_;
+		std::function<void (const std::string&, const Json::Value&)> send_handler_;
+		Client& raft_client_;
+		std::size_t chunk_limit_;
+
+	};
+
 }

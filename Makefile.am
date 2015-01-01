@@ -5,7 +5,7 @@ bin_PROGRAMS = src/cli/dfsctl src/daemon/dfsd
 check_PROGRAMS = src/cli/test/comms src/common/test/expansion src/common/test/linebuffer \
 				 src/common/test/connection src/daemon/test/connection_pool \
 				 src/daemon/test/dispatch src/daemon/test/raftlog src/daemon/test/raftstate \
-				 src/daemon/test/raftclient
+				 src/daemon/test/raftclient src/daemon/test/persist src/daemon/test/changetx
 
 noinst_HEADERS = src/common/configure.hpp src/common/linebuffer.hpp src/common/connection.hpp src/common/json_help.hpp
 
@@ -144,9 +144,33 @@ src_daemon_test_raftclient_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS
 									 $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
 									 $(JSONCPP_LDFLAGS)
 
+src_daemon_test_persist_SOURCES =  src/daemon/test/persist-test.cpp src/daemon/persist.cpp
+
+src_daemon_test_persist_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBB64_CPPFLAGS)
+src_daemon_test_persist_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) \
+								$(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
+src_daemon_test_persist_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
+								  $(BOOST_FILESYSTEM_LDFLAGS) \
+								  $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
+
+src_daemon_test_changetx_SOURCES = src/daemon/test/changetx-test.cpp \
+								   src/daemon/changetx.cpp src/daemon/persist.cpp \
+								   src/common/json_help.cpp
+
+src_daemon_test_changetx_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBB64_CPPFLAGS) \
+									$(JSONCPP_CFLAGS)
+src_daemon_test_changetx_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) \
+								 $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) \
+								 $(JSONCPP_LIBS) $(LIBB64_LIBS)
+src_daemon_test_changetx_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
+								   $(BOOST_FILESYSTEM_LDFLAGS) \
+								   $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
+								   $(JSONCPP_LDFLAGS) $(LIBB64_LDFLAGS)
+
 
 
 TESTS = $(check_PROGRAMS)
+XFAIL_TESTS = src/daemon/test/changetx
 
 if HAVE_DOXYGEN
 SUBDIRS = doc
