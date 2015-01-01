@@ -48,6 +48,7 @@ raftstate
 raftclient
 rafttest
 persist
+changetx
 
 #Ctags & cscope
 **/tags

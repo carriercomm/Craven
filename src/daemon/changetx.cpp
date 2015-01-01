@@ -150,10 +150,9 @@ namespace change
 		}
 	}
 
-	change_transfer::scratch::scratch(const boost::filesystem::path& root_storage,
+	change_transfer::scratch::scratch(persistence& root,
 					const std::string& key, const std::string& version)
-		:root_storage_(root_storage),
-		key_(key),
+		:key_(key),
 		version_(version)
 	{
 		throw std::runtime_error("Not yet implemented");
@@ -177,7 +176,7 @@ namespace change
 	change_transfer::change_transfer(const boost::filesystem::path& root_storage,
 				const std::function<void (const std::string&, const Json::Value&)> send_handler,
 				raft::Client& raft_client)
-		:root_storage_(root_storage),
+		:root_(root_storage),
 		send_handler_(send_handler),
 		raft_client_(raft_client)
 	{
@@ -235,12 +234,17 @@ namespace change
 		throw std::runtime_error("Not yet implemented");
 	}
 
+	change_transfer::scratch change_transfer::add(const std::string& key)
+	{
+		throw std::runtime_error("Not yet implemented");
+	}
+
 	void change_transfer::kill(const scratch& scratch_info)
 	{
 		throw std::runtime_error("Not yet implemented");
 	}
 
-	void change_transfer::rename(const std::string& new_key, const scratch& scratch_info)
+	std::string change_transfer::rename(const std::string& new_key, const scratch& scratch_info)
 	{
 		throw std::runtime_error("Not yet implemented");
 	}

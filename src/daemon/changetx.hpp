@@ -1,5 +1,6 @@
 #pragma once
 
+#include "persist.hpp"
 
 namespace change
 {
@@ -115,7 +116,7 @@ namespace change
 		class scratch
 		{
 			friend change_transfer;
-			scratch(const boost::filesystem::path& root_storage,
+			scratch(persistence& root,
 					const std::string& key, const std::string& version);
 		public:
 
@@ -125,7 +126,7 @@ namespace change
 			std::string version() const;
 
 		protected:
-			boost::filesystem::path root_storage_;
+			boost::filesystem::path resolved_;
 			std::string key_, version_;
 		};
 
@@ -182,14 +183,20 @@ namespace change
 		//! Generates a version that can be added to raft in an update RPC.
 		std::string close(const scratch& scratch_info);
 
+		//! Creates a new scratch for a key
+		scratch add(const std::string& key);
+
 		//! Deletes a scratch
 		void kill(const scratch& scratch_info);
 
 		//! Produces a new key from a scratch. Fails if that key exists.
-		void rename(const std::string& new_key, const scratch& scratch_info);
+		/*!
+		 *  \returns The version of the new key that was created.
+		 */
+		std::string rename(const std::string& new_key, const scratch& scratch_info);
 
 	protected:
-		boost::filesystem::path root_storage_;
+		persistence root_;
 		std::function<void (const std::string&, const Json::Value&)> send_handler_;
 		raft::Client& raft_client_;
 

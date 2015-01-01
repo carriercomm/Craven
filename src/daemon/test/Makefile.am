@@ -1,4 +1,5 @@
-check_PROGRAMS = connection_pool dispatch raftlog raftstate raftclient persist
+AM_CXXFLAGS = @AM_CXXFLAGS@ -I$(top_srcdir)/src/common
+check_PROGRAMS = connection_pool dispatch raftlog raftstate raftclient persist changetx
 
 connection_pool_SOURCES = connection_pool-test.cpp
 
@@ -35,4 +36,11 @@ persist_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBB64_CPPFLAGS)
 persist_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
 persist_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
 
+changetx_SOURCES = changetx-test.cpp ../changetx.cpp ../persist.cpp ../../common/json_help.cpp
+
+changetx_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBB64_CPPFLAGS) $(JSONCPP_CFLAGS)
+changetx_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(JSONCPP_LIBS)
+changetx_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(JSONCPP_LDFLAGS)
+
 TESTS = $(check_PROGRAMS)
+XFAIL_TESTS = changetx
