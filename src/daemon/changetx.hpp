@@ -151,13 +151,15 @@ namespace change
 		 *  \param root_storage The path to the root storage directory
 		 *  \param send_handler The send handler, expected to wrap the provided
 		 *  json in the required RPC labels.
+		 *  \param raft_client The raft client
 		 */
 		change_transfer(const boost::filesystem::path& root_storage,
 				const std::function<void (const std::string&, const Json::Value&)> send_handler,
-				Client& raft_client)
+				Client& raft_client, std::size_t chunk_limit = 450)
 			:root_(root_storage),
 			send_handler_(send_handler),
-			raft_client_(raft_client)
+			raft_client_(raft_client),
+			chunk_limit_(chunk_limit)
 		{
 			throw std::runtime_error("Not yet implemented");
 		}
@@ -176,7 +178,7 @@ namespace change
 		}
 
 		//! Handler for response rpcs
-		void response(const rpc::response& rpc)
+		void response(const std::string& from, const rpc::response& rpc)
 		{
 			throw std::runtime_error("Not yet implemented");
 		}
@@ -200,8 +202,15 @@ namespace change
 			throw std::runtime_error("Not yet implemented");
 		}
 
-		//! Returns the versions available for the specified key
+		//! Returns the versions available for the specified key, not including
+		//! scratches.
 		std::vector<std::string> versions(const std::string& key) const
+		{
+			throw std::runtime_error("Not yet implemented");
+		}
+
+		//! Returns all available scratches for the specified key
+		std::vector<scratch> scratches(const std::string& key) const
 		{
 			throw std::runtime_error("Not yet implemented");
 		}
@@ -267,6 +276,7 @@ namespace change
 		persistence root_;
 		std::function<void (const std::string&, const Json::Value&)> send_handler_;
 		Client& raft_client_;
+		std::size_t chunk_limit_;
 
 	};
 
