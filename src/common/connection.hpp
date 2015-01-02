@@ -217,7 +217,7 @@ namespace util
 
 					boost::asio::async_write(*(conn->socket_), boost::asio::buffer(*msg),
 							//Capture shared & msg to ensure lifetime
-							[this, shared, conn, msg](const boost::system::error_code& ec, std::size_t bytes_tx)
+							[this, shared, conn, msg](const boost::system::error_code& ec, std::size_t /*bytes_tx*/)
 							{
 								bool go = handle_error(ec);
 
