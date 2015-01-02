@@ -351,7 +351,7 @@ BOOST_FIXTURE_TEST_CASE(request_for_key_and_large_version_gets_mutliple_chunks, 
 		fs::ofstream malaclypse(temp_root_ / "foo" / "malaclypse");
 		malaclypse << "Malaclypse the Elder\n";
 	}
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_, 21);
+	change::change_transfer<client_mock, 21> sut(temp_root_, send_handler_bound(), cm_);
 
 	auto response = sut.request(change::rpc::request("foo", "malaclypse", "", 0));
 	auto response2 = sut.request(change::rpc::request("foo", "malaclypse", "", 21));

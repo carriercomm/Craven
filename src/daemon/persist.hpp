@@ -30,7 +30,20 @@ namespace change
 		 */
 		boost::filesystem::path add(const std::string& key, const std::string& version);
 
+		//! Move key,version to new_key,version
+		void rename(const std::string& key, const std::string& version, const std::string& new_key);
+		//
+		//! Move key,version to new_key,new_version
+		void rename(const std::string& key, const std::string& version,
+				const std::string& new_key, const std::string& new_version);
+
+		//! Delete key,version. If this is the last version in key, delete the key
+		//! too.
+		void kill(const std::string& key, const std::string& version);
+
 		boost::filesystem::path root() const;
+
+		std::unordered_multimap<std::string, std::string> versions() const;
 
 	protected:
 		//! Maps from the keys to the set of available versions

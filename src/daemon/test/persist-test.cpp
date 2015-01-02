@@ -121,3 +121,221 @@ BOOST_FIXTURE_TEST_CASE(existing_keys_and_versions_are_recovered, test_fixture)
 	}
 }
 
+BOOST_FIXTURE_TEST_CASE(rename_version_to_new_version_success, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+	}
+	change::persistence sut(temp_root_);
+
+	sut.rename("foo", "bar", "baz");
+
+	BOOST_CHECK(sut.exists("baz", "bar"));
+	BOOST_CHECK(!sut.exists("foo", "bar"));
+
+	BOOST_CHECK(fs::exists(sut.root() / "baz" / "bar"));
+}
+
+BOOST_FIXTURE_TEST_CASE(rename_last_version_in_key_deletes_key_too, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+	}
+	change::persistence sut(temp_root_);
+
+	sut.rename("foo", "bar", "baz");
+
+	BOOST_CHECK(!sut.exists("foo"));
+	BOOST_CHECK(!fs::exists(sut.root() / "foo"));
+}
+
+BOOST_FIXTURE_TEST_CASE(rename_version_in_key_moves_version, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+	}
+	change::persistence sut(temp_root_);
+
+	sut.rename("foo", "bar", "baz");
+
+	auto bazbar = sut("baz", "bar");
+
+	fs::ifstream fnord(bazbar);
+	std::string line;
+
+	BOOST_CHECK(std::getline(fnord, line));
+	BOOST_CHECK_EQUAL(line, "fnord");
+
+	BOOST_CHECK(!std::getline(fnord, line));
+	BOOST_CHECK_EQUAL(line, "");
+}
+
+BOOST_FIXTURE_TEST_CASE(rename_missing_version_throws, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+	}
+	change::persistence sut(temp_root_);
+
+	BOOST_REQUIRE_THROW(sut.rename("foo", "baz", "fnord"), std::logic_error);
+}
+
+BOOST_FIXTURE_TEST_CASE(rename_missing_key_throws, test_fixture)
+{
+	change::persistence sut(temp_root_);
+
+	BOOST_REQUIRE_THROW(sut.rename("foo", "bar", "fnord"), std::logic_error);
+}
+
+BOOST_FIXTURE_TEST_CASE(rename_existing_key_new_version_fine, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+
+		auto existing = sut.add("fnord", "eris");
+
+		fs::ofstream eris(existing);
+
+		eris << "eris\n";
+	}
+	change::persistence sut(temp_root_);
+
+	sut.rename("foo", "bar", "fnord");
+
+	BOOST_CHECK(sut.exists("fnord", "bar"));
+}
+
+BOOST_FIXTURE_TEST_CASE(rename_existing_key_existing_version_throws, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+
+		auto existing = sut.add("fnord", "bar");
+
+		fs::ofstream eris(existing);
+
+		eris << "eris\n";
+	}
+	change::persistence sut(temp_root_);
+
+	BOOST_REQUIRE_THROW(sut.rename("foo", "bar", "fnord"), std::logic_error);
+}
+
+BOOST_FIXTURE_TEST_CASE(kill_version_success, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		{
+			auto new_version = sut.add("foo", "bar");
+			fs::ofstream new_file(new_version);
+
+			new_file << "fnord\n";
+		}
+
+		{
+			auto existing = sut.add("foo", "eris");
+
+			fs::ofstream eris(existing);
+
+			eris << "eris\n";
+		}
+
+		{
+			auto existing = sut.add("fnord", "eris");
+
+			fs::ofstream eris(existing);
+
+			eris << "eris\n";
+		}
+	}
+	change::persistence sut(temp_root_);
+
+	sut.kill("foo", "eris");
+
+	BOOST_CHECK(sut.exists("foo"));
+	BOOST_CHECK(sut.exists("fnord"));
+	BOOST_CHECK(!sut.exists("foo", "eris"));
+	BOOST_CHECK(sut.exists("foo", "bar"));
+	BOOST_CHECK(sut.exists("fnord", "eris"));
+}
+
+BOOST_FIXTURE_TEST_CASE(kill_last_version_key_deleted, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+	}
+
+	change::persistence sut(temp_root_);
+	sut.kill("foo", "bar");
+
+	BOOST_CHECK(!sut.exists("foo", "bar"));
+	BOOST_CHECK(!sut.exists("foo"));
+
+	BOOST_CHECK(!fs::exists(sut.root() / "foo"));
+}
+
+BOOST_FIXTURE_TEST_CASE(kill_no_version_throws, test_fixture)
+{
+	{
+		change::persistence sut(temp_root_);
+
+		auto new_version = sut.add("foo", "bar");
+		fs::ofstream new_file(new_version);
+
+		new_file << "fnord\n";
+	}
+
+	change::persistence sut(temp_root_);
+
+	BOOST_REQUIRE_THROW(sut.kill("foo", "baz"), std::logic_error);
+}
+
+BOOST_FIXTURE_TEST_CASE(kill_no_key_throws, test_fixture)
+{
+	change::persistence sut(temp_root_);
+
+	BOOST_REQUIRE_THROW(sut.kill("foo", "baz"), std::logic_error);
+}
+

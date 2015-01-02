@@ -1,4 +1,5 @@
 #include <string>
+#include <stdexcept>
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -68,7 +69,7 @@ namespace change
 	{
 		if(!exists(key, version))
 			throw std::logic_error(boost::str(boost::format(
-					"Key, version combo \"%|s|, %|s|\" does not exist.") % key % version));
+					"Key, version combo (%|s|, %|s|) does not exist.") % key % version));
 
 		return root_ / key / version;
 	}
@@ -77,7 +78,7 @@ namespace change
 	{
 		if(exists(key, version))
 			throw std::logic_error(boost::str(boost::format(
-					"Key, version combo \"%|s|, %|s|\" already exists.") % key % version));
+					"Key, version combo (%|s|, %|s|) already exists.") % key % version));
 
 		versions_.insert(std::make_pair(key, version));
 
@@ -87,9 +88,80 @@ namespace change
 		return root_ / key / version;
 	}
 
+	void persistence::rename(const std::string& key, const std::string& version, const std::string& new_key)
+	{
+		rename(key, version, new_key, version);
+	}
+
+	void persistence::rename(const std::string& key, const std::string& version,
+			const std::string& new_key, const std::string& new_version)
+	{
+		if(!exists(key, version))
+			throw std::logic_error(boost::str(boost::format(
+					"Key, version combo (%|s|, %|s|) does not exist.") % key % version));
+
+		if(exists(new_key, new_version))
+			throw std::logic_error(boost::str(boost::format(
+					"Key, version combo (%|s|, %|s|) already exists; cannot rename.") % key % version));
+
+		if(!exists(new_key))
+			fs::create_directory(root_ / new_key);
+
+		fs::rename(root_ / key / version, root_ / new_key / new_version);
+
+		//Update state
+		versions_.insert(std::make_pair(new_key, new_version));
+
+		auto key_range = versions_.equal_range(key);
+
+		for(auto it = key_range.first; it != key_range.second; ++it)
+		{
+			if(it->second == version)
+			{
+				versions_.erase(it);
+				break;
+			}
+		}
+
+		//Remove the key too
+		if(versions_.count(key) == 0)
+			fs::remove(root_ / key);
+	}
+
+
+	void persistence::kill(const std::string& key, const std::string& version)
+	{
+		if(!exists(key, version))
+			throw std::logic_error(boost::str(boost::format(
+					"Key, version combo (%|s|, %|s|) does not exist; cannot delete.") % key % version));
+
+		fs::remove(root_ / key / version);
+
+		auto key_range = versions_.equal_range(key);
+
+		for(auto it = key_range.first; it != key_range.second; ++it)
+		{
+			if(it->second == version)
+			{
+				versions_.erase(it);
+				break;
+			}
+		}
+
+		//Remove the key too
+		if(versions_.count(key) == 0)
+			fs::remove(root_ / key);
+
+	}
+
 	fs::path persistence::root() const
 	{
 		return root_;
+	}
+
+	std::unordered_multimap<std::string, std::string> persistence::versions() const
+	{
+		return versions_;
 	}
 
 }
