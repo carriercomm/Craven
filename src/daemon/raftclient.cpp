@@ -327,7 +327,7 @@ bool raft::Client::done(raft::request::Update::const_reference request, const ve
 	return false;
 }
 
-bool raft::Client::done(raft::request::Delete::const_reference request, const version_map_type& version_map) const noexcept
+bool raft::Client::done(raft::request::Delete::const_reference, const version_map_type&) const noexcept
 {
 	//can't tell if the've been done
 	return false;
