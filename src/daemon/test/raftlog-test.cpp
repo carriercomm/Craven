@@ -365,7 +365,7 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_not_called_during_recovery, test_fixtur
 
 	bool called = false;
 
-	raft::Log sut(tmp_log().string(), [&called](uint32_t term)
+	raft::Log sut(tmp_log().string(), [&called](uint32_t)
 			{
 				called = true;
 			});
