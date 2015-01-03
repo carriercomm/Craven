@@ -19,7 +19,10 @@
 #include <b64/encode.h>
 #include <b64/decode.h>
 
+#include "raftrequest.hpp"
+
 #include "persist.hpp"
+
 
 namespace change
 {
@@ -360,16 +363,16 @@ namespace change
 					<< ") from " << from << ": not marked as pending.";
 		}
 
-		//! Handler for commit notificiations
-		void commit_handler(const std::string& from, const std::string& key,
-				const std::string& version) noexcept
+		//! Handler for update & add notifications
+		void handle_new_version(const std::string& from, const std::string& key,
+				const std::string& new_version, const std::string& old_version) noexcept
 		{
 			try
 			{
 				BOOST_LOG_TRIVIAL(info) << "Starting transfer of (" << key
-					<< ", " << version << ") from " << from;
+					<< ", " << new_version << ") from " << from;
 
-				std::string pending_vers = version + ".pending";
+				std::string pending_vers = new_version + ".pending";
 
 				//add the pending version
 				if(!exists(key, pending_vers))
@@ -377,26 +380,62 @@ namespace change
 
 				//setup the pending info
 				if(pending_.count(std::make_tuple(key, pending_vers)) == 0)
-					pending_.insert(std::make_pair(std::make_tuple(key, version),
-							pending_info{from, version}));
+					pending_.insert(std::make_pair(std::make_tuple(key, new_version),
+							pending_info{from, new_version}));
 
 				//fire request
-				send_handler_(from, rpc::request(key, version, "", 0));
+				send_handler_(from, rpc::request(key, new_version, old_version, 0));
 			}
 			catch(std::logic_error& ex)
 			{
 				BOOST_LOG_TRIVIAL(error) << "Failed to register commit of ("
-					<< key << ", " << version
+					<< key << ", " << new_version
 					<< ") with change transfer & persistence: "
 					<< ex.what();
-
 			}
 			catch(...)
 			{
 				BOOST_LOG_TRIVIAL(error) << "Failed to register commit of ("
-					<< key << ", " << version
+					<< key << ", " << new_version
 					<< ") with change transfer & persistence";
 			}
+		}
+
+		//! Handle the commit of an update RPC
+		void commit_update(const raft::request::Update& rpc)
+		{
+			handle_new_version(rpc.from(), rpc.key(), rpc.new_version(), rpc.old_version());
+		}
+
+		//! Handle the commit of a rename RPC
+		void commit_rename(const raft::request::Rename& rpc)
+		{
+			if(root_.exists(rpc.key(), rpc.version()) &&
+					!root_.exists(rpc.new_key(), rpc.version()))
+			{
+				root_.rename(rpc.key(), rpc.version(), rpc.new_key());
+			}
+			else
+				BOOST_LOG_TRIVIAL(error) << "Failed to persist rename "
+					<< rpc.key() << " -> " << rpc.new_key() << " version "
+					<< rpc.version() << " from " << rpc.from();
+		}
+
+		//! Handle the commit of a delete rpc
+		void commit_delete(const raft::request::Delete& rpc)
+		{
+			if(root_.exists(rpc.key(), rpc.version()))
+				root_.kill(rpc.key(), rpc.version());
+			else
+				BOOST_LOG_TRIVIAL(error) << "Failed to persist delete ("
+					<< rpc.key() << ", " << rpc.version() << ") from "
+					<< rpc.from();
+		}
+
+		//! Handle the commit of an add rpc
+		void commit_add(const raft::request::Add& rpc)
+		{
+			handle_new_version(rpc.from(), rpc.key(), rpc.version(), "");
 		}
 
 		//! Returns true if the key provided is known

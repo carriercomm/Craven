@@ -537,7 +537,7 @@ BOOST_FIXTURE_TEST_CASE(commit_a_new_pending_file_and_requests_fired, test_fixtu
 {
 	change_tx_type sut(temp_root_, send_handler_bound());
 
-	sut.commit_handler("eris", "foo", "bar");
+	sut.handle_new_version("eris", "foo", "bar", "");
 
 	BOOST_CHECK(sut.exists("foo"));
 
