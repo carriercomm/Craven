@@ -32,11 +32,6 @@ struct disable_logging
 
 BOOST_GLOBAL_FIXTURE(disable_logging)
 
-class client_mock
-{
-
-};
-
 struct test_fixture
 {
 	test_fixture();
@@ -48,7 +43,6 @@ struct test_fixture
 
 	std::function<void (const std::string&, const Json::Value&)> send_handler_bound();
 
-	client_mock cm_;
 };
 
 test_fixture::test_fixture()
@@ -72,7 +66,7 @@ std::function<void (const std::string&, const Json::Value&)> test_fixture::send_
 	return std::bind(&test_fixture::send_handler_, this, std::placeholders::_1, std::placeholders::_2);
 }
 
-typedef change::change_transfer<client_mock> change_tx_type;
+typedef change::change_transfer<> change_tx_type;
 
 /*
  * Scratch management tests
@@ -89,7 +83,7 @@ BOOST_FIXTURE_TEST_CASE(add_creates_a_new_file_that_can_be_written_to_on_existin
 		eris << "Consult your pineal gland\n";
 	}
 
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	typename change_tx_type::scratch sc = sut.add("foo");
 
@@ -106,7 +100,7 @@ BOOST_FIXTURE_TEST_CASE(add_creates_a_new_file_that_can_be_written_to_on_existin
 
 BOOST_FIXTURE_TEST_CASE(add_creates_a_new_file_that_can_be_written_to_on_new_key, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	typename change_tx_type::scratch sc = sut.add("foo");
 
@@ -123,7 +117,7 @@ BOOST_FIXTURE_TEST_CASE(add_creates_a_new_file_that_can_be_written_to_on_new_key
 
 BOOST_FIXTURE_TEST_CASE(double_add_for_same_key_retrieves_the_same_file, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	typename change_tx_type::scratch sc = sut.add("foo");
 
@@ -140,7 +134,7 @@ BOOST_FIXTURE_TEST_CASE(double_add_for_same_key_retrieves_the_same_file, test_fi
 BOOST_FIXTURE_TEST_CASE(added_scratches_are_recovered, test_fixture)
 {
 	{
-		change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+		change_tx_type sut(temp_root_, send_handler_bound());
 
 		typename change_tx_type::scratch sc = sut.add("foo");
 
@@ -149,7 +143,7 @@ BOOST_FIXTURE_TEST_CASE(added_scratches_are_recovered, test_fixture)
 
 		BOOST_REQUIRE(eris.good());
 	}
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	auto scratches = sut.scratches("foo");
 
@@ -167,14 +161,14 @@ BOOST_FIXTURE_TEST_CASE(added_scratches_are_recovered, test_fixture)
 BOOST_FIXTURE_TEST_CASE(kill_deletes_a_scratch, test_fixture)
 {
 	{
-		change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+		change_tx_type sut(temp_root_, send_handler_bound());
 
 		typename change_tx_type::scratch sc = sut.add("foo");
 
 		fs::ofstream eris(sc());
 		eris << "Dr Van Van Mojo\n";
 	}
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	auto scratches = sut.scratches("foo");
 
@@ -189,7 +183,7 @@ BOOST_FIXTURE_TEST_CASE(killed_scratches_are_not_recovered, test_fixture)
 {
 	std::string check_exists;
 	{
-		change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+		change_tx_type sut(temp_root_, send_handler_bound());
 
 		auto sc = sut.add("foo");
 		check_exists = sut.close(sc);
@@ -199,7 +193,7 @@ BOOST_FIXTURE_TEST_CASE(killed_scratches_are_not_recovered, test_fixture)
 		sut.kill(sc2);
 	}
 
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 	BOOST_CHECK_EQUAL(sut.scratches("foo").size(), 0);
 	BOOST_CHECK_EQUAL(sut.versions("foo").size(), 1);
 	BOOST_CHECK_EQUAL(sut.versions("foo")[0], check_exists);
@@ -208,21 +202,21 @@ BOOST_FIXTURE_TEST_CASE(killed_scratches_are_not_recovered, test_fixture)
 BOOST_FIXTURE_TEST_CASE(killing_the_last_scratch_in_a_key_with_no_other_versions_removes_the_key, test_fixture)
 {
 	{
-		change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+		change_tx_type sut(temp_root_, send_handler_bound());
 
 		auto sc = sut.add("foo");
 
 		sut.kill(sc);
 	}
 
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 	BOOST_CHECK_EQUAL(sut.scratches("foo").size(), 0);
 	BOOST_CHECK(!sut.exists("foo"));
 }
 
 BOOST_FIXTURE_TEST_CASE(rename_creates_the_key_and_returns_new_version, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 	auto sc = sut.add("foo");
 
 	{
@@ -241,7 +235,7 @@ BOOST_FIXTURE_TEST_CASE(rename_new_key_and_version_are_recovered, test_fixture)
 {
 	std::string new_version;
 	{
-		change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+		change_tx_type sut(temp_root_, send_handler_bound());
 		auto sc = sut.add("foo");
 
 		{
@@ -251,13 +245,13 @@ BOOST_FIXTURE_TEST_CASE(rename_new_key_and_version_are_recovered, test_fixture)
 
 		new_version = sut.rename("bar", sc);
 	}
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 	BOOST_CHECK(sut.exists("bar", new_version));
 }
 
 BOOST_FIXTURE_TEST_CASE(rename_to_existing_key_throws, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	auto sc = sut.add("foo");
 	auto sc2 = sut.add("bar");
@@ -268,7 +262,7 @@ BOOST_FIXTURE_TEST_CASE(rename_to_existing_key_throws, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(closing_a_scratch_generates_a_new_version_of_the_key, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	auto sc = sut.add("foo");
 
@@ -285,7 +279,7 @@ BOOST_FIXTURE_TEST_CASE(close_new_version_is_recoverable, test_fixture)
 {
 	std::string new_version;
 	{
-		change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+		change_tx_type sut(temp_root_, send_handler_bound());
 
 		auto sc = sut.add("foo");
 
@@ -297,7 +291,7 @@ BOOST_FIXTURE_TEST_CASE(close_new_version_is_recoverable, test_fixture)
 		new_version = sut.close(sc);
 		BOOST_CHECK(sut.exists("foo", new_version));
 	}
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	BOOST_CHECK(sut.exists("foo", new_version));
 }
@@ -307,7 +301,7 @@ BOOST_FIXTURE_TEST_CASE(close_new_version_is_recoverable, test_fixture)
  */
 BOOST_FIXTURE_TEST_CASE(request_for_missing_key_gets_no_key_response, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	auto response = sut.request(change::rpc::request("foo", "bar", "baz", 0));
 
@@ -321,7 +315,7 @@ BOOST_FIXTURE_TEST_CASE(request_for_missing_version_gets_no_version_response, te
 	{
 		fs::ofstream thud(temp_root_ / "foo" / "thud");
 	}
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	BOOST_CHECK(sut.exists("foo"));
 
@@ -338,7 +332,7 @@ BOOST_FIXTURE_TEST_CASE(request_for_key_and_version_gets_ok, test_fixture)
 		fs::ofstream malaclypse(temp_root_ / "foo" / "malaclypse");
 		malaclypse << "Malaclypse the Elder\n";
 	}
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	auto response = sut.request(change::rpc::request("foo", "malaclypse", "", 0));
 
@@ -358,7 +352,7 @@ BOOST_FIXTURE_TEST_CASE(request_for_key_and_large_version_gets_mutliple_chunks, 
 		fs::ofstream malaclypse(temp_root_ / "foo" / "malaclypse");
 		malaclypse << "Malaclypse the Elder\n";
 	}
-	change::change_transfer<client_mock, 21> sut(temp_root_, send_handler_bound(), cm_);
+	change::change_transfer<21> sut(temp_root_, send_handler_bound());
 
 	auto response = sut.request(change::rpc::request("foo", "malaclypse", "", 0));
 	auto response2 = sut.request(change::rpc::request("foo", "malaclypse", "", 21));
@@ -381,7 +375,7 @@ BOOST_FIXTURE_TEST_CASE(request_for_key_and_large_version_gets_mutliple_chunks, 
 
 BOOST_FIXTURE_TEST_CASE(response_no_key_creates_key_and_version, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 	std::istringstream data("The Curse of Greyface\n");
 	std::ostringstream encoded;
 	base64::encoder enc;
@@ -410,7 +404,7 @@ BOOST_FIXTURE_TEST_CASE(response_no_version_creates_version, test_fixture)
 		baz << "There is no Goddess but Goddess and She is Your Goddess.\n";
 	}
 
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	BOOST_CHECK(sut.exists("foo"));
 
@@ -443,7 +437,7 @@ BOOST_FIXTURE_TEST_CASE(response_key_version_non_pending_ignored, test_fixture)
 		baz << "There is no Goddess but Goddess and She is Your Goddess.\n";
 	}
 
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	BOOST_CHECK(sut.exists("foo"));
 
@@ -468,7 +462,7 @@ BOOST_FIXTURE_TEST_CASE(response_key_version_non_pending_ignored, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(response_with_key_and_version_eof_closes_file_if_all_complete, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	{
 		std::istringstream pentabarf("A Discordian Shall Always use the Official Discordian Document Numbering System\n");
@@ -509,7 +503,7 @@ BOOST_FIXTURE_TEST_CASE(response_with_key_and_version_eof_closes_file_if_all_com
 
 BOOST_FIXTURE_TEST_CASE(tick_with_pending_version_makes_request, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	//set up the pending request
 	//That base64 encodes "foo\n".
@@ -528,7 +522,7 @@ BOOST_FIXTURE_TEST_CASE(tick_with_pending_version_makes_request, test_fixture)
 
 BOOST_FIXTURE_TEST_CASE(tick_with_nothing_to_do_does_nothing, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 	sut.tick();
 
 	BOOST_CHECK(send_handler_args_.empty());
@@ -540,7 +534,7 @@ BOOST_FIXTURE_TEST_CASE(tick_with_nothing_to_do_does_nothing, test_fixture)
  */
 BOOST_FIXTURE_TEST_CASE(commit_a_new_pending_file_and_requests_fired, test_fixture)
 {
-	change_tx_type sut(temp_root_, send_handler_bound(), cm_);
+	change_tx_type sut(temp_root_, send_handler_bound());
 
 	sut.commit_handler("eris", "foo", "bar");
 

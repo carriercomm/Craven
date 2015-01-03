@@ -128,7 +128,7 @@ namespace change
 	}
 
 	//! The class handling change transfer
-	template <typename Client, std::size_t block_limit = 450>
+	template <std::size_t block_limit = 450>
 	class change_transfer
 	{
 	public:
@@ -170,14 +170,11 @@ namespace change
 		 *  \param root_storage The path to the root storage directory
 		 *  \param send_handler The send handler, expected to wrap the provided
 		 *  json in the required RPC labels.
-		 *  \param raft_client The raft client
 		 */
 		change_transfer(const boost::filesystem::path& root_storage,
-				const std::function<void (const std::string&, const Json::Value&)> send_handler,
-				Client& raft_client)
+				const std::function<void (const std::string&, const Json::Value&)> send_handler)
 			:root_(root_storage),
-			send_handler_(send_handler),
-			raft_client_(raft_client)
+			send_handler_(send_handler)
 		{
 			//Reset all pending
 			for(const std::pair<std::string, std::string>& key_value : root_.versions())
@@ -601,7 +598,6 @@ namespace change
 		std::map<std::tuple<std::string, std::string>, pending_info> pending_;
 
 		std::function<void (const std::string&, const Json::Value&)> send_handler_;
-		Client& raft_client_;
 
 		//! Generate the SHA1 hash of a file
 		std::string sha1_hash(const boost::filesystem::path& file) const
