@@ -171,7 +171,6 @@ src_daemon_test_changetx_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) 
 
 
 TESTS = $(check_PROGRAMS)
-XFAIL_TESTS = src/daemon/test/changetx
 
 if HAVE_DOXYGEN
 SUBDIRS = doc

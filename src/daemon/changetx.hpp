@@ -1,19 +1,20 @@
 #pragma once
 
-#include <array>
 #include <algorithm>
-#include <sstream>
+#include <array>
 #include <array>
 #include <iomanip>
+#include <limits>
+#include <sstream>
 
-#include <boost/filesystem/fstream.hpp>
-#include <boost/uuid/sha1.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/range/algorithm_ext/push_back.hpp>
-#include <boost/range/algorithm_ext/erase.hpp>
-#include <boost/range/adaptor/transformed.hpp>
-#include <boost/range/adaptor/filtered.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/range/adaptor/filtered.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/algorithm_ext/erase.hpp>
+#include <boost/range/algorithm_ext/push_back.hpp>
+#include <boost/uuid/sha1.hpp>
 
 #include <b64/encode.h>
 #include <b64/decode.h>
@@ -141,7 +142,6 @@ namespace change
 				key_(key),
 				version_(version)
 			{
-				throw std::runtime_error("Not yet implemented");
 			}
 		public:
 
@@ -179,7 +179,15 @@ namespace change
 			send_handler_(send_handler),
 			raft_client_(raft_client)
 		{
-			throw std::runtime_error("Not yet implemented");
+			//Reset all pending
+			for(const std::pair<std::string, std::string>& key_value : root_.versions())
+			{
+				if(boost::ends_with(std::get<1>(key_value), ".pending"))
+					root_.kill(std::get<0>(key_value), std::get<1>(key_value));
+			}
+
+			//Continue transfers
+			tick();
 		}
 
 
@@ -221,8 +229,9 @@ namespace change
 
 			std::array<char, block_limit> buf;
 			file.read(buf.data(), buf.size());
+			std::string read_data(buf.begin(), buf.begin() + file.gcount());
 
-			boost::interprocess::bufferstream datastream(buf.data(), buf.size());
+			std::istringstream datastream(read_data);
 
 			std::ostringstream os;
 			base64::encoder enc;
@@ -262,7 +271,7 @@ namespace change
 				//check for the pending data
 				if(pending_.count(std::make_tuple(rpc.key(), pending_vers)) == 0)
 					pending_.insert(std::make_pair(std::make_tuple(rpc.key(), rpc.version() + ".pending"),
-							pending_info{from, pending_vers}));
+							pending_info{from, rpc.version()}));
 
 				//Add the file if it doesn't exist
 				boost::filesystem::path pending_path;
@@ -272,12 +281,17 @@ namespace change
 				else
 					pending_path = root_(rpc.key(), pending_vers);
 
-				boost::filesystem::ofstream of(pending_path);
+				//create the file if it does not exist
+				if(!boost::filesystem::exists(pending_path))
+					boost::filesystem::ofstream of(pending_path);
+
+				//Both output & input to avoid truncating the stream
+				boost::filesystem::fstream of(pending_path, std::ios::binary | std::ios::out | std::ios::in);
 
 				pending_info& info = pending_.at(std::make_tuple(rpc.key(), pending_vers));
 
 				//check this is in the right place trivially
-				bool valid = info.length == rpc.start();
+				bool valid = info.length <= rpc.start();
 				if(!valid)
 				{
 					for(std::tuple<uint32_t, uint32_t> gap : info.gaps)
@@ -287,35 +301,30 @@ namespace change
 				//else throw it away
 				if(valid && rpc.data() != "")
 				{
+					//detect if our spool would create a gap
+					if(info.length < rpc.start())
+					{
+						info.gaps.push_back(std::make_tuple(info.length,
+									rpc.start() - info.length));
+					}
+
+
 					//spool to the position in file
+					//This can go past the end, in which case it fills
+					//with 0 bytes -- what we want.
 					of.seekp(rpc.start());
 
 					if(of.fail())
-					{
-						//clear the state flags
-						of.clear();
-
-						//seek to the end
-						of.seekp(0, std::ios::end);
-
-						if(of.fail())
-							throw std::runtime_error("Failed file transfer");
-
-						//Get size
-						unsigned fill = rpc.start() - of.tellp();
-
-						//record the gap
-						info.gaps.push_back(std::make_tuple(of.tellp(), fill));
-
-						//fill it in!
-						for(; fill > 0; --fill)
-							of.put('\0');
-
-					}
+						throw std::runtime_error("Failed file transfer");
 
 					base64::decoder dec;
 					std::istringstream is(rpc.data());
 					dec.decode(is, of);
+
+					uint32_t length = static_cast<uint32_t>(of.tellp()) - rpc.start();
+					BOOST_LOG_TRIVIAL(info) << "Transferred " << length << " bytes of data"
+						<< " for (" << rpc.key() << ", " << rpc.version() << ") from "
+						<< from;
 
 					info.length = std::max(static_cast<uint32_t>(of.tellp()), info.length);
 
@@ -333,6 +342,7 @@ namespace change
 					//No longer pending!
 					if(info.eof_seen && info.gaps.empty())
 					{
+
 						//rename the pending key
 						root_.rename(rpc.key(), pending_vers,
 								rpc.key(), rpc.version());
@@ -340,9 +350,17 @@ namespace change
 						//Remove the pending data
 						pending_.erase(std::make_tuple(rpc.key(),
 									pending_vers));
+
+						BOOST_LOG_TRIVIAL(info) << "Transfer of (" << rpc.key() << ", " << rpc.version()
+							<< ") from " << from << " complete.";
 					}
 				}
+				else
+					BOOST_LOG_TRIVIAL(info) << "Response invalid.";
 			}
+			else
+				BOOST_LOG_TRIVIAL(info) << "Ignoring update for (" << rpc.key() << ", " << rpc.version()
+					<< ") from " << from << ": not marked as pending.";
 		}
 
 		//! Handler for commit notificiations
@@ -351,8 +369,11 @@ namespace change
 		{
 			try
 			{
+				BOOST_LOG_TRIVIAL(info) << "Starting transfer of (" << key
+					<< ", " << version << ") from " << from;
+
 				std::string pending_vers = version + ".pending";
-				//
+
 				//add the pending version
 				if(!exists(key, pending_vers))
 					root_.add(key, pending_vers);
@@ -360,7 +381,7 @@ namespace change
 				//setup the pending info
 				if(pending_.count(std::make_tuple(key, pending_vers)) == 0)
 					pending_.insert(std::make_pair(std::make_tuple(key, version),
-							pending_info{from, pending_vers}));
+							pending_info{from, version}));
 
 				//fire request
 				send_handler_(from, rpc::request(key, version, "", 0));
@@ -495,6 +516,12 @@ namespace change
 		//! Generates a version that can be added to raft in an update RPC.
 		std::string close(const scratch& scratch_info)
 		{
+			//check the file exists on-disk and if not, create it
+			if(!boost::filesystem::exists(scratch_info()))
+			{
+				boost::filesystem::ofstream sc(scratch_info());
+			}
+
 			//Calculate version information
 			auto new_version = sha1_hash(scratch_info());
 			root_.rename(scratch_info.key(), scratch_info.version(),
@@ -506,7 +533,12 @@ namespace change
 		//! Creates a new scratch for a key
 		scratch add(const std::string& key)
 		{
-			auto path = root_.add(key, ".scratch");
+			boost::filesystem::path path;
+			if(!root_.exists(key, ".scratch"))
+				path = root_.add(key, ".scratch");
+			else
+				path = root_(key, ".scratch");
+
 			return scratch(path, key, ".scratch");
 		}
 
@@ -540,7 +572,9 @@ namespace change
 		struct pending_info
 		{
 			pending_info(const std::string& from, const std::string& version)
-				:from(from),
+				:eof_seen(false),
+				length(0),
+				from(from),
 				version(version)
 			{
 			}
@@ -574,7 +608,7 @@ namespace change
 		{
 			uintmax_t size = boost::filesystem::file_size(file);
 			//Max size for this sha1 impl is 2^32 bytes
-			if(size > 4294967296)
+			if(size > std::numeric_limits<uint32_t>::max())
 				BOOST_LOG_TRIVIAL(warning) << "Maximum file size is 4GiB.";
 
 			boost::uuids::detail::sha1 sha1;

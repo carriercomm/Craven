@@ -41,7 +41,7 @@ uint32_t json_help::checked_from_json<uint32_t>(const Json::Value& root, const s
 {
 	membership_check(root, key, msg);
 
-	if(root[key].isInt() && root[key].asInt() >= 0)
+	if((root[key].isInt() && root[key].asInt() >= 0) || root[key].isUInt())
 		return static_cast<uint32_t>(root[key].asInt());
 	else
 	{
