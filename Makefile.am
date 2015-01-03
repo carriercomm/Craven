@@ -27,7 +27,8 @@ src_daemon_dfsd_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
 						  src/common/json_help.cpp src/daemon/raftclient.hpp \
 						  src/daemon/raftclient.cpp src/daemon/raftrequest.hpp src/daemon/raftrequest.cpp \
 						  src/daemon/raftctl.hpp src/daemon/raftctl.cpp \
-						  src/daemon/changetx.hpp src/daemon/changetx.cpp
+						  src/daemon/changetx.hpp src/daemon/changetx.cpp \
+						  src/common/b64_help.hpp src/common/b64_help.cpp
 
 src_daemon_dfsd_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) $(LIBB64_CPPFLAGS)
 src_daemon_dfsd_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) \
@@ -158,7 +159,7 @@ src_daemon_test_persist_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
 
 src_daemon_test_changetx_SOURCES = src/daemon/test/changetx-test.cpp \
 								   src/daemon/changetx.cpp src/daemon/persist.cpp \
-								   src/common/json_help.cpp
+								   src/common/json_help.cpp src/common/b64_help.cpp
 
 src_daemon_test_changetx_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBB64_CPPFLAGS) \
 									$(JSONCPP_CFLAGS)

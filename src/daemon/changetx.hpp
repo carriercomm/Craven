@@ -16,8 +16,7 @@
 #include <boost/range/algorithm_ext/push_back.hpp>
 #include <boost/uuid/sha1.hpp>
 
-#include <b64/encode.h>
-#include <b64/decode.h>
+#include <b64_help.hpp>
 
 #include "raftrequest.hpp"
 
@@ -233,11 +232,7 @@ namespace change
 
 			std::istringstream datastream(read_data);
 
-			std::ostringstream os;
-			base64::encoder enc;
-			enc.encode(datastream, os);
-
-			return rpc::response(rpc, os.str(),
+			return rpc::response(rpc, b64_help::encode(datastream),
 					file.eof() ? rpc::response::eof : rpc::response::ok);
 		}
 
@@ -317,9 +312,7 @@ namespace change
 					if(of.fail())
 						throw std::runtime_error("Failed file transfer");
 
-					base64::decoder dec;
-					std::istringstream is(rpc.data());
-					dec.decode(is, of);
+					b64_help::decode(rpc.data(), of);
 
 					uint32_t length = static_cast<uint32_t>(of.tellp()) - rpc.start();
 					BOOST_LOG_TRIVIAL(info) << "Transferred " << length << " bytes of data"
