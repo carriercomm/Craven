@@ -160,15 +160,36 @@ namespace raft
 				return commit_valid;
 		}
 
-		//! Connect a function to be called on commit of a new key/version
+		//! Connect a function to be called on commit of a new Update
 		/*!
 		 *  \param f A callable of function signature void (const std::string&
 		 *  from, const std::string& key, *  const std::string& value)
 		 */
 		template <typename Callable>
-		boost::signals2::connection connect_commit(Callable&& f)
+		boost::signals2::connection connect_commit_update(Callable&& f)
 		{
-			return commit_.connect(std::forward<Callable>(f));
+			return commit_update_.connect(std::forward<Callable>(f));
+		}
+
+		//! Connect a function to be called on commit of a new Rename
+		template <typename Callable>
+		boost::signals2::connection connect_commit_rename(Callable&& f)
+		{
+			return commit_rename_.connect(std::forward<Callable>(f));
+		}
+
+		//! Connect a function to be called on commit of a new Delete
+		template <typename Callable>
+		boost::signals2::connection connect_commit_delete(Callable&& f)
+		{
+			return commit_delete_.connect(std::forward<Callable>(f));
+		}
+
+		//! Connect a function to be called on commit of a new Add
+		template <typename Callable>
+		boost::signals2::connection connect_commit_add(Callable&& f)
+		{
+			return commit_add_.connect(std::forward<Callable>(f));
 		}
 
 	protected:
@@ -184,7 +205,23 @@ namespace raft
 		//! Leader only: latest versions awaiting commit. Same as version_map_
 		version_map_type pending_version_map_;
 
-		boost::signals2::signal<void (const std::string&, const std::string&, const std::string&)> commit_;
+		boost::signals2::signal<void (const request::Update&)> commit_update_;
+		boost::signals2::signal<void (const request::Rename&)> commit_rename_;
+		boost::signals2::signal<void (const request::Delete&)> commit_delete_;
+		boost::signals2::signal<void (const request::Add&)> commit_add_;
+
+		//! Function to provide ad-hoc polymorphism to rpc commit notification,
+		//! allowing correct notification in a templated function.
+		void commit_notify(const request::Update& rpc);
+
+		//! \overload
+		void commit_notify(const request::Rename& rpc);
+
+		//! \overload
+		void commit_notify(const request::Delete& rpc);
+
+		//! \overload
+		void commit_notify(const request::Add& rpc);
 
 		//! Helper for commit
 		template <typename Derived>
@@ -204,7 +241,7 @@ namespace raft
 					pending_version_map_.erase(entry.key());
 
 				//Notify the commit handlers
-				commit_(entry.from(), entry.key(), entry.version());
+				commit_notify(entry);
 
 			}
 		}

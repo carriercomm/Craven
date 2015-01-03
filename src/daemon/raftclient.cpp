@@ -75,7 +75,7 @@ void raft::Client::commit_handler(const Json::Value& root)
 			pending_version_map_.erase(entry.key());
 
 		//Notify the commit handlers
-		commit_(entry.from(), entry.key(), entry.version());
+		commit_notify(entry);
 	}
 	else if(type == "rename")
 	{
@@ -105,6 +105,26 @@ std::tuple<std::string, std::string> raft::Client::operator [](const std::string
 {
 	return version_map_.at(key);
 }
+void raft::Client::commit_notify(const request::Update& rpc)
+{
+	commit_update_(rpc);
+}
+
+void raft::Client::commit_notify(const request::Rename& rpc)
+{
+	commit_rename_(rpc);
+}
+
+void raft::Client::commit_notify(const request::Delete& rpc)
+{
+	commit_delete_(rpc);
+}
+
+void raft::Client::commit_notify(const request::Add& rpc)
+{
+	commit_add_(rpc);
+}
+
 
 void raft::Client::apply_to(const raft::request::Update& update, version_map_type& version_map)
 {
