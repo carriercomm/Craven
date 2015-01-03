@@ -25,7 +25,8 @@ src_daemon_dfsd_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
 						  src/daemon/remcon.hpp src/daemon/signals.hpp src/daemon/raftstate.hpp \
 						  src/daemon/raftstate.cpp src/daemon/raftrpc.hpp src/daemon/raftrpc.cpp \
 						  src/common/json_help.cpp src/daemon/raftclient.hpp \
-						  src/daemon/raftclient.cpp src/daemon/raftctl.hpp src/daemon/raftctl.cpp \
+						  src/daemon/raftclient.cpp src/daemon/raftrequest.hpp src/daemon/raftrequest.cpp \
+						  src/daemon/raftctl.hpp src/daemon/raftctl.cpp \
 						  src/daemon/changetx.hpp src/daemon/changetx.cpp
 
 src_daemon_dfsd_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) $(LIBB64_CPPFLAGS)
@@ -128,6 +129,7 @@ src_daemon_test_raftstate_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS)
 									$(JSONCPP_LDFLAGS)
 
 src_daemon_test_raftclient_SOURCES = src/daemon/test/raftclient-test.cpp \
+									 src/daemon/raftrequest.cpp \
 									 src/daemon/raftclient.cpp \
 									 src/daemon/raftstate.cpp \
 									 src/daemon/raftlog.cpp \

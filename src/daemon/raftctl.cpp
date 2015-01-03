@@ -16,6 +16,7 @@
 #include <json_help.hpp>
 
 #include "raftrpc.hpp"
+#include "raftrequest.hpp"
 #include "raftclient.hpp"
 #include "raftstate.hpp"
 #include "dispatch.hpp"

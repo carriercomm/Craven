@@ -11,6 +11,7 @@ namespace fs = boost::filesystem;
 #include <json/json.h>
 #include <json_help.hpp>
 
+#include "raftrequest.hpp"
 #include "raftclient.hpp"
 
 #include "changetx.hpp"

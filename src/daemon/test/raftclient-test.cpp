@@ -17,6 +17,7 @@
 
 #include "../raftrpc.hpp"
 #include "../raftstate.hpp"
+#include "../raftrequest.hpp"
 #include "../raftclient.hpp"
 
 struct disable_logging

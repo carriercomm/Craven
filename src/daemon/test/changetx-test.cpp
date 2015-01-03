@@ -19,6 +19,7 @@ namespace fs = boost::filesystem;
 #include <b64/encode.h>
 #include <b64/decode.h>
 
+#include "../raftrequest.hpp"
 #include "../raftclient.hpp"
 #include "../changetx.hpp"
 
