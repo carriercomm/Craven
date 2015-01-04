@@ -15,6 +15,7 @@
 #include <boost/range/algorithm_ext/erase.hpp>
 #include <boost/range/algorithm_ext/push_back.hpp>
 #include <boost/uuid/sha1.hpp>
+#include <boost/signals2.hpp>
 
 #include <b64_help.hpp>
 
@@ -346,6 +347,7 @@ namespace change
 
 						BOOST_LOG_TRIVIAL(info) << "Transfer of (" << rpc.key() << ", " << rpc.version()
 							<< ") from " << from << " complete.";
+						notify_arrival_(rpc.key(), rpc.version());
 					}
 				}
 				else
@@ -595,6 +597,12 @@ namespace change
 			return new_version;
 		}
 
+		template <typename Callable>
+		boost::signals2::connection connect_arrival_notifications(Callable&& f)
+		{
+			return notify_arrival_.connect(std::forward(f));
+		}
+
 	protected:
 		persistence root_;
 
@@ -630,6 +638,7 @@ namespace change
 		std::map<std::tuple<std::string, std::string>, pending_info> pending_;
 
 		std::function<void (const std::string&, const Json::Value&)> send_handler_;
+		boost::signals2::signal<void (const std::string&, const std::string&)> notify_arrival_;
 
 		//! Generate the SHA1 hash of a file
 		std::string sha1_hash(const boost::filesystem::path& file) const
