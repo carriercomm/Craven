@@ -10,6 +10,7 @@ AC_PROG_CXX
 AC_PROG_LIBTOOL
 
 PKG_CHECK_MODULES([JSONCPP], [jsoncpp])
+PKG_CHECK_MODULES([FUSE], [fuse])
 AC_CHECK_HEADERS(b64/encode.h, [], [AC_MSG_ERROR([This project requires libb64])],
 [
 #define BUFFERSIZE 1048576
