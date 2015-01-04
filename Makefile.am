@@ -5,7 +5,8 @@ bin_PROGRAMS = src/cli/dfsctl src/daemon/dfsd
 check_PROGRAMS = src/cli/test/comms src/common/test/expansion src/common/test/linebuffer \
 				 src/common/test/connection src/daemon/test/connection_pool \
 				 src/daemon/test/dispatch src/daemon/test/raftlog src/daemon/test/raftstate \
-				 src/daemon/test/raftclient src/daemon/test/persist src/daemon/test/changetx
+				 src/daemon/test/raftclient src/daemon/test/persist src/daemon/test/changetx \
+				 src/daemon/test/fsstate
 
 noinst_HEADERS = src/common/configure.hpp src/common/linebuffer.hpp src/common/connection.hpp src/common/json_help.hpp
 
@@ -172,6 +173,19 @@ src_daemon_test_changetx_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) 
 								   $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
 								   $(JSONCPP_LDFLAGS) $(LIBB64_LDFLAGS)
 
+src_daemon_test_fsstate_SOURCES = src/daemon/test/fsstate-test.cpp \
+								  src/daemon/fsstate.cpp
+
+src_daemon_test_fsstate_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) \
+								   $(FUSE_CFLAGS)
+
+src_daemon_test_fsstate_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) \
+								$(BOOST_UNIT_TEST_FRAMEWORK_LIBS) \
+								$(JSONCPP_LIBS) $(FUSE_LIBS)
+
+src_daemon_test_fsstate_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
+								$(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
+								$(JSONCPP_LDFLAGS) $(FUSE_LDFLAGS)
 
 
 TESTS = $(check_PROGRAMS)

@@ -4,6 +4,9 @@
 #include <list>
 
 #include <boost/optional.hpp>
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
