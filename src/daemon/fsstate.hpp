@@ -20,6 +20,7 @@ namespace dfs
 	template <typename Client, typename ChangeTx>
 	class basic_state
 	{
+	public:
 		basic_state(Client& client, ChangeTx& changetx)
 			:client_(client),
 			changetx_(changetx)
@@ -125,10 +126,16 @@ namespace dfs
 			throw std::runtime_error("Not yet implemented");
 		}
 
+		//! Enum signifying where the translation table is pointing (public for
+		//! test reasons)
+		enum redirect_to {
+			dcache,	//!< Look in the dcache
+			rcache	//!< Look in the readcache
+		};
 
 	protected:
-		Client client_;
-		ChangeTx changetx_;
+		Client& client_;
+		ChangeTx& changetx_;
 
 		//! Node information stored in the dcache
 		struct node_info
@@ -150,7 +157,7 @@ namespace dfs
 				clean,	//!< The node is clean -- the same as the sync'd version
 				pending,//!< The node is pending -- the current version of this file hasn't arrived
 				dirty,	//!< The node is dirty -- it requires syncing, but isn't active.
-				active,	//!< The node is actively being written to.
+				active_write,	//!< The node is actively being written to.
 				active_read,	//!< The node is actively being read from (i.e. read-only access).
 				novel,	//!< The node is new.
 				dead	//!< The node has been deleted but the delete is not yet synced
@@ -159,7 +166,7 @@ namespace dfs
 			node_type type;
 			state_type state;
 
-			//! Inode number (must be unique)
+			//! Inode number (must be unique, only meaningful on directories).
 			uint64_t inode;
 
 			//! Rename information.
@@ -174,7 +181,7 @@ namespace dfs
 			//! Scratch info, for if we're active
 			boost::optional<typename ChangeTx::scratch> scratch_info;
 
-			//! Previous version, if we're pending or dirty
+			//! Previous version, if we're pending
 			boost::optional<std::string> previous_version;
 
 			//! The name of the node
@@ -186,9 +193,6 @@ namespace dfs
 
 			//! The version of the node. Empty for novel files & directories.
 			std::string version;
-
-			//! The key of the node (what goes in raft & changetx)
-			std::string key;
 		};
 
 		//! Directory cache. Single map of list so we can represent empty dirs
@@ -201,11 +205,6 @@ namespace dfs
 		//! The latest allocated inode number. Increases monotonically.
 		uint64_t latest_inode_;
 
-		//! Enum signifying where the translation table is pointing
-		enum redirect_to {
-			dcache,	//!< Look in the dcache
-			rcache	//!< Look in the readcache
-		};
 
 		//! Translation table for fuse -> raft
 		std::unordered_map<std::string, std::tuple<redirect_to, std::string>> fusetl_;

@@ -174,6 +174,8 @@ src_daemon_test_changetx_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) 
 								   $(JSONCPP_LDFLAGS) $(LIBB64_LDFLAGS)
 
 src_daemon_test_fsstate_SOURCES = src/daemon/test/fsstate-test.cpp \
+								  src/daemon/raftrequest.cpp \
+								  src/common/json_help.cpp \
 								  src/daemon/fsstate.cpp
 
 src_daemon_test_fsstate_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) \
@@ -181,14 +183,17 @@ src_daemon_test_fsstate_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) \
 
 src_daemon_test_fsstate_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_LOG_LIBS) \
 								$(BOOST_UNIT_TEST_FRAMEWORK_LIBS) \
+								$(BOOST_FILESYSTEM_LIBS) \
 								$(JSONCPP_LIBS) $(FUSE_LIBS)
 
 src_daemon_test_fsstate_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
 								$(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
+								$(BOOST_FILESYSTEM_LDFLAGS) \
 								$(JSONCPP_LDFLAGS) $(FUSE_LDFLAGS)
 
 
 TESTS = $(check_PROGRAMS)
+XFAIL_TESTS = src/daemon/test/fsstate
 
 if HAVE_DOXYGEN
 SUBDIRS = doc
