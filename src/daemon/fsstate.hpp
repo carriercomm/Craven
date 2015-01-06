@@ -240,13 +240,13 @@ namespace dfs
 
 		//! Handles conflict management for the sync cache
 		template <typename Rpc>
-		void conflict_manage(const Rpc& rpc, const boost::filesystem::path& path,
+		void manage_sync_cache(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& recovery);
 
 
 
 		template <typename Rpc>
-		void recover_dcache(const Rpc& rpc, const boost::filesystem::path& path,
+		void manage_dcache(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& recovery);
 
 		Client& client_;
@@ -460,7 +460,7 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::conflict_manage(const Rpc& rpc, const boost::filesystem::path& path,
+void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const boost::filesystem::path& path,
 		const boost::filesystem::path& recovery)
 {
 	//check the sync cache & recover if necessary
@@ -511,7 +511,7 @@ void dfs::basic_state<Client, ChangeTx>::conflict_manage(const Rpc& rpc, const b
 			if(sync_cache_.at(path).empty())
 				sync_cache_.erase(path);
 			else // conflict handle the remaining entries
-				conflict_manage(rpc, path);
+				manage_sync_cache(rpc, path);
 		}
 		else
 		{
@@ -567,7 +567,7 @@ void dfs::basic_state<Client, ChangeTx>::conflict_manage(const Rpc& rpc, const b
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::recover_dcache(const Rpc& rpc, const boost::filesystem::path& path,
+void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& recovery)
 {
 	auto parent = path.parent_path();
@@ -743,11 +743,11 @@ void dfs::basic_state<Client, ChangeTx>::commit_add(const raft::request::Add& rp
 	{
 		auto recovery = recover_path(path);
 		//check the sync cache & recover if necessary
-		conflict_manage(rpc, path, recovery);
+		manage_sync_cache(rpc, path, recovery);
 
 		//propagate recovery to dcache
 		if(dcache_.at(parent.string())) //don't need to check for existence; it's made above
-			recover_dcache(rpc, path, recovery);
+			manage_dcache(rpc, path, recovery);
 	}
 
 	//apply
