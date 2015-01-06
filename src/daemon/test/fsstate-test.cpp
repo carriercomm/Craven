@@ -318,8 +318,8 @@ BOOST_FIXTURE_TEST_CASE(add_for_key_that_clashes_leaves_state_correct, test_fixt
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo/bar"].end());
 
 	node_it->state = State::node_info::novel;
-	sut.sync_cache_.push_back(*node_it);
-	sut.sync_cache_.back().name = "/foo/bar/baz";
+	sut.sync_cache_["/foo/bar/baz"].push_back(*node_it);
+	sut.sync_cache_["/foo/bar/baz"].back().name = "/foo/bar/baz";
 
 	//Commit a clashing entry
 	sut.commit_add(raft::request::Add("eris", "%2ffoo%2fbar%2fbaz",
@@ -339,8 +339,11 @@ BOOST_FIXTURE_TEST_CASE(add_for_key_that_clashes_leaves_state_correct, test_fixt
 	BOOST_CHECK_EQUAL(redir_it->type, State::node_info::file);
 	BOOST_CHECK_EQUAL(redir_it->state, State::node_info::novel);
 
+	std::string expected_name = "/foo/bar/" + redir_it->name;
+
 	BOOST_REQUIRE_EQUAL(sut.sync_cache_.size(), 1);
-	BOOST_REQUIRE_EQUAL(sut.sync_cache_[0].name, "/foo/bar" + redir_it->name);
+	BOOST_REQUIRE_EQUAL(sut.sync_cache_[expected_name].size(), 1);
+	BOOST_REQUIRE_EQUAL(sut.sync_cache_[expected_name].front().name, expected_name);
 }
 
 BOOST_FIXTURE_TEST_CASE(add_for_pending_version_marked, test_fixture)
@@ -451,8 +454,8 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_dirty_moves_and_handles_state, 
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo"].end());
 
 	node_it->state = State::node_info::dirty;
-	sut.sync_cache_.push_back(*node_it);
-	sut.sync_cache_.back().name = "/foo/thud";
+	sut.sync_cache_["/foo/thud"].push_back(*node_it);
+	sut.sync_cache_["/foo/thud"].back().name = "/foo/thud";
 
 	//Commit test
 	sut.commit_rename(raft::request::Rename("eris",
@@ -475,8 +478,11 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_dirty_moves_and_handles_state, 
 	BOOST_CHECK_EQUAL(redir_it->version,
 			"5898511673f223c4adb65ddce23981a2d87dec5c");
 
+	std::string expected_name = "/foo/" + redir_it->name;
+
 	BOOST_REQUIRE_EQUAL(sut.sync_cache_.size(), 1);
-	BOOST_REQUIRE_EQUAL(sut.sync_cache_[0].name, "/foo" + redir_it->name);
+	BOOST_REQUIRE_EQUAL(sut.sync_cache_[expected_name].size(), 1);
+	BOOST_REQUIRE_EQUAL(sut.sync_cache_[expected_name].front().name, expected_name);
 
 }
 
@@ -511,8 +517,8 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 
 	node_it->state = State::node_info::active_write;
 	node_it->scratch_info = changetx_mock::scratch();
-	sut.sync_cache_.push_back(*node_it);
-	sut.sync_cache_.back().name = "/foo/thud";
+	sut.sync_cache_["/foo/thud"].push_back(*node_it);
+	sut.sync_cache_["/foo/thud"].back().name = "/foo/thud";
 
 	//Commit test
 	sut.commit_rename(raft::request::Rename("eris",
@@ -537,7 +543,8 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 	BOOST_CHECK_EQUAL(redir_it->state, State::node_info::active_write);
 
 	BOOST_REQUIRE_EQUAL(sut.sync_cache_.size(), 1);
-	BOOST_REQUIRE_EQUAL(sut.sync_cache_[0].name, redirect.string());
+	BOOST_REQUIRE_EQUAL(sut.sync_cache_[redirect.string()].size(), 1);
+	BOOST_REQUIRE_EQUAL(sut.sync_cache_[redirect.string()].front().name, redirect.string());
 
 }
 
@@ -628,8 +635,8 @@ BOOST_FIXTURE_TEST_CASE(update_dirty_conflict_manages, test_fixture)
 			});
 	BOOST_REQUIRE(added != sut.dcache_["/foo/bar"].end());
 	added->state = State::node_info::dirty;
-	sut.sync_cache_.push_back(*added);
-	sut.sync_cache_.back().name = "/foo/bar/baz";
+	sut.sync_cache_["/foo/bar/baz"].push_back(*added);
+	sut.sync_cache_["/foo/bar/baz"].back().name = "/foo/bar/baz";
 
 	// Exercise
 	sut.commit_update(raft::request::Update("eris",
@@ -667,10 +674,13 @@ BOOST_FIXTURE_TEST_CASE(update_dirty_conflict_manages, test_fixture)
 	BOOST_CHECK_EQUAL(node_it->state, State::node_info::dirty);
 	BOOST_CHECK_EQUAL(node_it->version,
 				"cafe504e8aaf2f1d1f4207be9fbc37edc5c042b1");
+
 	BOOST_CHECK_EQUAL(sut.sync_cache_.size(), 1);
-	BOOST_CHECK_EQUAL(sut.sync_cache_[0].version,
+	BOOST_CHECK_EQUAL(sut.sync_cache_.begin()->second.size(), 1);
+	BOOST_CHECK_EQUAL(sut.sync_cache_.begin()->second.front().version,
 				"cafe504e8aaf2f1d1f4207be9fbc37edc5c042b1");
-	BOOST_CHECK_EQUAL(sut.sync_cache_[0].state, State::node_info::dirty);
+	BOOST_CHECK_EQUAL(sut.sync_cache_.begin()->second.front().state,
+			State::node_info::dirty);
 }
 
 BOOST_FIXTURE_TEST_CASE(update_active_write_conflict_and_translate, test_fixture)
@@ -913,8 +923,8 @@ BOOST_FIXTURE_TEST_CASE(delete_wrong_version_conflict_and_recover, test_fixture)
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo/bar"].end());
 
 	node_it->state = State::node_info::novel;
-	sut.sync_cache_.push_back(*node_it);
-	sut.sync_cache_.back().name = "/foo/bar/baz";
+	sut.sync_cache_["/foo/bar/baz"].push_back(*node_it);
+	sut.sync_cache_["/foo/bar/baz"].back().name = "/foo/bar/baz";
 
 
 	sut.commit_delete(raft::request::Delete("eris", "%2ffoo%2fbar%2fbaz",
@@ -971,8 +981,8 @@ BOOST_FIXTURE_TEST_CASE(delete_tombstone_clean_and_remove_from_sync_cache, test_
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo/bar"].end());
 
 	node_it->state = State::node_info::dead;
-	sut.sync_cache_.push_back(*node_it);
-	sut.sync_cache_.back().name = "/foo/bar/baz";
+	sut.sync_cache_["/foo/bar/baz"].push_back(*node_it);
+	sut.sync_cache_["/foo/bar/baz"].back().name = "/foo/bar/baz";
 
 	sut.commit_delete(raft::request::Delete("eris", "%2ffoo%2fbar%2fbaz",
 				"a4e3e1394621ec2301076e39c6e5585bb1d665dc"));

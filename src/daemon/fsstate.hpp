@@ -21,6 +21,8 @@ namespace dfs
 	std::string encode_path(const std::string& path);
 	std::string decode_path(const std::string& path);
 
+	struct ordinary_prepare_tag {};
+	struct rename_prepare_tag {};
 
 	template <typename Client, typename ChangeTx>
 	class basic_state
@@ -29,12 +31,14 @@ namespace dfs
 		//! Node information stored in the dcache
 		struct node_info
 		{
+			node_info() = default;
+
 			//! Make a directory
-			node_info(const std::string& name, uint64_t inode_)
+			node_info(const std::string& name, uint64_t inode)
 				:type(dir),
 				state(clean),
-				name(name),
-				inode(inode)
+				inode(inode),
+				name(name)
 			{
 			}
 
@@ -130,10 +134,7 @@ namespace dfs
 		void commit_add(const raft::request::Add& rpc);
 
 		//! Handler for arrival notifications from the change_transfer instance
-		void notify_arrival(const std::string& key, const std::string& version)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		void notify_arrival(const std::string& key, const std::string& version);
 
 		//! Get the attributes of a path
 		int getattr(const std::string& path, struct stat* stat_info)
@@ -243,11 +244,20 @@ namespace dfs
 		void manage_sync_cache(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& recovery);
 
+		template <typename Rpc>
+		void prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+				const boost::filesystem::path& parent, ordinary_prepare_tag);
 
+		template <typename Rpc>
+		void prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+				const boost::filesystem::path& parent, rename_prepare_tag);
 
 		template <typename Rpc>
 		void manage_dcache(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& recovery);
+
+		template <typename Rpc>
+		void manage_commit(const Rpc& rpc);
 
 		Client& client_;
 		ChangeTx& changetx_;
@@ -308,11 +318,12 @@ namespace dfs
 	struct rpc_traits<raft::request::Update>
 	{
 		typedef raft::request::Update rpc_type;
+		typedef ordinary_prepare_tag prepare_tag;
 
 		template<typename node_info>
 		static bool completed(const rpc_type& rpc, const node_info& ni)
 		{
-			return ni.version() == rpc.version()
+			return ni.version == rpc.version()
 				&& ni.state == node_info::dirty;
 		}
 
@@ -323,17 +334,28 @@ namespace dfs
 			sync_cache.at(ni.name).pop_front();
 		}
 
+		template<typename node_info, typename ChangeTx>
+		static std::tuple<std::string, node_info> generate(const rpc_type& rpc,
+				const boost::filesystem::path& path, const boost::filesystem::path& parent,
+				const ChangeTx& changetx)
+		{
+			return std::make_tuple(parent.string(),
+					node_info{path.filename().string(), rpc.version(),
+				changetx.exists(rpc.key(), rpc.version())});
+		}
+
 	};
 
 	template <>
 	struct rpc_traits<raft::request::Delete>
 	{
 		typedef raft::request::Delete rpc_type;
+		typedef ordinary_prepare_tag prepare_tag;
 
 		template<typename node_info>
 		static bool completed(const rpc_type& rpc, const node_info& ni)
 		{
-			return ni.version() == rpc.version()
+			return ni.version == rpc.version()
 				&& ni.state == node_info::dead
 				&& !ni.rename_info;
 		}
@@ -344,18 +366,27 @@ namespace dfs
 		{
 			sync_cache.at(ni.name).pop_front();
 		}
+
+		template<typename node_info, typename ChangeTx>
+		static std::tuple<std::string, node_info> generate(const rpc_type&,
+				const boost::filesystem::path&, const boost::filesystem::path&,
+				const ChangeTx&)
+		{
+			return std::make_tuple("", node_info{});
+		}
 	};
 
 	template <>
 	struct rpc_traits<raft::request::Rename>
 	{
 		typedef raft::request::Rename rpc_type;
+		typedef rename_prepare_tag prepare_tag;
 
 		//! Note that this isn't sufficient: need to check the other signpost
 		template<typename node_info>
 		static bool completed(const rpc_type& rpc, const node_info& ni)
 		{
-			return ni.version() == rpc.version()
+			return ni.version == rpc.version()
 				&& ni.state == node_info::dead
 				&& static_cast<bool>(ni.rename_info)
 				&& *ni.rename_info == decode_path(rpc.new_key());
@@ -397,19 +428,31 @@ namespace dfs
 
 			sync_cache.at(ni.name).pop_front();
 		}
+
+		template<typename node_info, typename ChangeTx>
+		static std::tuple<std::string, node_info> generate(const rpc_type& rpc,
+				const boost::filesystem::path&, const boost::filesystem::path&,
+				const ChangeTx& changetx)
+		{
+			boost::filesystem::path to_path = decode_path(rpc.new_key());
+			return std::make_tuple(to_path.parent_path().string(),
+				node_info{to_path.filename().string(), rpc.version(),
+				changetx.exists(rpc.new_key(), rpc.version())});
+		}
 	};
 
 	template <>
 	struct rpc_traits<raft::request::Add>
 	{
 		typedef raft::request::Add rpc_type;
+		typedef ordinary_prepare_tag prepare_tag;
 
 		//! Check if the given RPC matches the given node info (keys should
 		//! already have been checked).
 		template<typename node_info>
 		static bool completed(const rpc_type& rpc, const node_info& ni)
 		{
-			if(ni.version() == rpc.version())
+			if(ni.version == rpc.version())
 			{
 				//if it's marked as dirty, we'll recover but log the
 				//anomaly
@@ -429,8 +472,41 @@ namespace dfs
 			sync_cache.at(ni.name).pop_front();
 		}
 
+		template<typename node_info, typename ChangeTx>
+		static std::tuple<std::string, node_info> generate(const rpc_type& rpc,
+				const boost::filesystem::path& path, const boost::filesystem::path& parent,
+				const ChangeTx& changetx)
+		{
+			return std::make_tuple(parent.string(),
+					node_info{path.filename().string(), rpc.version(),
+				changetx.exists(rpc.key(), rpc.version())});
+		}
+
 	};
 
+	template <typename Rpc>
+	struct log_on_missing_parent
+	{
+		enum {value = 1};
+	};
+
+	template <>
+	struct log_on_missing_parent<raft::request::Add>
+	{
+		enum {value = 0};
+	};
+
+	template <typename Rpc>
+	struct rpc_adds_entry
+	{
+		enum {value = 1};
+	};
+
+	template <>
+	struct rpc_adds_entry<raft::request::Delete>
+	{
+		enum {value = 0};
+	};
 }
 
 
@@ -443,9 +519,9 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 {
 	bool conflict = false;
 	//look for this action in the sync cache
-	if(sync_cache_.count(path))
+	if(sync_cache_.count(path.string()))
 	{
-		auto ni = sync_cache_.at(path).front();
+		auto ni = sync_cache_.at(path.string()).front();
 		conflict = !rpc_traits<Rpc>::completed(rpc, ni);
 		if(!conflict)
 			//clean up the completed item
@@ -464,15 +540,15 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 		const boost::filesystem::path& recovery)
 {
 	//check the sync cache & recover if necessary
-	if(sync_cache_.count(path))
+	if(sync_cache_.count(path.string()))
 	{ //if we're here, it's because the sync cache clashes
 
 		std::string new_key = encode_path(recovery.string());
 
 		//Should be true; worth checking that
-		assert(!sync_cache_[path].empty());
+		assert(!sync_cache_[path.string()].empty());
 
-		node_info& ni = sync_cache_[path].front();
+		node_info& ni = sync_cache_[path.string()].front();
 		if(ni.state == node_info::dead)
 		{
 			//Handle rename markers
@@ -506,12 +582,12 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 			}
 
 			//remove the delete
-			sync_cache_.at(path).pop_front();
+			sync_cache_.at(path.string()).pop_front();
 
-			if(sync_cache_.at(path).empty())
-				sync_cache_.erase(path);
+			if(sync_cache_.at(path.string()).empty())
+				sync_cache_.erase(path.string());
 			else // conflict handle the remaining entries
-				manage_sync_cache(rpc, path);
+				manage_sync_cache(rpc, path, recovery);
 		}
 		else
 		{
@@ -573,188 +649,252 @@ void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boo
 	auto parent = path.parent_path();
 
 	auto existing = boost::range::find_if(dcache_[parent.string()],
-			check_name(path.filename()));
+			check_name(path.filename().string()));
 
 	if(existing != dcache_[parent.string()].end())
 	{
 		switch(existing->state)
 		{
-			//if it's clean/pending there's no conflict
-			case node_info::clean:
-			case node_info::pending:
-				dcache_[parent.string()].erase(existing);
-				break;
+		//if it's clean/pending there's no conflict
+		case node_info::clean:
+		case node_info::pending:
+			dcache_[parent.string()].erase(existing);
+			break;
 
-				//active_write needs a move & tl
-			case node_info::active_write:
-				//add the translation and slide into the move case
-				//below
-				fusetl_[path.string()] = std::make_tuple(dcache, recovery.string);
+			//active_write needs a move & tl
+		case node_info::active_write:
+			//add the translation and slide into the move case
+			//below
+			fusetl_[path.string()] = std::make_tuple(dcache, recovery.string());
 
-				//if it's dirty or novel, move it (sync handled above)
-			case node_info::dirty:
-			case node_info::novel:
+			//if it's dirty or novel, move it (sync handled above)
+		case node_info::dirty:
+		case node_info::novel:
 
-				//handle rename markers
-				if(existing->state == node_info::novel && existing->rename_info)
+			//handle rename markers
+			if(existing->state == node_info::novel && existing->rename_info)
+			{
+				boost::filesystem::path rename_path = *(existing->rename_info);
+				//go change the other end of this rename marker into a
+				//new. dcache will be handled later
+				if(dcache_.count(rename_path.parent_path().string()))
 				{
-					boost::filesystem::path rename_path = *(existing->rename_info);
-					//go change the other end of this rename marker into a
-					//new. dcache will be handled later
-					if(dcache_.count(rename_path.parent_path()))
+					auto other = boost::range::find_if(dcache_[rename_path.parent_path().string()],
+							check_name(rename_path.filename().string()));
+
+					if(other != dcache_[rename_path.parent_path().string()].end())
 					{
-						auto other = boost::range::find_if(dcache_[rename_path.parent_path()],
-								check_name(rename_path.filename()));
-
-						if(other != dcache_[rename_path.parent_path()].end())
-						{
-							if(other->state == node_info::dead
-									&& other.rename_info
-									&& other.rename_info == path.string())
-								other->rename_info = recovery.filename();
-							else
-								BOOST_LOG_TRIVIAL(warning) << "Malformed rename targets in sync cache for "
-									<< path.string() << " and " << other->name;
-
-						}
+						if(other->state == node_info::dead
+								&& other->rename_info
+								&& other->rename_info == path.string())
+							other->rename_info = recovery.filename().string();
 						else
-							BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
-								<< path.string();
+							BOOST_LOG_TRIVIAL(warning) << "Malformed rename targets in sync cache for "
+								<< path.string() << " and " << other->name;
+
 					}
 					else
 						BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
 							<< path.string();
 				}
+				else
+					BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
+						<< path.string();
+			}
 
-				//move
-				existing->name = recovery.filename().string();
-				break;
+			//move
+			existing->name = recovery.filename().string();
+			break;
 
-				//active_read needs an entry in the rcache and tl
-			case node_info::active_read:
-				rcache_[path.string()] = std::make_tuple(rpc.key(), existing->version);
-				fusetl_[path.string()] = std::make_tuple(rcache, path.string());
-				dcache_[parent.string()].erase(existing);
-				break;
+			//active_read needs an entry in the rcache and tl
+		case node_info::active_read:
+			rcache_[path.string()] = std::make_tuple(rpc.key(), existing->version);
+			fusetl_[path.string()] = std::make_tuple(rcache, path.string());
+			dcache_[parent.string()].erase(existing);
+			break;
 
-				//if it's dead, delete it after checking rename
-			case node_info::dead:
-				if(existing->rename_info)
+			//if it's dead, delete it after checking rename
+		case node_info::dead:
+			if(existing->rename_info)
+			{
+				boost::filesystem::path rename_path = *(existing->rename_info);
+				//go change the other end of this rename marker into a
+				//new. dcache will be handled later
+				if(dcache_.count(rename_path.parent_path().string()))
 				{
-					boost::filesystem::path rename_path = *(existing->rename_info);
-					//go change the other end of this rename marker into a
-					//new. dcache will be handled later
-					if(dcache_.count(rename_path.parent_path()))
+					auto other = boost::range::find_if(dcache_[rename_path.parent_path().string()],
+							check_name(rename_path.filename().string()));
+
+					if(other != dcache_[rename_path.parent_path().string()].end())
 					{
-						auto other = boost::range::find_if(dcache_[rename_path.parent_path()],
-								check_name(rename_path.filename()));
-
-						if(other != dcache_[rename_path.parent_path()].end())
-						{
-							if(other->state == node_info::novel &&
-									other.rename_info && other.rename_info == path.string())
-								other->rename_info = boost::none;
-							else
-								BOOST_LOG_TRIVIAL(warning) << "Malformed rename targets in sync cache for "
-									<< path.string() << " and " << other->name;
-
-						}
+						if(other->state == node_info::novel &&
+								other->rename_info && other->rename_info == path.string())
+							other->rename_info = boost::none;
 						else
-							BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
-								<< path.string();
+							BOOST_LOG_TRIVIAL(warning) << "Malformed rename targets in sync cache for "
+								<< path.string() << " and " << other->name;
+
 					}
 					else
 						BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
 							<< path.string();
 				}
-				dcache_[parent.string()].erase(existing);
-				break;
+				else
+					BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
+						<< path.string();
+			}
+			dcache_[parent.string()].erase(existing);
+			break;
 
-				//Shouldn't reach here
-			default:
-				BOOST_LOG_TRIVIAL(warning) << "Unhandled state in conflict recovery: "
-					<< existing->state;
+			//Shouldn't reach here
+		default:
+			BOOST_LOG_TRIVIAL(warning) << "Unhandled state in conflict recovery: "
+				<< existing->state;
 		}
+
+		if(dcache_[parent.string()].size() == 1)
+			BOOST_LOG_TRIVIAL(error) << "Directory clean-up code not yet implemented";
 	}
 }
 
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::commit_update(const raft::request::Update& rpc)
+template <typename Rpc>
+void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+		const boost::filesystem::path& parent, ordinary_prepare_tag)
+{
+	bool conflict = false;
+	//Ensure the parent exists
+	if(dcache_.count(parent.string()) == 0)
+	{
+		//Make all of the directories along the path
+		make_directories(parent.string());
+		if(dfs::log_on_missing_parent<Rpc>::value)
+			BOOST_LOG_TRIVIAL(warning) << "Parent missing for committed rpc: "
+				"recovering, but this shouldn't happen";
+	}
+	else //check for completion and conflict
+		conflict = conflict_check_required(rpc, path);
+
+	//conflict manage
+	if(conflict)
+	{
+		auto recovery = recover_path(path);
+
+		manage_sync_cache(rpc, path, recovery);
+
+		manage_dcache(rpc, path, recovery);
+	}
+}
+
+
+template <typename Client, typename ChangeTx>
+template <typename Rpc>
+void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+		const boost::filesystem::path& parent, rename_prepare_tag)
+{
+	boost::filesystem::path to_path = decode_path(rpc.new_key());
+
+	bool conflict = false;
+	//Ensure the parent exists
+	if(dcache_.count(to_path.parent_path().string()) == 0)
+	{
+		//Make all of the directories along the path
+		make_directories(parent.string());
+	}
+
+	//check the from parent
+	if(dcache_.count(parent.string()) == 0)
+		BOOST_LOG_TRIVIAL(warning) << "Parent missing for committed rpc: "
+			"recovering, but this shouldn't happen";
+		//but don't create it, because we don't care
+
+	//check for completion and conflict
+	conflict = conflict_check_required(rpc, path);
+
+	//conflict manage
+	if(conflict)
+	{
+		auto recovery_add = recover_path(to_path);
+		raft::request::Add add(rpc.from(), rpc.new_key(),
+				rpc.version());
+
+		manage_sync_cache(add, to_path, recovery_add);
+		manage_dcache(add, to_path, recovery_add);
+
+		auto recovery_del = recover_path(path);
+		raft::request::Delete del(rpc.from(), rpc.key(),
+				rpc.version());
+
+		manage_sync_cache(del, path, recovery_del);
+		manage_dcache(del, path, recovery_del);
+	}
+}
+
+template <typename Client, typename ChangeTx>
+template <typename Rpc>
+void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 {
 	boost::filesystem::path path = decode_path(rpc.key());
 	boost::filesystem::path parent = path.parent_path();
 
-	//check path exists
+	//Conflict management
+	prepare_apply(rpc, path, parent, typename rpc_traits<Rpc>::prepare_tag());
 
-	//conflict manage
+	if(rpc_adds_entry<Rpc>::value)
+	{
+		std::string apply_key;
+		node_info new_file;
 
-	//apply
+		std::tie(apply_key, new_file) = rpc_traits<Rpc>::template generate<node_info>(rpc, path,
+				parent, changetx_);
+
+		dcache_[apply_key].push_back(new_file);
+	}
+}
+
+template <typename Client, typename ChangeTx>
+void dfs::basic_state<Client, ChangeTx>::commit_update(const raft::request::Update& rpc)
+{
+	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::commit_delete(const raft::request::Delete& rpc)
 {
-	boost::filesystem::path path = decode_path(rpc.key());
-	boost::filesystem::path parent = path.parent_path();
-
-	//check path exists
-
-	//conflict manage
-
-	//apply
+	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::commit_rename(const raft::request::Rename& rpc)
 {
-	boost::filesystem::path path = decode_path(rpc.key());
-	boost::filesystem::path to_path = decode_path(rpc.new_key());
-	boost::filesystem::path parent = path.parent_path();
-
-	//check path exists
-
-	//check to_path does not exist & conflict manage
-
-	//create parents for to_path
-
-	//set up to
-
-	//delete from
+	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::commit_add(const raft::request::Add& rpc)
 {
-	//Check the key doesn't already exist
-	boost::filesystem::path path = decode_path(rpc.key());
-	boost::filesystem::path parent = path.parent_path();
+	manage_commit(rpc);
+}
 
-	bool conflict = false;
-	//Ensure the parent exists
-	if(dcache_.count(parent.string()) == 0)
-		//Make all of the directories along the path
-		make_directories(parent.string());
-	else //check for completion and conflict
-		conflict = conflict_check_required(rpc, path, parent);
-
-	// Check for conflicts
-	if(conflict)
+template <typename Client, typename ChangeTx>
+void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, const std::string& version)
+{
+	boost::filesystem::path path = decode_path(key);
+	if(dcache_.count(path.parent_path()) == 1)
 	{
-		auto recovery = recover_path(path);
-		//check the sync cache & recover if necessary
-		manage_sync_cache(rpc, path, recovery);
+		auto subject = boost::range::find_if(dcache_[path.parent_path()],
+				[&path, &version](const node_info& value)
+				{
+					return value.name == path.filename()
+						&& value.state == node_info::pending
+						&& value.version == version;
+				});
 
-		//propagate recovery to dcache
-		if(dcache_.at(parent.string())) //don't need to check for existence; it's made above
-			manage_dcache(rpc, path, recovery);
+		if(subject != dcache_[path.parent_path()])
+		{
+			subject->state = node_info::clean;
+			subject->previous_version = boost::none;
+		}
 	}
-
-	//apply
-	node_info new_file{path.filename(), rpc.version(),
-		changetx_.exists(rpc.key(), rpc.version())};
-
-	//Execute the add
-	dcache_[parent.string()].push_back(new_file);
-
 }
