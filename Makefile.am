@@ -193,7 +193,6 @@ src_daemon_test_fsstate_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
 
 
 TESTS = $(check_PROGRAMS)
-XFAIL_TESTS = src/daemon/test/fsstate
 
 if HAVE_DOXYGEN
 SUBDIRS = doc
