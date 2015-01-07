@@ -3,7 +3,6 @@
 #include <string>
 #include <iomanip>
 #include <sstream>
-#include <iostream>
 
 #include <stdexcept>
 
@@ -47,9 +46,6 @@ std::string dfs::decode_path(const std::string& path)
 				if(encoded.eof())
 					throw std::runtime_error("Bad coding for string " + path);
 			}
-
-			std::cout << num << "\n";
-			std::cout << std::stoi(num, 0, 16) << "\n";
 
 			decoded.put(static_cast<unsigned char>(std::stoi(num, 0, 16)));
 		}

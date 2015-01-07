@@ -16,7 +16,7 @@ struct disable_logging
 {
 	disable_logging()
 	{
-		boost::log::core::get()->set_logging_enabled(false);
+		//boost::log::core::get()->set_logging_enabled(false);
 	}
 };
 
@@ -99,7 +99,7 @@ struct changetx_mock
 	boost::signals2::connection connect_arrival_notifications(Callable&& f)
 	{
 		++connections_;
-		return notify_arrival_.connect(std::forward(f));
+		return notify_arrival_.connect(std::forward<Callable>(f));
 	}
 
 	bool exists(const std::string& key) const;
@@ -406,7 +406,7 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_synced_executes_rename, test_fixtu
 	BOOST_REQUIRE_EQUAL(sut.dcache_.count("/foo/bar"), 0);
 	BOOST_REQUIRE_EQUAL(sut.dcache_.count("/foo/bar/baz"), 0);
 
-	BOOST_REQUIRE_EQUAL(sut.dcache_["/foo/thud"].size(), 2);
+	BOOST_REQUIRE_EQUAL(sut.dcache_["/foo"].size(), 2);
 	auto node_it = boost::range::find_if(sut.dcache_["/foo"],
 			[](const State::node_info& info)
 			{
@@ -444,7 +444,7 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_dirty_moves_and_handles_state, 
 				"5898511673f223c4adb65ddce23981a2d87dec5c"));
 
 	BOOST_REQUIRE_EQUAL(sut.dcache_.count("/foo"), 1);
-	BOOST_REQUIRE_EQUAL(sut.dcache_["/foo"].size(), 2);
+	BOOST_REQUIRE_EQUAL(sut.dcache_["/foo"].size(), 3);
 	auto node_it = boost::range::find_if(sut.dcache_["/foo"],
 			[](const State::node_info& info)
 			{
@@ -474,7 +474,7 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_dirty_moves_and_handles_state, 
 
 	BOOST_REQUIRE(redir_it != sut.dcache_["/foo"].end());
 	BOOST_CHECK_EQUAL(redir_it->type, State::node_info::file);
-	BOOST_CHECK_EQUAL(redir_it->state, State::node_info::dirty);
+	BOOST_CHECK_EQUAL(redir_it->state, State::node_info::novel);
 	BOOST_CHECK_EQUAL(redir_it->version,
 			"5898511673f223c4adb65ddce23981a2d87dec5c");
 
@@ -506,7 +506,7 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 				"5898511673f223c4adb65ddce23981a2d87dec5c"));
 
 	BOOST_REQUIRE_EQUAL(sut.dcache_.count("/foo"), 1);
-	BOOST_REQUIRE_EQUAL(sut.dcache_["/foo"].size(), 2);
+	BOOST_REQUIRE_EQUAL(sut.dcache_["/foo"].size(), 3);
 	auto node_it = boost::range::find_if(sut.dcache_["/foo"],
 			[](const State::node_info& info)
 			{
@@ -516,9 +516,6 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo"].end());
 
 	node_it->state = State::node_info::active_write;
-	node_it->scratch_info = changetx_mock::scratch();
-	sut.sync_cache_["/foo/thud"].push_back(*node_it);
-	sut.sync_cache_["/foo/thud"].back().name = "/foo/thud";
 
 	//Commit test
 	sut.commit_rename(raft::request::Rename("eris",
@@ -527,8 +524,8 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 
 	//Check the moved node
 	BOOST_REQUIRE_EQUAL(sut.fusetl_.size(), 1);
-	BOOST_CHECK_EQUAL(std::get<0>(sut.fusetl_[0]), State::dcache);
-	boost::filesystem::path redirect = std::get<1>(sut.fusetl_[0]);
+	BOOST_CHECK_EQUAL(std::get<0>(sut.fusetl_["/foo/thud"]), State::dcache);
+	boost::filesystem::path redirect = std::get<1>(sut.fusetl_["/foo/thud"]);
 	BOOST_REQUIRE_EQUAL(sut.dcache_.count(redirect.parent_path().string()), 1);
 
 	auto redir_it = boost::range::find_if(
@@ -541,10 +538,6 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 	BOOST_REQUIRE(redir_it != sut.dcache_[redirect.parent_path().string()].end());
 	BOOST_CHECK_EQUAL(redir_it->type, State::node_info::file);
 	BOOST_CHECK_EQUAL(redir_it->state, State::node_info::active_write);
-
-	BOOST_REQUIRE_EQUAL(sut.sync_cache_.size(), 1);
-	BOOST_REQUIRE_EQUAL(sut.sync_cache_[redirect.string()].size(), 1);
-	BOOST_REQUIRE_EQUAL(sut.sync_cache_[redirect.string()].front().name, redirect.string());
 
 }
 
@@ -569,7 +562,7 @@ BOOST_FIXTURE_TEST_CASE(rename_key_does_not_exist_acts_like_add, test_fixture)
 
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo"].end());
 
-	BOOST_CHECK_EQUAL(node_it->state, State::node_info::clean);
+	BOOST_CHECK_EQUAL(node_it->state, State::node_info::pending);
 	BOOST_CHECK_EQUAL(node_it->version,
 				"a4e3e1394621ec2301076e39c6e5585bb1d665dc");
 }
@@ -671,7 +664,7 @@ BOOST_FIXTURE_TEST_CASE(update_dirty_conflict_manages, test_fixture)
 
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo/bar"].end());
 
-	BOOST_CHECK_EQUAL(node_it->state, State::node_info::dirty);
+	BOOST_CHECK_EQUAL(node_it->state, State::node_info::novel);
 	BOOST_CHECK_EQUAL(node_it->version,
 				"cafe504e8aaf2f1d1f4207be9fbc37edc5c042b1");
 
@@ -680,7 +673,7 @@ BOOST_FIXTURE_TEST_CASE(update_dirty_conflict_manages, test_fixture)
 	BOOST_CHECK_EQUAL(sut.sync_cache_.begin()->second.front().version,
 				"cafe504e8aaf2f1d1f4207be9fbc37edc5c042b1");
 	BOOST_CHECK_EQUAL(sut.sync_cache_.begin()->second.front().state,
-			State::node_info::dirty);
+			State::node_info::novel);
 }
 
 BOOST_FIXTURE_TEST_CASE(update_active_write_conflict_and_translate, test_fixture)
@@ -715,7 +708,7 @@ BOOST_FIXTURE_TEST_CASE(update_active_write_conflict_and_translate, test_fixture
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/"), 1);
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/foo"), 1);
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/foo/bar"), 1);
-	BOOST_CHECK_EQUAL(sut.dcache_["/foo/bar"].size(), 3);
+	BOOST_CHECK_EQUAL(sut.dcache_["/foo/bar"].size(), 2);
 
 	auto node_it = boost::range::find_if(sut.dcache_["/foo/bar"],
 			[](const State::node_info& info)
@@ -731,7 +724,7 @@ BOOST_FIXTURE_TEST_CASE(update_active_write_conflict_and_translate, test_fixture
 
 	// Check the conflict management worked
 	BOOST_REQUIRE_EQUAL(sut.fusetl_.size(), 1);
-	BOOST_REQUIRE_EQUAL(std::get<0>(sut.fusetl_[0]), State::rcache);
+	BOOST_REQUIRE_EQUAL(std::get<0>(sut.fusetl_["/foo/bar/baz"]), State::rcache);
 	BOOST_REQUIRE_EQUAL(sut.rcache_.size(), 1);
 
 	BOOST_REQUIRE_EQUAL(sut.rcache_.count("/foo/bar/baz"), 1);
@@ -762,7 +755,7 @@ BOOST_FIXTURE_TEST_CASE(update_no_key_acts_like_add, test_fixture)
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/"), 1);
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/foo"), 1);
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/foo/bar"), 1);
-	BOOST_CHECK_EQUAL(sut.dcache_["/foo/bar"].size(), 3);
+	BOOST_CHECK_EQUAL(sut.dcache_["/foo/bar"].size(), 2);
 
 	auto node_it = boost::range::find_if(sut.dcache_["/foo/bar"],
 			[](const State::node_info& info)
@@ -804,7 +797,7 @@ BOOST_FIXTURE_TEST_CASE(update_for_node_synced_but_wrong_version_overwrites, tes
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/"), 1);
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/foo"), 1);
 	BOOST_CHECK_EQUAL(sut.dcache_.count("/foo/bar"), 1);
-	BOOST_CHECK_EQUAL(sut.dcache_["/foo/bar"].size(), 3);
+	BOOST_CHECK_EQUAL(sut.dcache_["/foo/bar"].size(), 2);
 
 	auto node_it = boost::range::find_if(sut.dcache_["/foo/bar"],
 			[](const State::node_info& info)
@@ -928,7 +921,7 @@ BOOST_FIXTURE_TEST_CASE(delete_wrong_version_conflict_and_recover, test_fixture)
 
 
 	sut.commit_delete(raft::request::Delete("eris", "%2ffoo%2fbar%2fbaz",
-				"a4e3e1394621ec2301076e39c6e5585bb1d665dc"));
+				"5898511673f223c4adb65ddce23981a2d87dec5c"));
 
 	//check that the delete wasn't applied.
 	BOOST_REQUIRE_EQUAL(sut.dcache_.count("/foo/bar"), 1);
@@ -936,20 +929,19 @@ BOOST_FIXTURE_TEST_CASE(delete_wrong_version_conflict_and_recover, test_fixture)
 	node_it = boost::range::find_if(sut.dcache_["/foo/bar"],
 			[](const State::node_info& info)
 			{
-				return info.name == "baz";
+				return info.name != ".";
 			});
 
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo/bar"].end());
 
 	BOOST_CHECK_EQUAL(node_it->type, State::node_info::file);
-	BOOST_CHECK_EQUAL(node_it->state, State::node_info::dirty);
+	BOOST_CHECK_EQUAL(node_it->state, State::node_info::novel);
 
 	//Not a directory, so the inode number doesn't matter
 
 	BOOST_CHECK(!node_it->rename_info);
 	BOOST_CHECK(!node_it->scratch_info);
 	BOOST_CHECK(!node_it->previous_version);
-	BOOST_CHECK_EQUAL(node_it->name, "baz");
 	BOOST_CHECK_EQUAL(node_it->version,
 			"a4e3e1394621ec2301076e39c6e5585bb1d665dc");
 

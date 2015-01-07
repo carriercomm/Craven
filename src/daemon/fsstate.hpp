@@ -10,6 +10,7 @@
 #include <boost/log/trivial.hpp>
 
 #include <boost/range/algorithm/find_if.hpp>
+#include <boost/range/algorithm_ext/erase.hpp>
 
 
 #define FUSE_USE_VERSION 26
@@ -21,8 +22,12 @@ namespace dfs
 	std::string encode_path(const std::string& path);
 	std::string decode_path(const std::string& path);
 
-	struct ordinary_prepare_tag {};
-	struct rename_prepare_tag {};
+	struct ordinary_prepare_tag
+	{
+	};
+	struct rename_prepare_tag
+	{
+	};
 
 	template <typename Client, typename ChangeTx>
 	class basic_state
@@ -109,9 +114,26 @@ namespace dfs
 
 		basic_state(Client& client, ChangeTx& changetx)
 			:client_(client),
-			changetx_(changetx)
+			changetx_(changetx),
+			next_inode_(0)
 		{
-			throw std::runtime_error("Not yet implemented");
+			//install handlers
+			client_.connect_commit_update(std::bind(
+						&basic_state<Client, ChangeTx>::commit_update,
+						this, std::placeholders::_1));
+			client_.connect_commit_delete(std::bind(
+						&basic_state<Client, ChangeTx>::commit_delete,
+						this, std::placeholders::_1));
+			client_.connect_commit_rename(std::bind(
+						&basic_state<Client, ChangeTx>::commit_rename,
+						this, std::placeholders::_1));
+			client_.connect_commit_add(std::bind(
+						&basic_state<Client, ChangeTx>::commit_add,
+						this, std::placeholders::_1));
+
+			changetx_.connect_arrival_notifications(std::bind(
+						&basic_state<Client, ChangeTx>::notify_arrival, this,
+						std::placeholders::_1, std::placeholders::_2));
 		}
 
 		//! Handler for commit notification from the raft client.
@@ -218,12 +240,44 @@ namespace dfs
 					node_info piece_info{piece.string(), next_inode_++};
 
 					//../it
-					dcache_[progress.parent_path().string()].push_back(piece_info);
+					if(progress.string() != "/")
+						dcache_[progress.parent_path().string()].push_back(piece_info);
 
 					piece_info.name = ".";
 
 					//it & it/.
 					dcache_[progress.string()] = {piece_info};
+				}
+			}
+		}
+
+		//! Helper to clean up empty directories along a path
+		void clean_directories(boost::filesystem::path path)
+		{
+			for(; path != "/"; path = path.parent_path())
+			{
+				if(dcache_.count(path.string()) == 1)
+				{
+
+					if(dcache_[path.string()].size() == 1)
+					{
+						//Remove the directory marker
+						dcache_.erase(path.string());
+
+						//Remove the '../dir' marker
+						if(dcache_.count(path.parent_path().string()))
+						{
+							boost::range::remove_erase_if(
+									dcache_[path.parent_path().string()],
+									[path](const node_info& value) -> bool
+									{
+										return value.name == path.filename().string();
+									});
+						}
+
+					}
+					else //none above
+						break;
 				}
 			}
 		}
@@ -269,7 +323,8 @@ namespace dfs
 		public:
 			check_name(const std::string& name)
 				:name_(name)
-			{}
+			{
+			}
 
 			bool operator()(const node_info& value)
 			{
@@ -332,6 +387,8 @@ namespace dfs
 				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
 		{
 			sync_cache.at(ni.name).pop_front();
+			if(sync_cache.at(ni.name).empty())
+				sync_cache.erase(ni.name);
 		}
 
 		template<typename node_info, typename ChangeTx>
@@ -339,9 +396,11 @@ namespace dfs
 				const boost::filesystem::path& path, const boost::filesystem::path& parent,
 				const ChangeTx& changetx)
 		{
-			return std::make_tuple(parent.string(),
-					node_info{path.filename().string(), rpc.version(),
-				changetx.exists(rpc.key(), rpc.version())});
+			node_info ni{path.filename().string(), rpc.version(),
+				changetx.exists(rpc.key(), rpc.version())};
+			if(ni.state == node_info::pending)
+				ni.previous_version = rpc.old_version();
+			return std::make_tuple(parent.string(), ni);
 		}
 
 	};
@@ -365,6 +424,8 @@ namespace dfs
 				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
 		{
 			sync_cache.at(ni.name).pop_front();
+			if(sync_cache.at(ni.name).empty())
+				sync_cache.erase(ni.name);
 		}
 
 		template<typename node_info, typename ChangeTx>
@@ -404,9 +465,9 @@ namespace dfs
 				auto other = boost::range::find_if(sync_cache.at(new_path),
 						[&ni](const node_info& value)
 						{
-						return value.state == node_info::novel
-						&& value.rename_info
-						&& *value.rename_info == ni.name;
+							return value.state == node_info::novel
+								&& value.rename_info
+								&& *value.rename_info == ni.name;
 						});
 
 				if(other != sync_cache.at(new_path).end())
@@ -427,6 +488,8 @@ namespace dfs
 					<< "Dangling rename pointer for path " << ni.name;
 
 			sync_cache.at(ni.name).pop_front();
+			if(sync_cache.at(ni.name).empty())
+				sync_cache.erase(ni.name);
 		}
 
 		template<typename node_info, typename ChangeTx>
@@ -470,6 +533,8 @@ namespace dfs
 				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
 		{
 			sync_cache.at(ni.name).pop_front();
+			if(sync_cache.at(ni.name).empty())
+				sync_cache.erase(ni.name);
 		}
 
 		template<typename node_info, typename ChangeTx>
@@ -542,8 +607,6 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 	//check the sync cache & recover if necessary
 	if(sync_cache_.count(path.string()))
 	{ //if we're here, it's because the sync cache clashes
-
-		std::string new_key = encode_path(recovery.string());
 
 		//Should be true; worth checking that
 		assert(!sync_cache_[path.string()].empty());
@@ -625,16 +688,16 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 					|| ni.state == node_info::novel)
 				ni.state = node_info::novel; //'cos it's new!
 			else
-				BOOST_LOG_TRIVIAL(info) << "Unexpected state in sync cache: " << ni.state;
+				BOOST_LOG_TRIVIAL(warning) << "Unexpected state in sync cache: " << ni.state;
 
 			//move
-			sync_cache_[new_key].swap(sync_cache_.at(rpc.key()));
+			sync_cache_[recovery.string()].swap(sync_cache_.at(path.string()));
 
 			//delete the sync for the previous key
-			sync_cache_.erase(rpc.key());
+			sync_cache_.erase(path.string());
 
 			//update the cache's names
-			for(node_info& ni : sync_cache_[new_key])
+			for(node_info& ni : sync_cache_[recovery.string()])
 				ni.name = recovery.string();
 		}
 	}
@@ -704,6 +767,9 @@ void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boo
 
 			//move
 			existing->name = recovery.filename().string();
+			//fix state
+			if(existing->state == node_info::dirty)
+				existing->state = node_info::novel;
 			break;
 
 			//active_read needs an entry in the rcache and tl
@@ -751,9 +817,6 @@ void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boo
 			BOOST_LOG_TRIVIAL(warning) << "Unhandled state in conflict recovery: "
 				<< existing->state;
 		}
-
-		if(dcache_[parent.string()].size() == 1)
-			BOOST_LOG_TRIVIAL(error) << "Directory clean-up code not yet implemented";
 	}
 }
 
@@ -849,8 +912,21 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 		std::tie(apply_key, new_file) = rpc_traits<Rpc>::template generate<node_info>(rpc, path,
 				parent, changetx_);
 
+		//remove any existing entries
+		boost::range::remove_erase_if(dcache_[apply_key],
+				check_name(new_file.name));
+
 		dcache_[apply_key].push_back(new_file);
 	}
+	else
+	{
+		//totally not a hack...
+		boost::range::remove_erase_if(dcache_[parent.string()],
+				check_name(path.filename().string()));
+	}
+
+
+	clean_directories(parent);
 }
 
 template <typename Client, typename ChangeTx>
@@ -881,9 +957,9 @@ template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, const std::string& version)
 {
 	boost::filesystem::path path = decode_path(key);
-	if(dcache_.count(path.parent_path()) == 1)
+	if(dcache_.count(path.parent_path().string()) == 1)
 	{
-		auto subject = boost::range::find_if(dcache_[path.parent_path()],
+		auto subject = boost::range::find_if(dcache_[path.parent_path().string()],
 				[&path, &version](const node_info& value)
 				{
 					return value.name == path.filename()
@@ -891,7 +967,7 @@ void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, 
 						&& value.version == version;
 				});
 
-		if(subject != dcache_[path.parent_path()])
+		if(subject != dcache_[path.parent_path().string()].end())
 		{
 			subject->state = node_info::clean;
 			subject->previous_version = boost::none;

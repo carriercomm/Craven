@@ -379,7 +379,7 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_called_on_write, test_fixture)
 
 	bool called = false;
 
-	raft::Log sut(tmp_log().string(), [&called](uint32_t term)
+	raft::Log sut(tmp_log().string(), [&called](uint32_t)
 			{
 				called = true;
 			});
