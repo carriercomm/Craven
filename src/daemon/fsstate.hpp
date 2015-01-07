@@ -696,9 +696,13 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 			//delete the sync for the previous key
 			sync_cache_.erase(path.string());
 
-			//update the cache's names
+			//update the cache's names & copy their versions
 			for(node_info& ni : sync_cache_[recovery.string()])
+			{
 				ni.name = recovery.string();
+				changetx_.copy(encode_path((path.parent_path() / ni.name).string()), ni.version,
+						encode_path(recovery.string()));
+			}
 		}
 	}
 
@@ -765,6 +769,18 @@ void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boo
 						<< path.string();
 			}
 
+			//copy version
+			if(existing->state == node_info::active_write)
+			{
+				if(existing->scratch_info)
+					existing->scratch_info = changetx_.move(
+							encode_path(recovery.string()), *existing->scratch_info);
+				else
+					BOOST_LOG_TRIVIAL(error) << "Node set to active_write with no scratch info.";
+			}
+			else
+				changetx_.copy(encode_path((parent / existing->name).string()), existing->version,
+						encode_path(recovery.string()));
 			//move
 			existing->name = recovery.filename().string();
 			//fix state

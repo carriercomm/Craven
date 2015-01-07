@@ -89,7 +89,33 @@ struct changetx_mock
 {
 	struct scratch
 	{
+		scratch(const std::string& key, const std::string& version,
+				const boost::filesystem::path& path)
+			:key_(key),
+			version_(version),
+			path_(path)
+		{
+		}
 
+
+		std::string key_;
+		std::string version_;
+		boost::filesystem::path path_;
+
+		std::string version() const
+		{
+			return version_;
+		}
+
+		std::string key() const
+		{
+			return key_;
+		}
+
+		boost::filesystem::path operator()()
+		{
+			return path_;
+		}
 	};
 
 	changetx_mock();
@@ -106,6 +132,28 @@ struct changetx_mock
 	bool exists(const std::string& key, const std::string& version) const;
 
 	std::unordered_multimap<std::string, std::string> existing_entries_;
+
+	void copy(const std::string& key, const std::string& version,
+			const std::string& new_key)
+	{
+		copy_args_.push_back(std::make_tuple(key, version, new_key));
+	}
+
+	std::vector<std::tuple<std::string, std::string, std::string>>
+		copy_args_;
+
+	scratch move(const std::string& new_key, const scratch& scratch_info)
+	{
+		move_args_.emplace_back(new_key, scratch_info);
+
+		scratch new_scratch = scratch_info;
+		new_scratch.key_ = new_key;
+		new_scratch.path_ = dfs::decode_path(new_key);
+
+		return new_scratch;
+	}
+
+	std::vector<std::tuple<std::string, scratch>> move_args_;
 
 
 	boost::signals2::signal<void (const std::string&, const std::string&)> notify_arrival_;
@@ -516,6 +564,9 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 	BOOST_REQUIRE(node_it != sut.dcache_["/foo"].end());
 
 	node_it->state = State::node_info::active_write;
+	node_it->scratch_info = changetx_mock::scratch(
+			dfs::encode_path("/foo/thud"), ".scratch",
+			"/does/not/exist");
 
 	//Commit test
 	sut.commit_rename(raft::request::Rename("eris",

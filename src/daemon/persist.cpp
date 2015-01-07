@@ -88,6 +88,26 @@ namespace change
 		return root_ / key / version;
 	}
 
+	//! Copy a version to a new key
+	void persistence::copy(const std::string& key, const std::string& version, const std::string& new_key)
+	{
+		if(!exists(key, version))
+			throw std::logic_error(boost::str(boost::format(
+					"Key, version combo (%|s|, %|s|) does not exist.") % key % version));
+
+		if(exists(new_key, version))
+			throw std::logic_error(boost::str(boost::format(
+					"Key, version combo (%|s|, %|s|) already exists; cannot rename.") % key % version));
+
+		if(!exists(new_key))
+			fs::create_directory(root_ / new_key);
+
+		fs::copy_file(root_ / key / version, root_ / new_key / version);
+
+		//Update state
+		versions_.insert(std::make_pair(new_key, version));
+	}
+
 	void persistence::rename(const std::string& key, const std::string& version, const std::string& new_key)
 	{
 		rename(key, version, new_key, version);

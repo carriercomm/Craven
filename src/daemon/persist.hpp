@@ -30,9 +30,12 @@ namespace change
 		 */
 		boost::filesystem::path add(const std::string& key, const std::string& version);
 
+		//! Copy a version to a new key
+		void copy(const std::string& key, const std::string& version, const std::string& new_key);
+
 		//! Move key,version to new_key,version
 		void rename(const std::string& key, const std::string& version, const std::string& new_key);
-		//
+
 		//! Move key,version to new_key,new_version
 		void rename(const std::string& key, const std::string& version,
 				const std::string& new_key, const std::string& new_version);

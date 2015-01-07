@@ -597,6 +597,22 @@ namespace change
 			return new_version;
 		}
 
+		//! Copies a key
+		void copy(const std::string& key, const std::string& version, const std::string& new_key)
+		{
+			root_.copy(key, version, new_key);
+		}
+
+		//! Moves a scratch
+		scratch move(const std::string& new_key, const scratch& scratch_info)
+		{
+			//Perform the rename
+			root_.rename(scratch_info.key(), scratch_info.version(), new_key);
+
+			return scratch(root_(new_key, scratch_info.version()), new_key,
+						scratch_info.version());
+		}
+
 		template <typename Callable>
 		boost::signals2::connection connect_arrival_notifications(Callable&& f)
 		{
