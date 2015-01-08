@@ -169,7 +169,7 @@ struct State : dfs::basic_state<client_mock, changetx_mock>
 	typedef dfs::basic_state<client_mock, changetx_mock> base_type;
 
 	State(client_mock& cm, changetx_mock& ctxm)
-		:dfs::basic_state<client_mock, changetx_mock>(cm, ctxm)
+		:dfs::basic_state<client_mock, changetx_mock>(cm, ctxm, "discordia", 100, 100)
 	{
 	}
 

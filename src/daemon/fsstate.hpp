@@ -5,6 +5,7 @@
 #include <deque>
 
 #include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <boost/optional.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -54,6 +55,19 @@ namespace dfs
 				name(name),
 				version(version)
 			{
+			}
+
+			//! Retrieve the active version (if there is one). In the case of an
+			//! active write, this will return boost::none
+			boost::optional<std::string> active_version() const
+			{
+				if(state == clean || state == dirty || state == active_read
+						|| state == novel)
+					return version;
+				else if(state == pending)
+					return previous_version;
+
+				return boost::none;
 			}
 
 
@@ -112,10 +126,13 @@ namespace dfs
 			std::string version;
 		};
 
-		basic_state(Client& client, ChangeTx& changetx)
+		basic_state(Client& client, ChangeTx& changetx, const std::string& id, uid_t uid, gid_t gid)
 			:client_(client),
 			changetx_(changetx),
-			next_inode_(0)
+			id_(id),
+			next_inode_(0),
+			uid_(uid),
+			gid_(gid)
 		{
 			//install handlers
 			client_.connect_commit_update(std::bind(
@@ -135,6 +152,10 @@ namespace dfs
 						&basic_state<Client, ChangeTx>::notify_arrival, this,
 						std::placeholders::_1, std::placeholders::_2));
 		}
+
+
+		//! Fires off all change requests. Call periodically
+		void tick();
 
 		//! Handler for commit notification from the raft client.
 		/*!
@@ -159,65 +180,38 @@ namespace dfs
 		void notify_arrival(const std::string& key, const std::string& version);
 
 		//! Get the attributes of a path
-		int getattr(const std::string& path, struct stat* stat_info)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int getattr(const boost::filesystem::path& path, struct stat* stat_info);
 
 		//! Make a directory at path.
 		//! \returns 0 on success, a system-like error number otherwise.
-		int mkdir(const std::string& path)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int mkdir(const boost::filesystem::path& path);
 
 		//! Remove a directory at path
-		int rmdir(const std::string& path)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int rmdir(const boost::filesystem::path& path);
 
 		//! Remove a regular file
-		int unlink(const std::string& path)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int unlink(const boost::filesystem::path& path);
+
+		//! Create and open a file node (mode is ignored)
+		int create(const boost::filesystem::path& path, mode_t mode, struct fuse_file_info *fi);
 
 		//! Rename a file or directory
-		int rename(const std::string& from, const std::string& to)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int rename(const boost::filesystem::path& from, const boost::filesystem::path& to);
 
 		//! Resize a file
-		int truncate(const std::string& path, off_t newsize)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int truncate(const boost::filesystem::path& path, off_t newsize);
 
 		//! Open a file
-		int open(const std::string& path, fuse_file_info* fi)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int open(const boost::filesystem::path& path, fuse_file_info* fi);
 
 		//! Read from an open file
-		int read(const std::string& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int read(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi);
 
 		//! Write to an open file
-		int write(const std::string& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int write(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi);
 
 		//! Release -- close & commit an open file
-		int release(const std::string& path, fuse_file_info* fi)
-		{
-			throw std::runtime_error("Not yet implemented");
-		}
+		int release(const boost::filesystem::path& path, fuse_file_info* fi);
 
 		//! Enum signifying where the translation table is pointing (public for
 		//! test reasons)
@@ -269,10 +263,7 @@ namespace dfs
 						{
 							boost::range::remove_erase_if(
 									dcache_[path.parent_path().string()],
-									[path](const node_info& value) -> bool
-									{
-										return value.name == path.filename().string();
-									});
+									check_name(path.filename().string()));
 						}
 
 					}
@@ -313,8 +304,30 @@ namespace dfs
 		template <typename Rpc>
 		void manage_commit(const Rpc& rpc);
 
+		//! Checks a path exists
+		bool exists(const boost::filesystem::path& path) const;
+
+		//! Checks if a path is in the rcache
+		bool in_rcache(const boost::filesystem::path& path) const;
+
+		//! Retrieve a file or directory (throws if it does not exist or is in
+		//! rcache)
+		node_info& get(const boost::filesystem::path& path);
+
+		//! Get an rcache entry
+		std::tuple<std::string, std::string> get_rcache(const boost::filesystem::path& path) const;
+
+		//! Rename implementation
+		int rename_impl(const boost::filesystem::path& from, const boost::filesystem::path& to);
+
+		std::string get_key(const boost::filesystem::path& path) const;
+
+		void tick_handle_rename(node_info& ni);
+
+
 		Client& client_;
 		ChangeTx& changetx_;
+		std::string id_;
 
 
 		//! Functor to check for the name of a node_info
@@ -363,6 +376,12 @@ namespace dfs
 		 *  easier.
 		 */
 		sync_cache_type sync_cache_;
+
+		//! The UID to use for file ownership
+		uid_t uid_;
+
+		//! The GID to use for file ownership
+		gid_t gid_;
 	};
 
 	template <typename Rpc>
@@ -574,8 +593,92 @@ namespace dfs
 	};
 }
 
+template <typename Client, typename ChangeTx>
+void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni)
+{
+	//Only process the from
+	if(ni.state == node_info::dead)
+	{
+		//find the to & check it's first
+		std::deque<node_info>& ot_queue = sync_cache_.at(ni.rename_info);
+		if(ot_queue.empty())
+			BOOST_LOG_TRIVIAL(warning) << "Malformed rename marker for " << ni.name
+				<< " -> " << ni.rename_info;
+		else
+		{
+			node_info& front_info = ot_queue.front();
+			if(front_info.state == node_info::novel
+					&& front_info.rename_info
+					&& *front_info.rename_info == ni.name
+					&& front_info.version = ni.version)
+			{
 
+				client_.request(raft::request::Rename(id_,
+							encode_path(ni.name),
+							encode_path(front_info.name),
+							ni.version));
 
+			}
+			//else not front, so don't do anything
+			else
+				BOOST_LOG_TRIVIAL(info) << "Ignoring rename request until other end is at front";
+		}
+	}
+}
+
+template <typename Client, typename ChangeTx>
+void dfs::basic_state<Client, ChangeTx>::tick()
+{
+	std::list<std::string> erase_keys;
+	for(std::pair<std::string, std::deque<node_info>>& entry : sync_cache_)
+	{
+		if(std::get<1>(entry).empty())
+			erase_keys.push_back(std::get<0>(entry));
+		else
+		{
+			node_info& top = std::get<1>(entry).front();
+			switch(top.state)
+			{
+			case node_info::dirty:
+				//determine the current version and fire an update
+				auto version_info = client_[encode_path(std::get<0>(entry))];
+				client_.request(raft::request::Update(id_,
+							encode_path(std::get<0>(entry)),
+							std::get<0>(version_info),
+							top.version));
+				break;
+
+			case node_info::novel:
+				//if there're no rename markers, fire an add
+				if(top.rename_info)
+					tick_handle_rename(top);
+				else
+					client_.request(raft::request::Add(id_,
+								encode_path(std::get<0>(entry)),
+								top.version));
+				break;
+
+			case node_info::dead:
+				//if there're no rename markers, fire a delete
+				if(top.rename_info)
+					tick_handle_rename(top);
+				else
+					client_.request(raft::request::Delete(id_,
+								encode_path(std::get<0>(entry)),
+								top.version));
+				break;
+
+			default:
+				BOOST_LOG_TRIVIAL(warning) << "Unexpected state in sync cache: "
+					<< top.state;
+			}
+		}
+	}
+
+	//Clean up empty queues
+	for(const std::string& key : erase_keys)
+		sync_cache_.erase(key);
+}
 
 
 template <typename Client, typename ChangeTx>
@@ -990,3 +1093,663 @@ void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, 
 		}
 	}
 }
+
+template <typename Client, typename ChangeTx>
+bool dfs::basic_state<Client, ChangeTx>::exists(const boost::filesystem::path& path) const
+{
+	//check the translation table
+	if(fusetl_.count(path.string()))
+	{
+		auto tl = fusetl_.at(path.string());
+		//check the dcache
+		if(std::get<0>(tl) == dcache)
+			return exists(std::get<1>(tl));
+		else if(std::get<0>(tl) == rcache)
+			return rcache_.count(std::get<1>(tl)) == 1;
+		else
+		{
+			BOOST_LOG_TRIVIAL(error) << "Unknown translation table direction: "
+				<< std::get<0>(tl);
+
+			return false;
+		}
+
+	}
+	else if(dcache_.count(path.string()) == 0)
+	{
+		if(dcache_.count(path.parent_path().string()) == 1)
+		{
+			auto it = boost::find_if(dcache_[path.parent_path().string()],
+					check_name(path.filename().string()));
+
+			return it != dcache_[path.parent_path().string()].end();
+		}
+		else
+			return false;
+	}
+	return true;
+}
+
+template <typename Client, typename ChangeTx>
+bool dfs::basic_state<Client, ChangeTx>::in_rcache(const boost::filesystem::path& path) const
+{
+	if(fusetl_.count(path.string()))
+	{
+		auto tl = fusetl_.at(path.string());
+		return std::get<0>(tl) == rcache
+			&& rcache.count(path.string());
+	}
+	return false;
+}
+
+template <typename Client, typename ChangeTx>
+typename dfs::basic_state<Client, ChangeTx>::node_info&
+	dfs::basic_state<Client, ChangeTx>::get(const boost::filesystem::path& path)
+{
+	//check the translation table
+	if(fusetl_.count(path.string()))
+	{
+		std::tuple<redirect_to, std::string>& tl = fusetl_.at(path.string());
+		//check the dcache
+		if(std::get<0>(tl) == dcache)
+		{
+			return get(std::get<1>(tl));
+		}
+		else if(std::get<0>(tl) == rcache)
+		{
+			throw std::logic_error("Entry is in the rcache");
+		}
+		else
+		{
+			BOOST_LOG_TRIVIAL(error) << "Unknown translation table direction: "
+				<< std::get<0>(tl);
+
+			return false;
+		}
+	}
+	else if(dcache_.count(path.string()) == 0)
+	{
+		if(dcache_.count(path.parent_path().string()) == 1)
+		{
+			auto it = boost::find_if(dcache_[path.parent_path().string()],
+					check_name(path.filename().string()));
+
+			if(it != dcache_[path.parent_path().string()])
+				return *it;
+			else
+				throw std::logic_error("Entry does not exist: " + path.string());
+		}
+		else
+			throw std::logic_error("Entry does not exist: " + path.string());
+	}
+	else
+	{
+		auto it = boost::find_if(dcache_[path.parent_path().string()],
+				check_name("."));
+
+		if(it != dcache_[path.parent_path().string()])
+			return *it;
+		else
+			throw std::logic_error("Malformed directory missing '.': " + path.string());
+	}
+}
+
+template <typename Client, typename ChangeTx>
+std::tuple<std::string, std::string>
+	dfs::basic_state<Client, ChangeTx>::get_rcache(const boost::filesystem::path& path) const
+{
+	return rcache_.at(path.string());
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::path& from,
+		const boost::filesystem::path& to)
+{
+	if(in_rcache(from))
+		return -EBUSY;
+
+	if(!exists(to.parent_path()))
+		return -ENOENT;
+
+	node_info& node = get(from);
+
+	if(node.type == node_info::file)
+	{
+		//check it's not dead or busy
+		if(node.state == node_info::dead)
+			return -ENOENT;
+		if(node.state == node_info::active_write
+				|| node.state == node_info::active_read)
+			return -EBUSY;
+
+		//if it exists, we need to do an update & delete
+		if(exists(to))
+		{
+			//update to
+			node_info& to_node = get(to);
+			if(to_node.type == node_info::dir)
+				return -EISDIR;
+
+			//set up
+			to_node.state = node_info::dirty;
+			if(node.state == node_info::pending)
+			{
+				if(node.previous_version)
+					to_node.version = node.previous_version;
+				else //we're a pending add; not visible
+					return -ENOENT;
+			}
+			else
+				to_node.version = node.version;
+
+			sync_cache_[to.string()].push_back(to_node);
+			sync_cache_[to.string()].back().name = to.string();
+
+			//copy the version
+			changetx_.copy(encode_path(from.string(), node.version,
+						encode_path(to.string())));
+
+			//delete from if it's not pending; otherwise it stays
+			if(node.state != node_info::pending)
+			{
+				node.state = node_info::dead;
+				sync_cache_[from.string()].push_back(node);
+				sync_cache_[from.string()].back().name = from.string();
+			}
+
+			return 0;
+		}
+		else
+		{
+			//copy the version
+			changetx_.copy(encode_path(from.string(), node.version,
+						encode_path(to.string())));
+
+			//perform the rename
+			node_info to_node(to.filename().string(), node.version,
+					true);
+
+			//Handle the pending info
+			if(node.state == node_info::pending)
+			{
+				if(node.previous_version)
+					to_node.version = node.previous_version;
+				else //we're a pending add; not visible
+					return -ENOENT;
+			}
+			else
+				to_node.version = node.version;
+
+			//set up rename state
+			to_node.state = node_info::novel;
+			to_node.rename_info = from.string();
+
+			//add it to the dcache
+			dcache_[to.parent_path().string()].push_back(to_node);
+
+			//add it to the sync cache
+			sync_cache_[to.string()].push_back(to_node);
+			sync_cache_[to.string()].back().name = to.string();
+
+			//handle the from marker
+			node.state = node_info::dead;
+			node.rename_info = to.string();
+
+			sync_cache_[to.string()].push_back(to_node);
+			sync_cache_[to.string()].back().name = to.string();
+		}
+	}
+	else //directory
+	{
+		//check that if the to path exists, it's a directory and is empty
+		if(exists(to))
+		{
+			if(in_rcache(to))
+				return -ENOTDIR;
+
+			node_info& to_node = get(to);
+
+			if(to_node.type != node_info::dir)
+				return -ENOTDIR;
+
+			if(dcache_[to.string()].size() > 1)
+				return -ENOTEMPTY;
+		}
+		else //create the to path if it does not exist
+			make_directories(to);
+
+		//recurse on directory contents
+		for(const node_info& ni : dcache_[from.string()])
+		{
+			int retcode = rename_impl(from / ni.name, to / ni.name);
+			if(retcode != 0)
+				return retcode;
+		}
+
+		//delete from path
+		clean_directories(from);
+	}
+}
+
+
+template <typename Client, typename ChangeTx>
+std::string dfs::basic_state<Client, ChangeTx>::get_key(const boost::filesystem::path& path) const
+{
+	if(fusetl_.count(path.string()))
+	{
+		auto tl = fusetl_.at(path.string());
+		if(std::get<0>(tl) == rcache)
+			return std::get<0>(rcache_.at(std::get<1>(tl)));
+		else
+			return encode_path(std::get<1>(tl));
+	}
+	else
+		return encode_path(path.string());
+}
+
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& path, struct stat* stat_info)
+{
+	//initialise stat structure
+	memset(stat_info, 0, sizeof(struct stat));
+	if(exists(path))
+	{
+		stat_info->st_uid = uid_;
+		stat_info->st_gid = gid_;
+		stat_info->st_nlink = 1;
+
+		try
+		{
+			if(in_rcache(path))
+			{
+				auto node = get_rcache(path);
+
+				stat_info->st_mode = S_IFREG | 0644;
+				stat_info->st_size = boost::filesystem::file_size(
+						changetx_(std::get<0>(node), std::get<1>(node)));
+
+				return 0;
+			}
+			else
+			{
+				auto node = get(path);
+
+				if(node.type == node_info::dir)
+				{
+					stat_info->st_mode = S_IFDIR | 0755;
+					stat_info->st_ino = node.inode;
+					return 0;
+				}
+				else
+				{
+					stat_info->st_mode = S_IFREG | 0644;
+
+					boost::optional<std::string> active_version = node.active_version();
+					if(active_version)
+					{
+						stat_info->st_size = boost::filesystem::file_size(
+								changetx_(get_key(path), active_version));
+					}
+					else if(node.state == node_info::active_write
+							&& node.scratch_info)
+					{// use the scratch info
+
+						stat_info->st_size = boost::filesystem::file_size(
+								(*node.scratch_info)());
+					}
+					else if(node.state == node_info::dead)
+						return -ENOENT;
+					else
+					{
+						BOOST_LOG_TRIVIAL(warning) << "Unexpected logic path in getattr";
+						return -ENOENT;
+					}
+
+					return 0;
+				}
+			}
+		}
+		catch(std::exception& ex)
+		{
+			BOOST_LOG_TRIVIAL(error) << "Exception in getattr: " << ex.what();
+
+			return -ENOENT;
+		}
+	}
+	else
+		return -ENOENT;
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::mkdir(const boost::filesystem::path& path)
+{
+	if(exists(path))
+		return -EEXIST;
+
+	//check parent exists & is a directory
+	if(exists(path.parent_path()))
+	{
+		auto parent_info = get(path.parent_path());
+		if(parent_info.type != node_info::dir)
+			return -ENOTDIR;
+
+		//add directory
+		make_directories(path);
+
+		return 0;
+	}
+	else
+		return -ENOENT;
+
+	throw std::runtime_error("Not yet implemented");
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::rmdir(const boost::filesystem::path& path)
+{
+	//check exists and is a directory
+	if(!exists(path))
+		return -ENOENT;
+
+	if(in_rcache(path))
+		return -ENOTDIR;
+
+	auto node = get(path);
+
+	if(node.type != node_info::dir)
+		return -ENOTDIR;
+
+	if(dcache_.at(path.string()).size() > 1)
+		return -ENOTEMPTY;
+
+	//delete the directory
+	dcache_.erase(path.string());
+
+	//remove ../dir
+	if(path.string() != "/")
+		boost::range::remove_erase_if(dcache_[path.parent_path().string()],
+				check_name(path.filename().string()));
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::unlink(const boost::filesystem::path& path)
+{
+	//check exists & is not a directory
+	if(!exists(path))
+		return -ENOENT;
+
+	if(in_rcache(path))
+		return -EBUSY;
+
+	auto node = get(path);
+
+	if(node.type == node_info::dir)
+		return -EISDIR;
+
+	if(node.state == node_info::active_read
+			|| node.state == node_info::active_write)
+		return -EBUSY;
+
+	if(node.state == node_info::dead)
+		return -ENOENT;
+
+	//tombstone & queue delete
+	node.state = node_info::dead;
+	sync_cache_[path.string()].push_back(node);
+	sync_cache_[path.string()].back().name = path.string();
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& path,
+		mode_t mode, struct fuse_file_info *fi)
+{
+	if(exists(path))
+		return -EEXIST;
+
+	if(!exists(path.parent_path()))
+		return -ENOTDIR;
+
+	node_info ni;
+	ni.name = path.filename().string();
+	ni.inode = 0;
+
+	if((fi->flags & O_RDWR) = O_RDONLY)
+	{
+		ni.state = node_info::active_read;
+		auto si = changetx_.add(encode_path(path.string()));
+		ni.version = changetx_.close(si);
+	}
+	else
+	{
+		ni.state = node_info::active_write;
+		ni.scratch_info = changetx_.add(encode_path(path.string()));
+	}
+
+	//add to the dcache
+	dcache_[path.parent_path().string()].push_back(ni);
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::rename(const boost::filesystem::path& from,
+		const boost::filesystem::path& to)
+{
+	//Child because recursion
+	return rename_impl(from, to);
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& path, off_t newsize)
+{
+	//check exists & is not a directory
+	if(!exists(path))
+		return -ENOENT;
+
+	//! Doesn't seem to be an applicable error
+	if(in_rcache(path))
+		return -EIO;
+
+	node_info& node = get(path);
+
+	typename ChangeTx::scratch si;
+	bool our_si = false;
+	if(node.state == node_info::active_write)
+		si = node.scratch_info;
+	else
+	{
+		our_si = true;
+		si = changetx_.open(get_key(path), node.version);
+	}
+
+	//want the system truncate
+	if(::truncate(si().c_str(), newsize) != 0)
+	{
+		//delete the scratch
+		if(our_si)
+			changetx_.kill(si);
+
+		return -errno;
+	}
+
+	//commit the scratch
+	node.version = changetx_.close(si);
+	node.scratch_info = boost::none;
+	node.state = node_info::dirty;
+
+	sync_cache_[path.string()].push_back(node);
+	sync_cache_[path.string()].back().name = path.string();
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path, fuse_file_info* fi)
+{
+	//Check the parent path exists
+	if(!exists(path.parent_path))
+		return -ENOTDIR;
+
+	//check it's not a directory
+	if(dcache_.count(path.string()))
+		return -EISDIR;
+
+	//check if it's in the rcache, in which case writes are out
+	if(in_rcache(path))
+	{
+		if((fi->flags & 3) != O_RDONLY)
+			return -EACCES;
+		else
+			return 0;
+	}
+
+	if(exists(path))
+	{
+
+		node_info& node = get(path);
+		//switch to active_{read,write}
+		if((fi->flags & O_RDWR) == O_RDONLY)
+		{
+			if(node.state == node_info::active_write)
+				return -EACCES;
+
+			node.state = node_info::active_read;
+		}
+		else
+		{
+			//set up a scratch
+			if(node.state != node_info::active_write)
+			{
+				node.scratch_info = changetx_.open(get_key(path),
+						node.version);
+
+				node.state = node_info::active_write;
+			}
+		}
+	}
+	else
+		return -ENOENT;
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
+{
+	//check it's not in the readcache
+	boost::filesystem::path true_path;
+	if(in_rcache(path))
+	{
+		auto details = rcache_.at(path.string());
+		true_path = changetx_(std::get<0>(details), std::get<1>(details));
+	}
+	else
+	{ //check in active_{read,write}
+		node_info& node = get(path);
+		if(node.state == node_info::active_read
+				&& node.scratch_info)
+			true_path = (*node.scratch_info)();
+		else if(node.state == node_info::active_write)
+			true_path = changetx_(get_key(path),
+					node.version);
+		else
+		{
+			BOOST_LOG_TRIVIAL(error) << "Read called for a file in the wrong state!";
+			return -EBADF;
+		}
+
+	}
+
+	boost::filesystem::ifstream is(true_path);
+	is.seekg(offset);
+	is.read(buf, size);
+
+	if(is.bad())
+		return -EIO;
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
+{
+	node_info& node = get(path);
+	if(node.state == node_info::active_write)
+	{
+		boost::filesystem::ofstream of((*node.scratch_info)());
+		of.seekp(offset);
+		of.write(buf, size);
+
+		if(of.bad())
+			return -EIO;
+	}
+	else
+		return -EBADF;
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& path, fuse_file_info* fi)
+{
+	if(in_rcache(path))
+	{
+		rcache_.erase(path.string());
+		if(fusetl_.count(path.string()))
+			fusetl_.erase(path.string());
+
+		return 0;
+	}
+
+	node_info& node = get(path);
+	if(node.state == node_info::active_read)
+	{
+		//restore state
+		if(!client_.exists(get_key(path)))
+			node.state = node_info::novel;
+		else
+		{
+			auto version_info = client_[encode_path(path.string())];
+			if(std::get<0>(version_info) == node.version)
+			{
+				if(node.previous_version && !changetx_.exists(encode_path(path.string()),
+							node.version))
+					node.state = node_info::pending;
+				else
+					node.state = node_info::clean;
+			}
+			else
+				node.state = node_info::dirty;
+		}
+	}
+	else if(node.state == node_info::active_write)
+	{
+		//close the scratch & set up the state for syncing
+		node.version = changetx_.close(node.scratch_info);
+		node.state = node_info::dirty;
+
+		//get the true path & add to sync cache
+		boost::filesystem::path true_path;
+		if(fusetl_.count(path.string()))
+			true_path = std::get<1>(fusetl_[path.string()]);
+		else
+			true_path = path;
+
+		sync_cache_[true_path].push_back(node);
+		sync_cache_[true_path].back().name = true_path.string();
+	}
+	else
+		BOOST_LOG_TRIVIAL(warning) << "Invalid state for a file being closed: " << node.state;
+
+	if(fusetl_.count(path.string()))
+		fusetl_.erase(path.string());
+
+	return 0;
+}
+
+
