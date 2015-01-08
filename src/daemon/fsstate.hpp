@@ -213,6 +213,10 @@ namespace dfs
 		//! Release -- close & commit an open file
 		int release(const boost::filesystem::path& path, fuse_file_info* fi);
 
+		int bb_readdir(const boost::filesystem::path& path, void *buf, fuse_fill_dir_t filler, off_t offset,
+				struct fuse_file_info *fi);
+
+
 		//! Enum signifying where the translation table is pointing (public for
 		//! test reasons)
 		enum redirect_to {
@@ -1752,4 +1756,22 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 	return 0;
 }
 
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::bb_readdir(const boost::filesystem::path& path, void *buf,
+		fuse_fill_dir_t filler, off_t offset,
+		struct fuse_file_info *fi)
+{
+	//check the directory exists
+	if(!dcache_.count(path.string()))
+		return -ENOENT;
 
+	std::list<node_info>& entries = dcache_[path.string()];
+	for(const node_info& ni : entries)
+	{
+		filler(buf, ni.name, NULL, 0);
+		if(ni.name == ".")
+			filler(buf, "..", NULL, 0);
+	}
+
+	return 0;
+}
