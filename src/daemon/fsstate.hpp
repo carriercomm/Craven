@@ -213,7 +213,7 @@ namespace dfs
 		//! Release -- close & commit an open file
 		int release(const boost::filesystem::path& path, fuse_file_info* fi);
 
-		int bb_readdir(const boost::filesystem::path& path, void *buf, fuse_fill_dir_t filler, off_t offset,
+		int readdir(const boost::filesystem::path& path, void *buf, fuse_fill_dir_t filler, off_t offset,
 				struct fuse_file_info *fi);
 
 
@@ -459,6 +459,8 @@ namespace dfs
 			return std::make_tuple("", node_info{});
 		}
 	};
+
+	typedef basic_state<raft::Client, change::change_transfer> state;
 
 	template <>
 	struct rpc_traits<raft::request::Rename>
@@ -1757,7 +1759,7 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::bb_readdir(const boost::filesystem::path& path, void *buf,
+int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& path, void *buf,
 		fuse_fill_dir_t filler, off_t offset,
 		struct fuse_file_info *fi)
 {
