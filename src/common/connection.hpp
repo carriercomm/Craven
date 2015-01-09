@@ -10,6 +10,8 @@
 #include <boost/signals2.hpp>
 #include <boost/asio.hpp>
 
+#include <uuid.hpp>
+
 #include "linebuffer.hpp"
 
 namespace util
@@ -278,7 +280,8 @@ namespace util
 		 *  built around. This socket is moved into the class.
 		 */
 		connection(std::shared_ptr<socket_type> socket)
-			:socket_(socket)
+			:socket_(socket),
+			 uuid_(uuid::gen())
 		{
 
 		}
@@ -347,8 +350,13 @@ namespace util
 		template <class Callable>
 		typename handler_traits::connection_return connect_close(Callable&& f)
 		{
-			typedef typename handler_traits::template build_connect<void(void)> build_connect_type;
+			typedef typename handler_traits::template build_connect<void(const std::string&)> build_connect_type;
 			return build_connect_type::connect(close_handler_, std::forward<Callable>(f));
+		}
+
+		std::string uuid()
+		{
+			return uuid_;
 		}
 
 		//! Reports the open/closed status of the internal socket
@@ -360,12 +368,15 @@ namespace util
 		void close()
 		{
 			socket_->close();
-			close_handler_();
+			close_handler_(uuid_);
 		}
 
 	protected:
 		//! The socket managed by this class.
 		std::shared_ptr<socket_type> socket_;
+
+		//! The uuid for this instance
+		std::string uuid_;
 
 		typename socket_detail_type::pointer socket_manager_;
 
@@ -373,7 +384,7 @@ namespace util
 		typename handler_traits::template handler_type<void (const std::string&)>::type read_handler_;
 
 		//! Handles the close callbacks.
-		typename handler_traits::template handler_type<void (void)>::type close_handler_;
+		typename handler_traits::template handler_type<void (const std::string&)>::type close_handler_;
 
 
 	};

@@ -50,7 +50,7 @@ CommsManager::CommsManager(const CtlConfigure& config, std::ostream& output,
 			});
 
 	connection_->connect_close(
-			[this]()
+			[this](const std::string&)
 			{
 				io_service_->stop();
 			});

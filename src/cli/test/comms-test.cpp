@@ -225,7 +225,7 @@ public:
 
 		auto t = std::make_shared<boost::asio::deadline_timer>(*io_, boost::posix_time::seconds(1));
 
-		t->async_wait([this](const boost::system::error_code& error)
+		t->async_wait([this](const boost::system::error_code& /*error*/)
 					{
 						sock_.shutdown(boost::asio::local::stream_protocol::socket::shutdown_both);
 						sock_.close();

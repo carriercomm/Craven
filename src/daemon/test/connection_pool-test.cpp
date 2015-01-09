@@ -53,12 +53,16 @@ struct connection_mock
 	void close()
 	{
 		open_ = false;
-		close_handler_();
+		close_handler_("fnord");
 	}
 
+	std::string uuid()
+	{
+		return "fnord";
+	}
 
-	std::function<void(const std::string& msg)> read_handler_;
-	std::function<void(void)> close_handler_;
+	std::function<void(const std::string&)> read_handler_;
+	std::function<void(const std::string&)> close_handler_;
 	std::vector<std::string> write_queue_;
 	bool open_;
 };

@@ -150,6 +150,21 @@ public:
 		return connections_.count(endpoint);
 	}
 
+	//! Checks to see if a connection with connection_id is responsible for the
+	//! connection to endpoint.
+	bool responsible(const uid_type& endpoint,
+			const std::string& connection_id) const
+	{
+		return connections_.count(endpoint)
+			&& connections_.at(endpoint)->uuid() == connection_id;
+	}
+
+	void delete_connection(const uid_type& endpoint)
+	{
+		connections_.at(endpoint)->close();
+		connections_.erase(endpoint);
+	}
+
 protected:
 	//! A reference to the instance of dispatch_type providing RPC dispatch serivces
 	dispatch_type dispatch_;
@@ -168,11 +183,11 @@ protected:
 				});
 
 		connection->connect_close(
-				[this, endpoint]()
+				[this, endpoint](const std::string& uuid)
 				{
 					BOOST_LOG_TRIVIAL(info) << "Connection to " << endpoint << "closed.";
-					if(connections_.count(endpoint))
-						connections_.erase(endpoint);
+					if(responsible(endpoint, uuid))
+							connections_.erase(endpoint);
 				});
 
 	}

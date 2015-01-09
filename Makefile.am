@@ -11,7 +11,8 @@ check_PROGRAMS = src/cli/test/comms src/common/test/expansion src/common/test/li
 noinst_HEADERS = src/common/configure.hpp src/common/linebuffer.hpp src/common/connection.hpp src/common/json_help.hpp
 
 src_cli_dfsctl_SOURCES = src/cli/main.cpp src/common/configure.cpp src/cli/configure.cpp\
-						 src/cli/comms.cpp src/cli/comms.hpp src/cli/configure.hpp
+						 src/cli/comms.cpp src/cli/comms.hpp src/cli/configure.hpp \
+						 src/common/uuid.hpp src/common/uuid.cpp
 
 src_cli_dfsctl_CPPFLAGS = $(BOOST_CPPFLAGS)
 src_cli_dfsctl_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_THREAD_LIBS) $(BOOST_LOG_LIBS) $(BOOST_LOG_SETUP_LIBS)
@@ -32,7 +33,9 @@ src_daemon_dfsd_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
 						  src/daemon/persist.hpp src/daemon/persist.cpp \
 						  src/common/b64_help.hpp src/common/b64_help.cpp \
 						  src/daemon/fsstate.hpp src/daemon/fsstate.cpp \
-						  src/daemon/fuselink.hpp src/daemon/fuselink.cpp
+						  src/daemon/fuselink.hpp src/daemon/fuselink.cpp \
+						  src/daemon/comms_man.cpp src/daemon/comms_man.hpp \
+						  src/common/uuid.hpp src/common/uuid.cpp
 
 src_daemon_dfsd_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) $(LIBB64_CPPFLAGS) $(FUSE_CFLAGS)
 src_daemon_dfsd_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) \
@@ -45,7 +48,7 @@ src_daemon_dfsd_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LDFLAG
 
 
 src_cli_test_comms_SOURCES = src/cli/test/comms-test.cpp src/cli/comms.cpp src/cli/configure.cpp \
-							 src/common/configure.cpp
+							 src/common/configure.cpp src/common/uuid.cpp
 
 src_cli_test_comms_CPPFLAGS = $(BOOST_CPPFLAGS)
 src_cli_test_comms_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_FILESYSTEM_LIBS) \
@@ -73,7 +76,7 @@ src_common_test_linebuffer_CPPFLAGS = $(BOOST_CPPFLAGS)
 src_common_test_linebuffer_LDADD = $(BOOST_UNIT_TEST_FRAMEWORK_LIBS)
 src_common_test_linebuffer_LDFLAGS = $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS)
 
-src_common_test_connection_SOURCES = src/common/test/connection-test.cpp
+src_common_test_connection_SOURCES = src/common/test/connection-test.cpp src/common/uuid.cpp
 
 src_common_test_connection_CPPFLAGS = $(BOOST_CPPFLAGS)
 src_common_test_connection_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIBS) \
@@ -82,7 +85,7 @@ src_common_test_connection_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) \
 									 $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
 									 $(BOOST_LOG_SETUP_LDFLAGS)
 
-src_daemon_test_connection_pool_SOURCES = src/daemon/test/connection_pool-test.cpp
+src_daemon_test_connection_pool_SOURCES = src/daemon/test/connection_pool-test.cpp src/common/uuid.cpp
 
 src_daemon_test_connection_pool_LDADD = $(BOOST_SYSTEM_LIBS) \
 										$(BOOST_UNIT_TEST_FRAMEWORK_LIBS) $(BOOST_LOG_LIBS) \
