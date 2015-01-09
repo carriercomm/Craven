@@ -17,6 +17,9 @@
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
 
+#include "raftclient.hpp"
+#include "changetx.hpp"
+
 
 namespace dfs
 {
@@ -184,7 +187,7 @@ namespace dfs
 
 		//! Make a directory at path.
 		//! \returns 0 on success, a system-like error number otherwise.
-		int mkdir(const boost::filesystem::path& path);
+		int mkdir(const boost::filesystem::path& path, mode_t mode);
 
 		//! Remove a directory at path
 		int rmdir(const boost::filesystem::path& path);
@@ -208,7 +211,7 @@ namespace dfs
 		int read(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi);
 
 		//! Write to an open file
-		int write(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi);
+		int write(const boost::filesystem::path& path, const char* buf, std::size_t size, off_t offset, fuse_file_info* fi);
 
 		//! Release -- close & commit an open file
 		int release(const boost::filesystem::path& path, fuse_file_info* fi);
@@ -460,7 +463,7 @@ namespace dfs
 		}
 	};
 
-	typedef basic_state<raft::Client, change::change_transfer> state;
+	typedef basic_state<raft::Client, change::change_transfer<>> state;
 
 	template <>
 	struct rpc_traits<raft::request::Rename>
@@ -1125,10 +1128,10 @@ bool dfs::basic_state<Client, ChangeTx>::exists(const boost::filesystem::path& p
 	{
 		if(dcache_.count(path.parent_path().string()) == 1)
 		{
-			auto it = boost::find_if(dcache_[path.parent_path().string()],
+			auto it = boost::find_if(dcache_.at(path.parent_path().string()),
 					check_name(path.filename().string()));
 
-			return it != dcache_[path.parent_path().string()].end();
+			return it != dcache_.at(path.parent_path().string()).end();
 		}
 		else
 			return false;
@@ -1143,7 +1146,7 @@ bool dfs::basic_state<Client, ChangeTx>::in_rcache(const boost::filesystem::path
 	{
 		auto tl = fusetl_.at(path.string());
 		return std::get<0>(tl) == rcache
-			&& rcache.count(path.string());
+			&& rcache_.count(path.string());
 	}
 	return false;
 }
@@ -1170,7 +1173,8 @@ typename dfs::basic_state<Client, ChangeTx>::node_info&
 			BOOST_LOG_TRIVIAL(error) << "Unknown translation table direction: "
 				<< std::get<0>(tl);
 
-			return false;
+			throw std::runtime_error("Unknown translation table direction: "
+					+ std::to_string(std::get<0>(tl)));
 		}
 	}
 	else if(dcache_.count(path.string()) == 0)
@@ -1180,7 +1184,7 @@ typename dfs::basic_state<Client, ChangeTx>::node_info&
 			auto it = boost::find_if(dcache_[path.parent_path().string()],
 					check_name(path.filename().string()));
 
-			if(it != dcache_[path.parent_path().string()])
+			if(it != dcache_[path.parent_path().string()].end())
 				return *it;
 			else
 				throw std::logic_error("Entry does not exist: " + path.string());
@@ -1193,7 +1197,7 @@ typename dfs::basic_state<Client, ChangeTx>::node_info&
 		auto it = boost::find_if(dcache_[path.parent_path().string()],
 				check_name("."));
 
-		if(it != dcache_[path.parent_path().string()])
+		if(it != dcache_[path.parent_path().string()].end())
 			return *it;
 		else
 			throw std::logic_error("Malformed directory missing '.': " + path.string());
@@ -1241,7 +1245,7 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			if(node.state == node_info::pending)
 			{
 				if(node.previous_version)
-					to_node.version = node.previous_version;
+					to_node.version = *node.previous_version;
 				else //we're a pending add; not visible
 					return -ENOENT;
 			}
@@ -1252,8 +1256,8 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			sync_cache_[to.string()].back().name = to.string();
 
 			//copy the version
-			changetx_.copy(encode_path(from.string(), node.version,
-						encode_path(to.string())));
+			changetx_.copy(encode_path(from.string()), node.version,
+						encode_path(to.string()));
 
 			//delete from if it's not pending; otherwise it stays
 			if(node.state != node_info::pending)
@@ -1268,8 +1272,8 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 		else
 		{
 			//copy the version
-			changetx_.copy(encode_path(from.string(), node.version,
-						encode_path(to.string())));
+			changetx_.copy(encode_path(from.string()), node.version,
+						encode_path(to.string()));
 
 			//perform the rename
 			node_info to_node(to.filename().string(), node.version,
@@ -1279,7 +1283,7 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			if(node.state == node_info::pending)
 			{
 				if(node.previous_version)
-					to_node.version = node.previous_version;
+					to_node.version = *node.previous_version;
 				else //we're a pending add; not visible
 					return -ENOENT;
 			}
@@ -1335,6 +1339,8 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 		//delete from path
 		clean_directories(from);
 	}
+
+	return 0;
 }
 
 
@@ -1395,7 +1401,7 @@ int dfs::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& p
 					if(active_version)
 					{
 						stat_info->st_size = boost::filesystem::file_size(
-								changetx_(get_key(path), active_version));
+								changetx_(get_key(path), *active_version));
 					}
 					else if(node.state == node_info::active_write
 							&& node.scratch_info)
@@ -1430,7 +1436,7 @@ int dfs::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& p
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::mkdir(const boost::filesystem::path& path)
+int dfs::basic_state<Client, ChangeTx>::mkdir(const boost::filesystem::path& path, mode_t)
 {
 	if(exists(path))
 		return -EEXIST;
@@ -1514,7 +1520,7 @@ int dfs::basic_state<Client, ChangeTx>::unlink(const boost::filesystem::path& pa
 
 template <typename Client, typename ChangeTx>
 int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& path,
-		mode_t mode, struct fuse_file_info *fi)
+		mode_t, struct fuse_file_info *fi)
 {
 	if(exists(path))
 		return -EEXIST;
@@ -1526,7 +1532,7 @@ int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& pa
 	ni.name = path.filename().string();
 	ni.inode = 0;
 
-	if((fi->flags & O_RDWR) = O_RDONLY)
+	if((fi->flags & O_RDWR) == O_RDONLY)
 	{
 		ni.state = node_info::active_read;
 		auto si = changetx_.add(encode_path(path.string()));
@@ -1565,7 +1571,7 @@ int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& 
 
 	node_info& node = get(path);
 
-	typename ChangeTx::scratch si;
+	boost::optional<typename ChangeTx::scratch> si;
 	bool our_si = false;
 	if(node.state == node_info::active_write)
 		si = node.scratch_info;
@@ -1576,29 +1582,31 @@ int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& 
 	}
 
 	//want the system truncate
-	if(::truncate(si().c_str(), newsize) != 0)
+	if(::truncate((*si)().c_str(), newsize) != 0)
 	{
 		//delete the scratch
 		if(our_si)
-			changetx_.kill(si);
+			changetx_.kill(*si);
 
 		return -errno;
 	}
 
 	//commit the scratch
-	node.version = changetx_.close(si);
+	node.version = changetx_.close(*si);
 	node.scratch_info = boost::none;
 	node.state = node_info::dirty;
 
 	sync_cache_[path.string()].push_back(node);
 	sync_cache_[path.string()].back().name = path.string();
+
+	return 0;
 }
 
 template <typename Client, typename ChangeTx>
 int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path, fuse_file_info* fi)
 {
 	//Check the parent path exists
-	if(!exists(path.parent_path))
+	if(!exists(path.parent_path()))
 		return -ENOTDIR;
 
 	//check it's not a directory
@@ -1645,7 +1653,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
+int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* /*fi*/)
 {
 	//check it's not in the readcache
 	boost::filesystem::path true_path;
@@ -1682,7 +1690,7 @@ int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
+int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& path, const char* buf, std::size_t size, off_t offset, fuse_file_info* /*fi*/)
 {
 	node_info& node = get(path);
 	if(node.state == node_info::active_write)
@@ -1701,7 +1709,7 @@ int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& pat
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& path, fuse_file_info* fi)
+int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& path, fuse_file_info* /*fi*/)
 {
 	if(in_rcache(path))
 	{
@@ -1736,7 +1744,7 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 	else if(node.state == node_info::active_write)
 	{
 		//close the scratch & set up the state for syncing
-		node.version = changetx_.close(node.scratch_info);
+		node.version = changetx_.close(*node.scratch_info);
 		node.state = node_info::dirty;
 
 		//get the true path & add to sync cache
@@ -1746,8 +1754,8 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 		else
 			true_path = path;
 
-		sync_cache_[true_path].push_back(node);
-		sync_cache_[true_path].back().name = true_path.string();
+		sync_cache_[true_path.string()].push_back(node);
+		sync_cache_[true_path.string()].back().name = true_path.string();
 	}
 	else
 		BOOST_LOG_TRIVIAL(warning) << "Invalid state for a file being closed: " << node.state;
@@ -1760,8 +1768,8 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 
 template <typename Client, typename ChangeTx>
 int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& path, void *buf,
-		fuse_fill_dir_t filler, off_t offset,
-		struct fuse_file_info *fi)
+		fuse_fill_dir_t filler, off_t /*offset*/,
+		struct fuse_file_info* /*fi*/)
 {
 	//check the directory exists
 	if(!dcache_.count(path.string()))
@@ -1770,7 +1778,7 @@ int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& p
 	std::list<node_info>& entries = dcache_[path.string()];
 	for(const node_info& ni : entries)
 	{
-		filler(buf, ni.name, NULL, 0);
+		filler(buf, ni.name.c_str(), NULL, 0);
 		if(ni.name == ".")
 			filler(buf, "..", NULL, 0);
 	}

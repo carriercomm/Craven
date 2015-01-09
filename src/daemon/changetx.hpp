@@ -539,7 +539,7 @@ namespace change
 			auto path = root_.add(key, scratch_id);
 
 			//Copy the initial info over
-			fs::copy(root_(key, version), path);
+			boost::filesystem::copy(root_(key, version), path);
 
 			return scratch(path, key, scratch_id);
 		}

@@ -29,8 +29,10 @@ src_daemon_dfsd_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
 						  src/daemon/raftclient.cpp src/daemon/raftrequest.hpp src/daemon/raftrequest.cpp \
 						  src/daemon/raftctl.hpp src/daemon/raftctl.cpp \
 						  src/daemon/changetx.hpp src/daemon/changetx.cpp \
+						  src/daemon/persist.hpp src/daemon/persist.cpp \
 						  src/common/b64_help.hpp src/common/b64_help.cpp \
-						  src/daemon/fsstate.hpp src/daemon/fsstate.cpp
+						  src/daemon/fsstate.hpp src/daemon/fsstate.cpp \
+						  src/daemon/fuselink.hpp src/daemon/fuselink.cpp
 
 src_daemon_dfsd_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) $(LIBB64_CPPFLAGS) $(FUSE_CFLAGS)
 src_daemon_dfsd_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) \
