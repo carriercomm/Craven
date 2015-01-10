@@ -1,9 +1,13 @@
 #include <cstdlib>
 #include <iostream>
+#include <string>
+#include <unordered_map>
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
+
+#include <boost/asio.hpp>
 
 #include "signals.hpp"
 #include "configure.hpp"

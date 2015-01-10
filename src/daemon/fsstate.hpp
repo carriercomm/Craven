@@ -609,17 +609,17 @@ void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni)
 	if(ni.state == node_info::dead)
 	{
 		//find the to & check it's first
-		std::deque<node_info>& ot_queue = sync_cache_.at(ni.rename_info);
+		std::deque<node_info>& ot_queue = sync_cache_.at(*ni.rename_info);
 		if(ot_queue.empty())
 			BOOST_LOG_TRIVIAL(warning) << "Malformed rename marker for " << ni.name
-				<< " -> " << ni.rename_info;
+				<< " -> " << *ni.rename_info;
 		else
 		{
 			node_info& front_info = ot_queue.front();
 			if(front_info.state == node_info::novel
 					&& front_info.rename_info
 					&& *front_info.rename_info == ni.name
-					&& front_info.version = ni.version)
+					&& front_info.version == ni.version)
 			{
 
 				client_.request(raft::request::Rename(id_,
@@ -639,7 +639,7 @@ template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::tick()
 {
 	std::list<std::string> erase_keys;
-	for(std::pair<std::string, std::deque<node_info>>& entry : sync_cache_)
+	for(typename sync_cache_type::value_type& entry : sync_cache_)
 	{
 		if(std::get<1>(entry).empty())
 			erase_keys.push_back(std::get<0>(entry));
@@ -650,11 +650,13 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 			{
 			case node_info::dirty:
 				//determine the current version and fire an update
-				auto version_info = client_[encode_path(std::get<0>(entry))];
-				client_.request(raft::request::Update(id_,
-							encode_path(std::get<0>(entry)),
-							std::get<0>(version_info),
-							top.version));
+				{
+					auto version_info = client_[encode_path(std::get<0>(entry))];
+					client_.request(raft::request::Update(id_,
+								encode_path(std::get<0>(entry)),
+								std::get<0>(version_info),
+								top.version));
+				}
 				break;
 
 			case node_info::novel:

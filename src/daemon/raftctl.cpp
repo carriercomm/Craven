@@ -55,7 +55,6 @@ namespace raft
 				[this](const std::string& endpoint, const raft::rpc::request_vote& rpc)
 				{state_rpc_(endpoint, "raftstate", rpc);},
 				std::bind(&Controller::async_reset_timer, this, std::placeholders::_1),
-				//Has to be a lambda because the client doesn't exist yet
 				std::bind(&Client::commit_handler, &client_, std::placeholders::_1)
 				),
 

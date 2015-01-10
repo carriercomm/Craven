@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include "../common/configure.hpp"
 
 //!Class for the daemon's configuration.
@@ -53,6 +54,33 @@ public:
 	//! Returns the desired log level for the file log.
 	boost::log::trivial::severity_level log_level() const;
 
+	std::string id() const;
+
+	boost::asio::ip::tcp::endpoint listen() const;
+
+	std::unordered_map<std::string, std::tuple<std::string, std::string>> node_info() const;
+
+	std::tuple<uint32_t, uint32_t, uint32_t> raft_timer() const;
+
+	std::vector<std::string> node_list() const;
+
+	boost::filesystem::path raft_log() const;
+
+	boost::filesystem::path persistence_root() const;
+
+	uid_t fuse_uid() const;
+
+	gid_t fuse_gid() const;
+
+	boost::filesystem::path fuse_mount() const;
+
+	uint32_t tick_timeout() const;
+
 protected:
 	boost::log::trivial::severity_level log_level_;
+
+	std::string id_;
+	std::string port_;
+	boost::filesystem::path working_root_, fuse_mount_;
+	std::unordered_map<std::string, std::tuple<std::string, std::string>> nodes_;
 };

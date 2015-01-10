@@ -616,7 +616,7 @@ namespace change
 		template <typename Callable>
 		boost::signals2::connection connect_arrival_notifications(Callable&& f)
 		{
-			return notify_arrival_.connect(std::forward(f));
+			return notify_arrival_.connect(std::forward<Callable>(f));
 		}
 
 	protected:

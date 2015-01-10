@@ -134,7 +134,8 @@ protected:
 	//! Command-line options
 	std::vector<std::string> args_;
 
-
 	//! Path to the rc file
 	boost::filesystem::path rc_file_;
+
+	boost::filesystem::path socket_;
 };

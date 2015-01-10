@@ -2,6 +2,8 @@
 
 #include <unordered_map>
 
+#include <json_help.hpp>
+
 #include "connection_pool.hpp"
 
 #include <boost/log/core.hpp>

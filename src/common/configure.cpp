@@ -106,11 +106,6 @@ bool Configure::version_requested() const
 	return vm_.count("version");
 }
 
-boost::filesystem::path Configure::socket() const
-{
-	return static_cast<fs::path>(vm_["socket"].as<std::string>());
-}
-
 std::ostream& operator<<(std::ostream& os, const Configure& conf)
 {
 	os << "Configure={"
@@ -158,6 +153,8 @@ void Configure::parse(const std::string& usage)
 	if(vm_.count("help"))
 		std::cout << visible << "\n";
 
+	socket_ = boost::filesystem::absolute(expand(vm_["socket"].as<std::string>()));
+
 	po::notify(vm_);
 }
 
@@ -178,3 +175,8 @@ boost::filesystem::path Configure::expand(boost::filesystem::path const& path) c
 	return expanded_path;
 }
 
+
+boost::filesystem::path Configure::socket() const
+{
+	return socket_;
+}

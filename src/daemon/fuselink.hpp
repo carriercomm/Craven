@@ -1,5 +1,8 @@
 #pragma once
 
+#include <mutex>
+#include <future>
+
 //! A borg containing the IO service & state instance
 class fuselink
 {

@@ -2,6 +2,10 @@
 
 #include <random>
 
+#include "raftrequest.hpp"
+#include "raftstate.hpp"
+#include "raftclient.hpp"
+
 namespace raft
 {
 	//! The raft controller.

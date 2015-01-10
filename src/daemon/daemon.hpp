@@ -2,6 +2,16 @@
 
 #include <boost/asio/io_service.hpp>
 
+#include <json/json.h>
+
+#include "dispatch.hpp"
+#include "raftrpc.hpp"
+#include "raftctl.hpp"
+#include "changetx.hpp"
+#include "fsstate.hpp"
+#include "comms_man.hpp"
+#include "remcon.hpp"
+
 //! Daemon control class
 /*!
  * This class handles the control of the daemon; it's responsible for setting
@@ -10,6 +20,8 @@
  */
 class Daemon
 {
+	//! Ctor helper
+	raft::Controller::TimerLength timer(const std::tuple<uint32_t, uint32_t, uint32_t>& lengths) const;
 public:
 	//! Construct the Daemon
 	//! \param config The configuration for this daemon
@@ -25,6 +37,7 @@ public:
 	//! Retrieve the exit code
 	int exit_code() const;
 
+	typedef TopLevelDispatch<TCPConnectionPool> dispatch_type;
 
 protected:
 	//! Executes a double-fork to escape a shell.
@@ -42,8 +55,29 @@ protected:
 	void init_log(boost::filesystem::path const& log_path, DaemonConfigure::loudness
 			stderr_loud, boost::log::trivial::severity_level level) const;
 
+	void start_ctx_timer(uint32_t tick_timeout);
+	void start_fst_timer(uint32_t tick_timeout);
+
 	//! The asio io_service for the daemon.
 	boost::asio::io_service io_;
+	std::string id_;
+
+	//! Timer for changetx
+	boost::asio::deadline_timer ctx_tick_;
+
+	//! Timer for fsstate
+	boost::asio::deadline_timer fst_tick_;
+
+	RemoteControl remcon_;
+	TCPConnectionPool pool_;
+	dispatch_type dispatch_;
+	comms_man comms_;
+	raft::Controller raft_;
+	change::change_transfer<> changetx_;
+	std::function<void(const std::string&, const std::string&,
+			const Json::Value&)> changetx_send_;
+
+	dfs::state fsstate_;
 
 	//! The state of the daemon
 	daemon_state state_ = running;
