@@ -1,0 +1,5 @@
+socket = ~/.dfs/control
+level = trace
+log = ~/.dfs/log
+id = hung_mung
+nodes = [{"id":"hung_mung", "host":"hung.mung", "port":"5555"}, {"id":"dr_van_van_mojo", "host":"van.van.mojo", "port":"5555"}, {"id":"sri_syadasti", "host":"sri.syadasti", "port":"5555"}, {"id":"zarathud", "host":"zara.thud", "port":"5555"}, {"id":"mal1", "host":"malaclypse.elder", "port":5555}]
