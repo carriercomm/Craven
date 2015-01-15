@@ -2,6 +2,9 @@
 
 #include <boost/asio.hpp>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+
 #include "connection_pool.hpp"
 #include "comms_man.hpp"
 
@@ -16,6 +19,7 @@ comms_man::comms_man(const std::string& id, boost::asio::io_service& io,
 	nodes_(nodes),
 	pool_(pool)
 {
+	BOOST_LOG_TRIVIAL(info) << "RPC listening on port " << endpoint.port();
 	//Start the accept
 	start_accept();
 

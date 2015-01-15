@@ -180,7 +180,9 @@ public:
 
 			try
 			{
-				pool_.send_targeted(node, json_help::write(root));
+				//Ignore unconnected
+				if(connected(node))
+					pool_.send_targeted(node, json_help::write(root));
 			}
 			catch(std::exception& ex)
 			{
