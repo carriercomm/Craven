@@ -154,6 +154,9 @@ namespace dfs
 			changetx_.connect_arrival_notifications(std::bind(
 						&basic_state<Client, ChangeTx>::notify_arrival, this,
 						std::placeholders::_1, std::placeholders::_2));
+
+			//set up root
+			make_directories("/");
 		}
 
 
@@ -1157,52 +1160,66 @@ template <typename Client, typename ChangeTx>
 typename dfs::basic_state<Client, ChangeTx>::node_info&
 	dfs::basic_state<Client, ChangeTx>::get(const boost::filesystem::path& path)
 {
-	//check the translation table
-	if(fusetl_.count(path.string()))
+	//special case: root
+	if(path == "/")
 	{
-		std::tuple<redirect_to, std::string>& tl = fusetl_.at(path.string());
-		//check the dcache
-		if(std::get<0>(tl) == dcache)
-		{
-			return get(std::get<1>(tl));
-		}
-		else if(std::get<0>(tl) == rcache)
-		{
-			throw std::logic_error("Entry is in the rcache");
-		}
+		auto it = boost::find_if(dcache_["/"],
+				check_name("."));
+
+		if(it != dcache_["/"].end())
+			return *it;
 		else
-		{
-			BOOST_LOG_TRIVIAL(error) << "Unknown translation table direction: "
-				<< std::get<0>(tl);
-
-			throw std::runtime_error("Unknown translation table direction: "
-					+ std::to_string(std::get<0>(tl)));
-		}
+			throw std::logic_error("Root entry does not exist.");
 	}
-	else if(dcache_.count(path.string()) == 0)
+	else
 	{
-		if(dcache_.count(path.parent_path().string()) == 1)
+		//check the translation table
+		if(fusetl_.count(path.string()))
 		{
-			auto it = boost::find_if(dcache_[path.parent_path().string()],
-					check_name(path.filename().string()));
+			std::tuple<redirect_to, std::string>& tl = fusetl_.at(path.string());
+			//check the dcache
+			if(std::get<0>(tl) == dcache)
+			{
+				return get(std::get<1>(tl));
+			}
+			else if(std::get<0>(tl) == rcache)
+			{
+				throw std::logic_error("Entry is in the rcache");
+			}
+			else
+			{
+				BOOST_LOG_TRIVIAL(error) << "Unknown translation table direction: "
+					<< std::get<0>(tl);
 
-			if(it != dcache_[path.parent_path().string()].end())
-				return *it;
+				throw std::runtime_error("Unknown translation table direction: "
+						+ std::to_string(std::get<0>(tl)));
+			}
+		}
+		else if(dcache_.count(path.string()) == 0)
+		{
+			if(dcache_.count(path.parent_path().string()) == 1)
+			{
+				auto it = boost::find_if(dcache_[path.parent_path().string()],
+						check_name(path.filename().string()));
+
+				if(it != dcache_[path.parent_path().string()].end())
+					return *it;
+				else
+					throw std::logic_error("Entry does not exist: " + path.string());
+			}
 			else
 				throw std::logic_error("Entry does not exist: " + path.string());
 		}
 		else
-			throw std::logic_error("Entry does not exist: " + path.string());
-	}
-	else
-	{
-		auto it = boost::find_if(dcache_[path.parent_path().string()],
-				check_name("."));
+		{
+			auto it = boost::find_if(dcache_[path.parent_path().string()],
+					check_name("."));
 
-		if(it != dcache_[path.parent_path().string()].end())
-			return *it;
-		else
-			throw std::logic_error("Malformed directory missing '.': " + path.string());
+			if(it != dcache_[path.parent_path().string()].end())
+				return *it;
+			else
+				throw std::logic_error("Malformed directory missing '.': " + path.string());
+		}
 	}
 }
 
