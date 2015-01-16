@@ -1839,9 +1839,12 @@ int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& p
 	std::list<node_info>& entries = dcache_[path.string()];
 	for(const node_info& ni : entries)
 	{
-		filler(buf, ni.name.c_str(), NULL, 0);
-		if(ni.name == ".")
-			filler(buf, "..", NULL, 0);
+		if(ni.state != node_info::dead)
+		{
+			filler(buf, ni.name.c_str(), NULL, 0);
+			if(ni.name == ".")
+				filler(buf, "..", NULL, 0);
+		}
 	}
 
 	return 0;
