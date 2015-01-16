@@ -1508,13 +1508,22 @@ int dfs::basic_state<Client, ChangeTx>::rmdir(const boost::filesystem::path& pat
 	if(in_rcache(path))
 		return -ENOTDIR;
 
-	auto node = get(path);
+	node_info& node = get(path);
 
 	if(node.type != node_info::dir)
 		return -ENOTDIR;
 
 	if(dcache_.at(path.string()).size() > 1)
-		return -ENOTEMPTY;
+	{
+		//check the number of untombstoned files
+		auto it = boost::range::find_if(dcache_.at(path.string()),
+				[](const node_info& value)
+				{
+					return value.name != "." && value.state != node_info::dead;
+				});
+		if(it != dcache_.at(path.string()).end())
+			return -ENOTEMPTY;
+	}
 
 	//delete the directory
 	dcache_.erase(path.string());
