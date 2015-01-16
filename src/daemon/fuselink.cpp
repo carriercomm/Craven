@@ -291,19 +291,18 @@ void fuselink::run_fuse()
 	char* args[3];
 	char arg0[3];
 	char arg1[3];
-	//char arg2[3];
-	//char arg3[PATH_MAX];
-	char arg2[PATH_MAX];
+	char arg2[3];
+	char arg3[PATH_MAX];
 
 	std::strcpy(arg0, "-f"); //foreground
 	std::strcpy(arg1, "-d"); //debug
-	//std::strcpy(arg0, "-s"); //single thread
-	std::strcpy(arg2, mp.c_str());
+	std::strcpy(arg2, "-s"); //single thread
+	std::strcpy(arg3, mp.c_str());
 
 	args[0] = arg0;
 	args[1] = arg1;
 	args[2] = arg2;
-	//args[3] = arg3;
+	args[3] = arg3;
 
-	fuse_main(3, args, &fuse_ops, nullptr);
+	fuse_main(4, args, &fuse_ops, nullptr);
 }
