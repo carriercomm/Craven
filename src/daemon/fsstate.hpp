@@ -1546,7 +1546,7 @@ int dfs::basic_state<Client, ChangeTx>::unlink(const boost::filesystem::path& pa
 	if(in_rcache(path))
 		return -EBUSY;
 
-	auto node = get(path);
+	node_info& node = get(path);
 
 	if(node.type == node_info::dir)
 		return -EISDIR;
