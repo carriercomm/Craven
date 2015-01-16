@@ -85,8 +85,8 @@ Configure::Configure(const std::vector<std::string>& args)
 		("help,h", "Print the help message")
 		("conf,c", po::value<std::string>()->default_value(RCFILE),
 			"Use <file> instead of the default(" RCFILE ")")
-		(",q", "Be quiet")
-		(",v", "Be verbose");
+		("quiet,q", "Be quiet")
+		("verbose,v", "Be verbose");
 
 
 	all_.add_options()
@@ -114,9 +114,9 @@ std::ostream& operator<<(std::ostream& os, const Configure& conf)
 		<< ", conf=" << conf.vm_["conf"].as<std::string>()
 		<< ", sock=" << conf.vm_["socket"].as<std::string>();
 
-	if(conf.vm_.count("q"))
+	if(conf.vm_.count("quiet"))
 		os << ", quiet";
-	if(conf.vm_.count("v"))
+	if(conf.vm_.count("verbose"))
 		os << ", verbose";
 
 	os << "}";
@@ -147,7 +147,7 @@ void Configure::parse(const std::string& usage)
 
 		po::store(po::parse_config_file(rc_file, all_, true), vm_);
 	}
-	else if(vm_.count("q") == 0)
+	else if(vm_.count("quiet") == 0)
 		std::cerr << "Warning: specified rc file does not exist: " << rc_file_ << "\n";
 
 	if(vm_.count("help"))

@@ -114,12 +114,12 @@ fs::path DaemonConfigure::log_path() const
 
 DaemonConfigure::loudness DaemonConfigure::output_loudness() const
 {
-	if(vm_.count("d"))
+	if(vm_.count("daemonise"))
 		return DaemonConfigure::daemon;
 
-	if(vm_.count("q"))
+	if(vm_.count("quiet"))
 		return DaemonConfigure::quiet;
-	else if(vm_.count("v"))
+	else if(vm_.count("verbose"))
 		return DaemonConfigure::verbose;
 
 	return DaemonConfigure::normal;
