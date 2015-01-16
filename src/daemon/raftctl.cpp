@@ -176,7 +176,7 @@ namespace raft
 	void Controller::async_reset_timer(State::Handlers::timeout_length length)
 	{
 		uint32_t to = tl_(length);
-		BOOST_LOG_TRIVIAL(info) << "Timeout requested of length: "
+		BOOST_LOG_TRIVIAL(trace) << "Timeout requested of length: "
 			<< (length == State::Handlers::election_timeout ? "election" : "leader")
 			<<  ", true: " << to;
 
@@ -191,7 +191,7 @@ namespace raft
 							{
 								if(ec != boost::asio::error::operation_aborted)
 								{
-									BOOST_LOG_TRIVIAL(info) << "Raft timeout fired.";
+									BOOST_LOG_TRIVIAL(trace) << "Raft timeout fired.";
 									state_.timeout();
 								}
 							});

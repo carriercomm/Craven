@@ -62,7 +62,7 @@ void raft::State::timeout()
 {
 	if(follower_state == state_ || candidate_state == state_)
 	{
-		BOOST_LOG_TRIVIAL(info) << "Broadcasting candidacy for new election term.";
+		BOOST_LOG_TRIVIAL(trace) << "Broadcasting candidacy for new election term.";
 		//update the term
 		log_.write(log_.term() + 1);
 		//Perform the transition (which will also ask for the timeout)
@@ -85,7 +85,7 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 	//Stale
 	if(rpc.term() < log_.term())
 	{
-		BOOST_LOG_TRIVIAL(info) << "Received stale append_entries request from " << rpc.leader_id();
+		BOOST_LOG_TRIVIAL(warning) << "Received stale append_entries request from " << rpc.leader_id();
 		return std::make_tuple(log_.term(), false);
 	}
 
@@ -141,7 +141,7 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 
 					log_.write(log_entry);
 				}
-				BOOST_LOG_TRIVIAL(info) << "Added " << rpc.entries().size() << " log entries from "
+				BOOST_LOG_TRIVIAL(trace) << "Added " << rpc.entries().size() << " log entries from "
 					<< rpc.leader_id() << ".";
 			}
 			catch(std::runtime_error& ex)
@@ -161,7 +161,7 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 		}
 		else
 		{
-			BOOST_LOG_TRIVIAL(info) << "No match in log.";
+			BOOST_LOG_TRIVIAL(trace) << "No match in log.";
 			return std::make_tuple(log_.term(), false);
 		}
 	}
@@ -180,12 +180,12 @@ void raft::State::append_entries_response(const std::string& from,
 			if(rpc.success())
 			{
 				uint32_t last_index = rpc.request().prev_log_index() + rpc.request().entries().size();
-				BOOST_LOG_TRIVIAL(info) << "Successfully added " << rpc.request().entries().size()
+				BOOST_LOG_TRIVIAL(trace) << "Successfully added " << rpc.request().entries().size()
 					<< " entries to the log of node " << from;
 
 				//We know last_index is the oldest replicated on the other
 				//machine, so the next to send to them is last_index + 1.
-				BOOST_LOG_TRIVIAL(info) << "Updating info for node " << from << " to: (" <<
+				BOOST_LOG_TRIVIAL(trace) << "Updating info for node " << from << " to: (" <<
 					last_index + 1 << ", " << last_index << ", false)";
 				client_index_[from] = std::make_tuple(last_index + 1, last_index, false);
 
@@ -194,7 +194,7 @@ void raft::State::append_entries_response(const std::string& from,
 				//If there are remaining entries, pass them on.
 				if(std::get<0>(client_index_[from]) < log_.last_index())
 				{
-					BOOST_LOG_TRIVIAL(info) << "Responding to succesful append_entries with the remaining log entries.";
+					BOOST_LOG_TRIVIAL(trace) << "Responding to succesful append_entries with the remaining log entries.";
 					heartbeat(from);
 				}
 			}
@@ -206,7 +206,7 @@ void raft::State::append_entries_response(const std::string& from,
 			}
 		}
 		else
-			BOOST_LOG_TRIVIAL(info) << "Ignoring append_entries response because we're not leading";
+			BOOST_LOG_TRIVIAL(trace) << "Ignoring append_entries response because we're not leading";
 	}
 	else if(rpc.term() > log_.term())
 		//a new term has started
@@ -223,14 +223,14 @@ std::tuple<uint32_t, bool> raft::State::request_vote(const raft::rpc::request_vo
 	//Stale
 	if(rpc.term() < log_.term())
 	{
-		BOOST_LOG_TRIVIAL(info) << "Received stale request_vote from " << rpc.candidate_id();
+		BOOST_LOG_TRIVIAL(warning) << "Received stale request_vote from " << rpc.candidate_id();
 		return std::make_tuple(log_.term(), false);
 	}
 
 	//If it's later, we need to vote
 	if(rpc.term() > log_.term())
 	{
-		BOOST_LOG_TRIVIAL(info) << "Received vote request from new term: " << rpc.term();
+		BOOST_LOG_TRIVIAL(trace) << "Received vote request from new term: " << rpc.term();
 
 		//Write an explicit new term
 		log_.write(rpc.term());
@@ -287,7 +287,7 @@ void raft::State::request_vote_response(const std::string& from,
 		{
 			if(rpc.vote_granted())
 			{
-				BOOST_LOG_TRIVIAL(info) << "Received a vote from " << from
+				BOOST_LOG_TRIVIAL(trace) << "Received a vote from " << from
 					<< " for term " << log_.term();
 				votes_.insert(from);
 			}
@@ -354,7 +354,7 @@ void raft::State::commit_available()
 void raft::State::term_update(uint32_t term)
 {
 	assert(term == log_.term());
-	BOOST_LOG_TRIVIAL(info) << "Raft state machine updating to new term: " << term;
+	BOOST_LOG_TRIVIAL(trace) << "Raft state machine updating to new term: " << term;
 	transition_follower();
 }
 
@@ -394,7 +394,7 @@ void raft::State::heartbeat(const std::string& node)
 {
 	if(std::get<0>(client_index_[node]) == log_.last_index() + 1)
 	{
-		BOOST_LOG_TRIVIAL(info) << "Empty heartbeat to " << node;
+		BOOST_LOG_TRIVIAL(trace) << "Empty heartbeat to " << node;
 		//send an empty heartbeat
 		std::tuple<uint32_t, uint32_t> entry_info(0, 0);
 
@@ -413,12 +413,12 @@ void raft::State::heartbeat(const std::string& node)
 	}
 	else if(std::get<2>(client_index_[node]))
 	{
-		BOOST_LOG_TRIVIAL(info) << "Finding match_index for " << node;
+		BOOST_LOG_TRIVIAL(trace) << "Finding match_index for " << node;
 		//Still trying to work out the match_index
 		uint32_t next_index = std::get<0>(client_index_[node]);
 		if(next_index > log_.last_index())
 		{
-			BOOST_LOG_TRIVIAL(info) << "Information for follower " << node
+			BOOST_LOG_TRIVIAL(warning) << "Information for follower " << node
 				<< " is nonsensical, resetting.";
 			client_index_[node] = std::make_tuple(log_.last_index() + 1, 0, true);
 		}
@@ -444,7 +444,7 @@ void raft::State::heartbeat(const std::string& node)
 		uint32_t from_log = std::get<0>(client_index_[node]);
 		entries.reserve(log_.last_index() - from_log);
 
-		BOOST_LOG_TRIVIAL(info) << "Update to " << node
+		BOOST_LOG_TRIVIAL(trace) << "Update to " << node
 			<< ", adding logs: " << from_log << "--" << log_.last_index();
 
 		for(unsigned int i = from_log; i <= log_.last_index(); ++i)

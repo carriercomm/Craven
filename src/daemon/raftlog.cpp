@@ -445,5 +445,5 @@ void raft::Log::write_json(const Json::Value& root)
 
 	//Remove the newline
 	line.pop_back();
-	BOOST_LOG_TRIVIAL(info) << "Wrote to log: " << line;
+	BOOST_LOG_TRIVIAL(trace) << "Wrote to log: " << line;
 }
