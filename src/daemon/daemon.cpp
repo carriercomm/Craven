@@ -60,6 +60,9 @@ Daemon::Daemon(DaemonConfigure const& config)
 	fsstate_(raft_.client(), changetx_, id_,
 			config.fuse_uid(), config.fuse_gid())
 {
+	//Setup our logs
+	init_log(config.log_path(), config.output_loudness(), config.log_level());
+
 	if(config.version_requested())
 	{
 		std::cout << "Distributed Filesystem (c) Tom Johnson 2014\n"
@@ -69,8 +72,6 @@ Daemon::Daemon(DaemonConfigure const& config)
 	}
 	else
 	{
-		//Setup our logs
-		init_log(config.log_path(), config.output_loudness(), config.log_level());
 
 		//register changetx's handlers
 		changetx_send_ = dispatch_.connect_dispatcher("changetx",
