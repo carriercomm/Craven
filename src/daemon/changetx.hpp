@@ -555,8 +555,9 @@ namespace change
 
 			//Calculate version information
 			auto new_version = sha1_hash(scratch_info());
-			root_.rename(scratch_info.key(), scratch_info.version(),
-					scratch_info.key(), new_version);
+			if(!root_.exists(scratch_info.key(), new_version))
+				root_.rename(scratch_info.key(), scratch_info.version(),
+						scratch_info.key(), new_version);
 
 			return new_version;
 		}
