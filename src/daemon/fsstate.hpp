@@ -1717,15 +1717,15 @@ int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path
 	else
 	{ //check in active_{read,write}
 		node_info& node = get(path);
-		if(node.state == node_info::active_read
+		if(node.state == node_info::active_write
 				&& node.scratch_info)
 			true_path = (*node.scratch_info)();
-		else if(node.state == node_info::active_write)
+		else if(node.state == node_info::active_read)
 			true_path = changetx_(get_key(path),
 					node.version);
 		else
 		{
-			BOOST_LOG_TRIVIAL(error) << "Read called for a file in the wrong state!";
+			BOOST_LOG_TRIVIAL(error) << "Read called for a file in the wrong state: " << node.state;
 			return -EBADF;
 		}
 
