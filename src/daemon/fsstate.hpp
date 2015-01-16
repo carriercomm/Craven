@@ -664,6 +664,7 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 			{
 			case node_info::dirty:
 				//determine the current version and fire an update
+				if(client_.exists(encode_path(std::get<0>(entry))))
 				{
 					auto version_info = client_[encode_path(std::get<0>(entry))];
 					client_.request(raft::request::Update(id_,
@@ -671,6 +672,10 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 								std::get<0>(version_info),
 								top.version));
 				}
+				else //recover to novel
+					client_.request(raft::request::Add(id_,
+								encode_path(std::get<0>(entry)),
+								top.version));
 				break;
 
 			case node_info::novel:
