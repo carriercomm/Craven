@@ -1667,7 +1667,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 	//check if it's in the rcache, in which case writes are out
 	if(in_rcache(path))
 	{
-		if((fi->flags & 3) != O_RDONLY)
+		if((fi->flags & O_WRONLY) == 0)
 			return -EACCES;
 		else
 			return 0;
