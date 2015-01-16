@@ -1752,12 +1752,18 @@ int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& pat
 		of.write(buf, size);
 
 		if(of.bad())
+		{
+			BOOST_LOG_TRIVIAL(warning) << "Bad file during write";
 			return -EIO;
+		}
+
+		return size;
 	}
 	else
+	{
+		BOOST_LOG_TRIVIAL(warning) << "File in wrong state for write: " << node.state;
 		return -EBADF;
-
-	return 0;
+	}
 }
 
 template <typename Client, typename ChangeTx>
