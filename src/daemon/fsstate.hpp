@@ -222,6 +222,8 @@ namespace dfs
 		int readdir(const boost::filesystem::path& path, void *buf, fuse_fill_dir_t filler, off_t offset,
 				struct fuse_file_info *fi);
 
+		int flush(const boost::filesystem::path& path, struct fuse_file_info* fi);
+
 
 		//! Enum signifying where the translation table is pointing (public for
 		//! test reasons)
@@ -1802,5 +1804,13 @@ int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& p
 			filler(buf, "..", NULL, 0);
 	}
 
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::flush(const boost::filesystem::path& /*path*/,
+		struct fuse_file_info* /*fi*/)
+{
+	//Flush doesn't make much sense in the circumstance; just return 0.
 	return 0;
 }

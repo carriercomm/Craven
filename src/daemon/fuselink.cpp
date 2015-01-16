@@ -249,6 +249,17 @@ namespace fuse_handlers
 
 		return result.get();
 	}
+
+	int flush(const char* path, struct fuse_file_info* fi)
+	{
+		auto task = try_call::create_packaged(std::bind(&dfs::state::flush,
+					fuselink::state(),
+					path, fi), "Error in flush: ");
+		auto result = task->get_future();
+		fuselink::io()->post(std::bind(&std::packaged_task<int()>::operator(), task));
+
+		return result.get();
+	}
 }
 
 
@@ -269,6 +280,7 @@ void fuselink::run_fuse()
 	fuse_ops.write = fuse_handlers::write;
 	fuse_ops.release = fuse_handlers::release;
 	fuse_ops.readdir = fuse_handlers::readdir;
+	fuse_ops.flush = fuse_handlers::flush;
 
 	fuse_ops.flag_nullpath_ok = 0;
 
