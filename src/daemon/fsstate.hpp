@@ -40,13 +40,18 @@ namespace dfs
 		//! Node information stored in the dcache
 		struct node_info
 		{
-			node_info() = default;
+			node_info()
+				:inode(0),
+				fds(0)
+			{
+			}
 
 			//! Make a directory
 			node_info(const std::string& name, uint64_t inode)
 				:type(dir),
 				state(clean),
 				inode(inode),
+				fds(0),
 				name(name)
 			{
 			}
@@ -55,6 +60,7 @@ namespace dfs
 				:type(file),
 				state(arrived ? clean : pending),
 				inode(0), //in the interests of consistency
+				fds(0),
 				name(name),
 				version(version)
 			{
@@ -102,6 +108,9 @@ namespace dfs
 
 			//! Inode number (must be unique, only meaningful on directories).
 			uint64_t inode;
+
+			//! Number of open file
+			uint64_t fds;
 
 			//! Rename information.
 			/*!
@@ -1647,6 +1656,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 	{
 
 		node_info& node = get(path);
+		++node.fds;
 		//switch to active_{read,write}
 		if((fi->flags & O_RDWR) == O_RDONLY)
 		{
@@ -1658,7 +1668,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 		else
 		{
 			//set up a scratch
-			if(node.state != node_info::active_write)
+			if(node.fds == 1 && node.state != node_info::active_write)
 			{
 				node.scratch_info = changetx_.open(get_key(path),
 						node.version);
@@ -1742,47 +1752,50 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 	}
 
 	node_info& node = get(path);
-	if(node.state == node_info::active_read)
+	if(--node.fds == 0)
 	{
-		//restore state
-		if(!client_.exists(get_key(path)))
-			node.state = node_info::novel;
-		else
+		if(node.state == node_info::active_read)
 		{
-			auto version_info = client_[encode_path(path.string())];
-			if(std::get<0>(version_info) == node.version)
-			{
-				if(node.previous_version && !changetx_.exists(encode_path(path.string()),
-							node.version))
-					node.state = node_info::pending;
-				else
-					node.state = node_info::clean;
-			}
+			//restore state
+			if(!client_.exists(get_key(path)))
+				node.state = node_info::novel;
 			else
-				node.state = node_info::dirty;
+			{
+				auto version_info = client_[encode_path(path.string())];
+				if(std::get<0>(version_info) == node.version)
+				{
+					if(node.previous_version && !changetx_.exists(encode_path(path.string()),
+								node.version))
+						node.state = node_info::pending;
+					else
+						node.state = node_info::clean;
+				}
+				else
+					node.state = node_info::dirty;
+			}
 		}
-	}
-	else if(node.state == node_info::active_write)
-	{
-		//close the scratch & set up the state for syncing
-		node.version = changetx_.close(*node.scratch_info);
-		node.state = node_info::dirty;
+		else if(node.state == node_info::active_write)
+		{
+			//close the scratch & set up the state for syncing
+			node.version = changetx_.close(*node.scratch_info);
+			node.state = node_info::dirty;
 
-		//get the true path & add to sync cache
-		boost::filesystem::path true_path;
-		if(fusetl_.count(path.string()))
-			true_path = std::get<1>(fusetl_[path.string()]);
+			//get the true path & add to sync cache
+			boost::filesystem::path true_path;
+			if(fusetl_.count(path.string()))
+				true_path = std::get<1>(fusetl_[path.string()]);
+			else
+				true_path = path;
+
+			sync_cache_[true_path.string()].push_back(node);
+			sync_cache_[true_path.string()].back().name = true_path.string();
+		}
 		else
-			true_path = path;
+			BOOST_LOG_TRIVIAL(warning) << "Invalid state for a file being closed: " << node.state;
 
-		sync_cache_[true_path.string()].push_back(node);
-		sync_cache_[true_path.string()].back().name = true_path.string();
+		if(fusetl_.count(path.string()))
+			fusetl_.erase(path.string());
 	}
-	else
-		BOOST_LOG_TRIVIAL(warning) << "Invalid state for a file being closed: " << node.state;
-
-	if(fusetl_.count(path.string()))
-		fusetl_.erase(path.string());
 
 	return 0;
 }
