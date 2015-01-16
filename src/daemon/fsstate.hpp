@@ -1577,17 +1577,20 @@ int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& pa
 		return -ENOTDIR;
 
 	node_info ni;
+	ni.type = node_info::file;
 	ni.name = path.filename().string();
 	ni.inode = 0;
 
-	if((fi->flags & O_RDWR) == O_RDONLY)
+	if((fi->flags & O_WRONLY) == 0)
 	{
+		BOOST_LOG_TRIVIAL(info) << "Create read-only file: " << path;
 		ni.state = node_info::active_read;
 		auto si = changetx_.add(encode_path(path.string()));
 		ni.version = changetx_.close(si);
 	}
 	else
 	{
+		BOOST_LOG_TRIVIAL(info) << "Create read-write file: " << path;
 		ni.state = node_info::active_write;
 		ni.scratch_info = changetx_.add(encode_path(path.string()));
 	}
