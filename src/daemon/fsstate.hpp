@@ -1442,8 +1442,12 @@ int dfs::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& p
 							&& node.scratch_info)
 					{// use the scratch info
 
-						stat_info->st_size = boost::filesystem::file_size(
-								(*node.scratch_info)());
+						boost::filesystem::path scratch_path = (*node.scratch_info)();
+						if(boost::filesystem::exists(path))
+							stat_info->st_size = boost::filesystem::file_size(
+									path);
+						else
+							stat_info->st_size = 0;
 					}
 					else if(node.state == node_info::dead)
 						return -ENOENT;
@@ -1467,7 +1471,7 @@ int dfs::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& p
 	else
 		return -ENOENT;
 
-	return 0;
+	return -ENOENT;
 }
 
 template <typename Client, typename ChangeTx>
