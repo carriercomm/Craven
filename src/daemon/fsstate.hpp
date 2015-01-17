@@ -345,6 +345,9 @@ namespace dfs
 
 		void tick_handle_rename(node_info& ni);
 
+		void create_impl(node_info& ni, const boost::filesystem::path& path,
+				struct fuse_file_info* fi);
+
 
 		Client& client_;
 		ChangeTx& changetx_;
@@ -1567,20 +1570,10 @@ int dfs::basic_state<Client, ChangeTx>::unlink(const boost::filesystem::path& pa
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& path,
-		mode_t, struct fuse_file_info *fi)
+void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost::filesystem::path& path,
+		struct fuse_file_info *fi)
 {
-	if(exists(path))
-		return -EEXIST;
-
-	if(!exists(path.parent_path()))
-		return -ENOTDIR;
-
-	node_info ni;
-	ni.type = node_info::file;
-	ni.name = path.filename().string();
-	ni.inode = 0;
-
+	ni.fds = 1;
 	if((fi->flags & O_WRONLY) == 0)
 	{
 		BOOST_LOG_TRIVIAL(info) << "Create read-only file: " << path;
@@ -1594,9 +1587,37 @@ int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& pa
 		ni.state = node_info::active_write;
 		ni.scratch_info = changetx_.add(encode_path(path.string()));
 	}
+}
 
-	//add to the dcache
-	dcache_[path.parent_path().string()].push_back(ni);
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& path,
+		mode_t, struct fuse_file_info *fi)
+{
+	if(!exists(path.parent_path()))
+		return -ENOTDIR;
+
+	if(exists(path))
+	{
+		//get and modify it
+		node_info& ni = get(path);
+		if(ni.state == node_info::dead)
+			create_impl(ni, path, fi);
+		else
+			return -EEXIST;
+	}
+	else
+	{
+		node_info ni;
+		ni.type = node_info::file;
+		ni.name = path.filename().string();
+		ni.inode = 0;
+
+		//Perform the add
+		create_impl(ni, path, fi);
+
+		//add to the dcache
+		dcache_[path.parent_path().string()].push_back(ni);
+	}
 
 	return 0;
 }
@@ -1681,10 +1702,8 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 		//switch to active_{read,write}
 		if((fi->flags & O_RDWR) == O_RDONLY)
 		{
-			if(node.state == node_info::active_write)
-				return -EACCES;
-
-			node.state = node_info::active_read;
+			if(node.state != node_info::active_write)
+				node.state = node_info::active_read;
 		}
 		else
 		{
