@@ -1757,7 +1757,7 @@ int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path
 	if(is.bad())
 		return -EIO;
 
-	return 0;
+	return is.gcount();
 }
 
 template <typename Client, typename ChangeTx>
