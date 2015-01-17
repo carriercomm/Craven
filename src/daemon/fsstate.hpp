@@ -1766,7 +1766,8 @@ int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& pat
 	node_info& node = get(path);
 	if(node.state == node_info::active_write)
 	{
-		boost::filesystem::ofstream of((*node.scratch_info)());
+		boost::filesystem::ofstream of((*node.scratch_info)(),
+				std::ios::binary | std::ios::out | std::ios::in);
 		of.seekp(offset);
 		of.write(buf, size);
 
