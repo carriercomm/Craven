@@ -290,67 +290,67 @@ namespace change
 				bool valid = info.length <= rpc.start();
 				if(!valid)
 				{
+					//check it aligns to the start of a gap
 					for(std::tuple<uint32_t, uint32_t> gap : info.gaps)
 						valid = valid || rpc.start() == std::get<0>(gap);
 				}
+				//special case: eof & data == "" & start = 0 -- empty file
 
-				//else throw it away
-				if(valid && rpc.data() != "")
+				if(valid)
 				{
-					//detect if our spool would create a gap
-					if(info.length < rpc.start())
+					if(rpc.data() != "")
 					{
-						info.gaps.push_back(std::make_tuple(info.length,
-									rpc.start() - info.length));
+						//detect if our spool would create a gap
+						if(info.length < rpc.start())
+						{
+							info.gaps.push_back(std::make_tuple(info.length,
+										rpc.start() - info.length));
+						}
+
+
+						//spool to the position in file
+						//This can go past the end, in which case it fills
+						//with 0 bytes -- what we want.
+						of.seekp(rpc.start());
+
+						if(of.fail())
+							throw std::runtime_error("Failed file transfer");
+
+						b64_help::decode(rpc.data(), of);
+
+						uint32_t length = static_cast<uint32_t>(of.tellp()) - rpc.start();
+						BOOST_LOG_TRIVIAL(info) << "Transferred " << length << " bytes of data"
+							<< " for (" << rpc.key() << ", " << rpc.version() << ") from "
+							<< from;
+
+						info.length = std::max(static_cast<uint32_t>(of.tellp()), info.length);
+
+						//Delete any gaps whose start positions are the same
+						//as the rpc's
+						boost::range::remove_erase_if(info.gaps,
+								[=](const std::tuple<uint32_t, uint32_t>& value)
+								{
+									return std::get<0>(value) == rpc.start();
+								});
+
+						if(rpc.ec() == rpc::response::eof)
+							info.eof_seen = true;
+
+						//No longer pending!
+						if(info.eof_seen && info.gaps.empty())
+							finish_transfer(from, rpc);
+
 					}
-
-
-					//spool to the position in file
-					//This can go past the end, in which case it fills
-					//with 0 bytes -- what we want.
-					of.seekp(rpc.start());
-
-					if(of.fail())
-						throw std::runtime_error("Failed file transfer");
-
-					b64_help::decode(rpc.data(), of);
-
-					uint32_t length = static_cast<uint32_t>(of.tellp()) - rpc.start();
-					BOOST_LOG_TRIVIAL(info) << "Transferred " << length << " bytes of data"
-						<< " for (" << rpc.key() << ", " << rpc.version() << ") from "
-						<< from;
-
-					info.length = std::max(static_cast<uint32_t>(of.tellp()), info.length);
-
-					//Delete any gaps whose start positions are the same
-					//as the rpc's
-					boost::range::remove_erase_if(info.gaps,
-							[=](const std::tuple<uint32_t, uint32_t>& value)
-							{
-								return std::get<0>(value) == rpc.start();
-							});
-
-					if(rpc.ec() == rpc::response::eof)
-						info.eof_seen = true;
-
-					//No longer pending!
-					if(info.eof_seen && info.gaps.empty())
+					//special case: empty file
+					else if(rpc.start() == 0
+							&& rpc.ec() == rpc::response::eof)
 					{
-
-						//rename the pending key
-						root_.rename(rpc.key(), pending_vers,
-								rpc.key(), rpc.version());
-
-						//Remove the pending data
-						pending_.erase(std::make_tuple(rpc.key(),
-									pending_vers));
-
-						BOOST_LOG_TRIVIAL(info) << "Transfer of (" << rpc.key() << ", " << rpc.version()
-							<< ") from " << from << " complete.";
-						notify_arrival_(rpc.key(), rpc.version());
+						finish_transfer(from, rpc);
 					}
+					else //invalid
+						BOOST_LOG_TRIVIAL(info) << "Response invalid.";
 				}
-				else
+				else //invalid
 					BOOST_LOG_TRIVIAL(info) << "Response invalid.";
 			}
 			else
@@ -686,6 +686,23 @@ namespace change
 				os << hash[i];
 
 			return os.str();
+		}
+
+		//! Finish a transfer
+		void finish_transfer(const std::string& from, const rpc::response& rpc)
+		{
+			std::string pending_vers = rpc.version() + ".pending";
+			//rename the pending key
+			root_.rename(rpc.key(), pending_vers,
+					rpc.key(), rpc.version());
+
+			//Remove the pending data
+			pending_.erase(std::make_tuple(rpc.key(),
+						pending_vers));
+
+			BOOST_LOG_TRIVIAL(info) << "Transfer of (" << rpc.key() << ", " << rpc.version()
+				<< ") from " << from << " complete.";
+			notify_arrival_(rpc.key(), rpc.version());
 		}
 	};
 
