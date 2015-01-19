@@ -95,10 +95,6 @@ namespace change
 			throw std::logic_error(boost::str(boost::format(
 					"Key, version combo (%|s|, %|s|) does not exist.") % key % version));
 
-		if(exists(new_key, version))
-			throw std::logic_error(boost::str(boost::format(
-					"Key, version combo (%|s|, %|s|) already exists; cannot rename.") % key % version));
-
 		if(!exists(new_key))
 			fs::create_directory(root_ / new_key);
 
