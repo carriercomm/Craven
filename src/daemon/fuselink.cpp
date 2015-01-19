@@ -288,7 +288,7 @@ void fuselink::run_fuse()
 	if(mp.size() > PATH_MAX)
 		throw std::length_error("Mount point is longer than PATH_MAX");
 
-	char* args[3];
+	char* args[4];
 	char arg0[3];
 	char arg1[3];
 	char arg2[3];

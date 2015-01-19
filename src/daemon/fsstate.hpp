@@ -1263,12 +1263,9 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 
 	if(node.type == node_info::file)
 	{
-		//check it's not dead or busy
+		//check it's not dead
 		if(node.state == node_info::dead)
 			return -ENOENT;
-		if(node.state == node_info::active_write
-				|| node.state == node_info::active_read)
-			return -EBUSY;
 
 		//if it exists, we need to do an update & delete
 		if(exists(to))
@@ -1278,8 +1275,6 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			if(to_node.type == node_info::dir)
 				return -EISDIR;
 
-			//set up
-			to_node.state = node_info::dirty;
 			if(node.state == node_info::pending)
 			{
 				if(node.previous_version)
@@ -1290,12 +1285,26 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			else
 				to_node.version = node.version;
 
-			sync_cache_[to.string()].push_back(to_node);
-			sync_cache_[to.string()].back().name = to.string();
-
 			//copy the version
 			changetx_.copy(encode_path(from.string()), node.version,
 						encode_path(to.string()));
+
+			//active write; setup new scratch after killing old one
+			if(to_node.state == node_info::active_write)
+			{
+				//delete old scratch
+				changetx_.kill(*to_node.scratch_info);
+
+				//set up new scratch
+				to_node.scratch_info = changetx_.open(
+						encode_path(to.string()), node.version);
+			}
+			else if(to_node.state != node_info::active_read)
+				to_node.state = node_info::dirty;
+			//else nothing extra
+
+			sync_cache_[to.string()].push_back(to_node);
+			sync_cache_[to.string()].back().name = to.string();
 
 			//delete from if it's not pending; otherwise it stays
 			if(node.state != node_info::pending)
@@ -1304,8 +1313,6 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 				sync_cache_[from.string()].push_back(node);
 				sync_cache_[from.string()].back().name = from.string();
 			}
-
-			return 0;
 		}
 		else
 		{
@@ -1346,6 +1353,8 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			sync_cache_[to.string()].push_back(to_node);
 			sync_cache_[to.string()].back().name = to.string();
 		}
+
+		return 0;
 	}
 	else //directory
 	{
@@ -1574,7 +1583,7 @@ void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost:
 		struct fuse_file_info *fi)
 {
 	ni.fds = 1;
-	if((fi->flags & O_WRONLY) == 0)
+	if((fi->flags & O_ACCMODE) == O_RDONLY)
 	{
 		BOOST_LOG_TRIVIAL(info) << "Create read-only file: " << path;
 		ni.state = node_info::active_read;
@@ -1688,7 +1697,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 	//check if it's in the rcache, in which case writes are out
 	if(in_rcache(path))
 	{
-		if((fi->flags & O_WRONLY) == 0)
+		if((fi->flags & O_ACCMODE) == O_RDONLY)
 			return -EACCES;
 		else
 			return 0;
@@ -1700,13 +1709,17 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 		node_info& node = get(path);
 		++node.fds;
 		//switch to active_{read,write}
-		if((fi->flags & O_RDWR) == O_RDONLY)
+		if((fi->flags & O_ACCMODE) == O_RDONLY)
 		{
 			if(node.state != node_info::active_write)
 				node.state = node_info::active_read;
 		}
 		else
 		{
+			//check read/write
+			if(!((fi->flags & O_ACCMODE) == O_RDWR
+						|| (fi->flags & O_ACCMODE) == O_WRONLY))
+				BOOST_LOG_TRIVIAL(warning) << "Error in reading open mode flags";
 			//set up a scratch
 			if(node.fds == 1 && node.state != node_info::active_write)
 			{
