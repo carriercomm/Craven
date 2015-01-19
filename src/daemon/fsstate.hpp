@@ -1593,7 +1593,7 @@ void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost:
 		struct fuse_file_info *fi)
 {
 	ni.fds = 1;
-	if((fi->flags & O_WRONLY) == 0)
+	if((fi->flags & O_ACCMODE) == O_RDONLY)
 	{
 		BOOST_LOG_TRIVIAL(info) << "Create read-only file: " << path;
 		ni.state = node_info::active_read;
@@ -1707,7 +1707,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 	//check if it's in the rcache, in which case writes are out
 	if(in_rcache(path))
 	{
-		if((fi->flags & O_WRONLY) == 0)
+		if((fi->flags & O_ACCMODE) == O_RDONLY)
 			return -EACCES;
 		else
 			return 0;
@@ -1719,13 +1719,17 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 		node_info& node = get(path);
 		++node.fds;
 		//switch to active_{read,write}
-		if((fi->flags & O_RDWR) == O_RDONLY)
+		if((fi->flags & O_ACCMODE) == O_RDONLY)
 		{
 			if(node.state != node_info::active_write)
 				node.state = node_info::active_read;
 		}
 		else
 		{
+			//check read/write
+			if(!((fi->flags & O_ACCMODE) == O_RDWR
+						|| (fi->flags & O_ACCMODE) == O_WRONLY))
+				BOOST_LOG_TRIVIAL(warning) << "Error in reading open mode flags";
 			//set up a scratch
 			if(node.fds == 1 && node.state != node_info::active_write)
 			{
