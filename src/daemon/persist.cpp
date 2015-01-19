@@ -95,13 +95,17 @@ namespace change
 			throw std::logic_error(boost::str(boost::format(
 					"Key, version combo (%|s|, %|s|) does not exist.") % key % version));
 
-		if(!exists(new_key))
-			fs::create_directory(root_ / new_key);
+		//we want repeats to be silently ignored
+		if(!exists(new_key, version))
+		{
+			if(!exists(new_key))
+				fs::create_directory(root_ / new_key);
 
-		fs::copy_file(root_ / key / version, root_ / new_key / version);
+			fs::copy_file(root_ / key / version, root_ / new_key / version);
 
-		//Update state
-		versions_.insert(std::make_pair(new_key, version));
+			//Update state
+			versions_.insert(std::make_pair(new_key, version));
+		}
 	}
 
 	void persistence::rename(const std::string& key, const std::string& version, const std::string& new_key)
