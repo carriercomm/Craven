@@ -1263,12 +1263,9 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 
 	if(node.type == node_info::file)
 	{
-		//check it's not dead or busy
+		//check it's not dead
 		if(node.state == node_info::dead)
 			return -ENOENT;
-		if(node.state == node_info::active_write
-				|| node.state == node_info::active_read)
-			return -EBUSY;
 
 		//if it exists, we need to do an update & delete
 		if(exists(to))
@@ -1278,53 +1275,44 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			if(to_node.type == node_info::dir)
 				return -EISDIR;
 
+			if(node.state == node_info::pending)
+			{
+				if(node.previous_version)
+					to_node.version = *node.previous_version;
+				else //we're a pending add; not visible
+					return -ENOENT;
+			}
+			else
+				to_node.version = node.version;
+
+			//copy the version
+			changetx_.copy(encode_path(from.string()), node.version,
+						encode_path(to.string()));
+
 			//active write; setup new scratch after killing old one
-			else if(to_node.state == node_info::active_write)
+			if(to_node.state == node_info::active_write)
 			{
 				//delete old scratch
 				changetx_.kill(*to_node.scratch_info);
 
-				//copy the version
-				changetx_.copy(encode_path(from.string()), node.version,
-							encode_path(to.string()));
-
 				//set up new scratch
-				to_node.scratch_info =
-
+				to_node.scratch_info = changetx_.open(
+						encode_path(to.string()), node.version);
 			}
-			//else; handle version as previous.
-			else
+			else if(to_node.state != node_info::active_read)
+				to_node.state = node_info::dirty;
+			//else nothing extra
+
+			sync_cache_[to.string()].push_back(to_node);
+			sync_cache_[to.string()].back().name = to.string();
+
+			//delete from if it's not pending; otherwise it stays
+			if(node.state != node_info::pending)
 			{
-				//active read; switch version and leave state
-				if(to_node.state != node_info::active_read)
-					to_node.state = node_info::dirty;
-				if(node.state == node_info::pending)
-				{
-					if(node.previous_version)
-						to_node.version = *node.previous_version;
-					else //we're a pending add; not visible
-						return -ENOENT;
-				}
-				else
-					to_node.version = node.version;
-
-				sync_cache_[to.string()].push_back(to_node);
-				sync_cache_[to.string()].back().name = to.string();
-
-				//copy the version
-				changetx_.copy(encode_path(from.string()), node.version,
-							encode_path(to.string()));
-
-				//delete from if it's not pending; otherwise it stays
-				if(node.state != node_info::pending)
-				{
-					node.state = node_info::dead;
-					sync_cache_[from.string()].push_back(node);
-					sync_cache_[from.string()].back().name = from.string();
-				}
+				node.state = node_info::dead;
+				sync_cache_[from.string()].push_back(node);
+				sync_cache_[from.string()].back().name = from.string();
 			}
-
-			return 0;
 		}
 		else
 		{
@@ -1365,6 +1353,8 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			sync_cache_[to.string()].push_back(to_node);
 			sync_cache_[to.string()].back().name = to.string();
 		}
+
+		return 0;
 	}
 	else //directory
 	{
