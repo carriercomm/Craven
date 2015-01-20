@@ -22,6 +22,10 @@
 
 #include "fuselink.hpp"
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 
 std::mutex fuselink::io_mutex_{};
 boost::asio::io_service* fuselink::io_{};
@@ -289,13 +293,13 @@ void fuselink::run_fuse()
 		throw std::length_error("Mount point is longer than PATH_MAX");
 
 	char* args[4];
-	char arg0[3];
+	char arg0[255];
 	char arg1[3];
 	char arg2[3];
 	char arg3[PATH_MAX];
 
-	std::strcpy(arg0, "-f"); //foreground
-	std::strcpy(arg1, "-d"); //debug
+	std::strcpy(arg0, PACKAGE_NAME);
+	std::strcpy(arg1, "-f"); //foreground
 	std::strcpy(arg2, "-s"); //single thread
 	std::strcpy(arg3, mp.c_str());
 
