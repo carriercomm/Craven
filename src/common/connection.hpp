@@ -133,7 +133,7 @@ namespace util
 			//! For handling the write queue
 			bool writing_;
 
-			typedef util::line_buffer<std::array<char, 512>> line_buffer_type;
+			typedef util::line_buffer<std::array<char, 4096>> line_buffer_type;
 			//! Forms complete lines from buffers.
 			line_buffer_type lb;
 
