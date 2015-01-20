@@ -16,7 +16,7 @@ namespace raft
 		{
 		public:
 			//! Specifies what timeout the state machine wants
-			enum timeout_length {
+			enum timeout_length : bool {
 				leader_timeout, //!< Setup a timeout suitable for a leader
 				election_timeout //!< Setup a timeout suitable to trigger a new election
 			};

@@ -257,6 +257,8 @@ std::tuple<uint32_t, bool> raft::State::request_vote(const raft::rpc::request_vo
 
 	bool vote = false;
 
+	//check if they're eligable for a vote: their log is at least as up-to-date as
+	//ours
 	if(log_.last_index() != 0)
 	{
 		const uint32_t last_term = log_[log_.last_index()].term();
