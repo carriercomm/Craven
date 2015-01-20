@@ -1115,13 +1115,13 @@ void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, 
 				[&path, &version](const node_info& value)
 				{
 					return value.name == path.filename()
-						&& value.state == node_info::pending
 						&& value.version == version;
 				});
 
 		if(subject != dcache_[path.parent_path().string()].end())
 		{
-			subject->state = node_info::clean;
+			if(subject->state == node_info::pending)
+				subject->state = node_info::clean;
 			subject->previous_version = boost::none;
 		}
 	}
@@ -1879,7 +1879,10 @@ int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& p
 	std::list<node_info>& entries = dcache_[path.string()];
 	for(const node_info& ni : entries)
 	{
-		if(ni.state != node_info::dead)
+		//Don't show dead entries or those that are new & pending
+		if(ni.state != node_info::dead
+				&& !(ni.state == node_info::pending && !ni.previous_version))
+				//second condition refers to novel pending
 		{
 			filler(buf, ni.name.c_str(), NULL, 0);
 			if(ni.name == ".")

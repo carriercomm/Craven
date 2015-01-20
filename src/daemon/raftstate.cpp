@@ -296,7 +296,8 @@ void raft::State::request_vote_response(const std::string& from,
 
 			if(votes_.size() >= calculate_majority())
 			{
-				BOOST_LOG_TRIVIAL(info) << "Received a majority of votes, becoming leader.";
+				BOOST_LOG_TRIVIAL(info) << "Received a majority of votes, becoming leader for term: "
+					<< log_.term();
 				transition_leader();
 			}
 		}

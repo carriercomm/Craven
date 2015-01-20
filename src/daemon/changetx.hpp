@@ -245,9 +245,9 @@ namespace change
 			{
 				//remove the pending info
 				if(pending_.count(std::make_tuple(rpc.key(),
-								rpc.version() + ".pending")) == 1)
+								rpc.version())) == 1)
 					pending_.erase(std::make_tuple(rpc.key(),
-								rpc.version() + ".pending"));
+								rpc.version()));
 
 				if(root_.exists(rpc.key(), rpc.version() + ".pending"))
 					root_.kill(rpc.key(), rpc.version() + ".pending");
@@ -265,8 +265,8 @@ namespace change
 			{
 				std::string pending_vers = rpc.version() + ".pending";
 				//check for the pending data
-				if(pending_.count(std::make_tuple(rpc.key(), pending_vers)) == 0)
-					pending_.insert(std::make_pair(std::make_tuple(rpc.key(), rpc.version() + ".pending"),
+				if(pending_.count(std::make_tuple(rpc.key(), rpc.version())) == 0)
+					pending_.insert(std::make_pair(std::make_tuple(rpc.key(), rpc.version()),
 							pending_info{from, rpc.version()}));
 
 				//Add the file if it doesn't exist
@@ -284,7 +284,7 @@ namespace change
 				//Both output & input to avoid truncating the stream
 				boost::filesystem::fstream of(pending_path, std::ios::binary | std::ios::out | std::ios::in);
 
-				pending_info& info = pending_.at(std::make_tuple(rpc.key(), pending_vers));
+				pending_info& info = pending_.at(std::make_tuple(rpc.key(), rpc.version()));
 
 				//check this is in the right place trivially
 				bool valid = info.length <= rpc.start();
@@ -364,22 +364,26 @@ namespace change
 		{
 			try
 			{
-				BOOST_LOG_TRIVIAL(info) << "Starting transfer of (" << key
-					<< ", " << new_version << ") from " << from;
+				//check we don't already have it
+				if(!root_.exists(key, new_version))
+				{
+					BOOST_LOG_TRIVIAL(info) << "Starting transfer of (" << key
+						<< ", " << new_version << ") from " << from;
 
-				std::string pending_vers = new_version + ".pending";
+					std::string pending_vers = new_version + ".pending";
 
-				//add the pending version
-				if(!exists(key, pending_vers))
-					root_.add(key, pending_vers);
+					//add the pending version
+					if(!exists(key, pending_vers))
+						root_.add(key, pending_vers);
 
-				//setup the pending info
-				if(pending_.count(std::make_tuple(key, pending_vers)) == 0)
-					pending_.insert(std::make_pair(std::make_tuple(key, new_version),
-							pending_info{from, new_version}));
+					//setup the pending info
+					if(pending_.count(std::make_tuple(key, new_version)) == 0)
+						pending_.insert(std::make_pair(std::make_tuple(key, new_version),
+								pending_info{from, new_version}));
 
-				//fire request
-				send_handler_(from, rpc::request(key, new_version, old_version, 0));
+					//fire request
+					send_handler_(from, rpc::request(key, new_version, old_version, 0));
+				}
 			}
 			catch(std::logic_error& ex)
 			{
@@ -691,18 +695,23 @@ namespace change
 		//! Finish a transfer
 		void finish_transfer(const std::string& from, const rpc::response& rpc)
 		{
-			std::string pending_vers = rpc.version() + ".pending";
-			//rename the pending key
-			root_.rename(rpc.key(), pending_vers,
-					rpc.key(), rpc.version());
+			//check the version doesn't already exist
+			if(!root_.exists(rpc.key(), rpc.version()))
+			{
+				//rename the pending key
+				root_.rename(rpc.key(), rpc.version() + ".pending",
+						rpc.key(), rpc.version());
+			}
 
 			//Remove the pending data
 			pending_.erase(std::make_tuple(rpc.key(),
-						pending_vers));
+						rpc.version()));
 
 			BOOST_LOG_TRIVIAL(info) << "Transfer of (" << rpc.key() << ", " << rpc.version()
 				<< ") from " << from << " complete.";
+
 			notify_arrival_(rpc.key(), rpc.version());
+
 		}
 	};
 

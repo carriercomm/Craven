@@ -80,7 +80,6 @@ struct connection_pool_mock
 		}
 
 
-
 	private:
 		inline void throw_if_invalid() const
 		{
@@ -95,6 +94,11 @@ struct connection_pool_mock
 	{
 		send_targeted_args_.push_back(std::make_tuple(to, msg));
 	};
+
+	bool exists(const std::string& node) const
+	{
+		return true;
+	}
 
 	std::vector<std::tuple<std::string, std::string>> send_targeted_args_;
 };
