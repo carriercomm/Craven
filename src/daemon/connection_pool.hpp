@@ -133,6 +133,9 @@ public:
 		if(!connections_.count(endpoint))
 			throw endpoint_missing(endpoint);
 
+		BOOST_LOG_TRIVIAL(trace) << "RPC to " << endpoint << ": |"
+			<< msg << "|";
+
 		connections_[endpoint]->queue_write(msg);
 	}
 
@@ -185,7 +188,7 @@ protected:
 		connection->connect_close(
 				[this, endpoint](const std::string& uuid)
 				{
-					BOOST_LOG_TRIVIAL(info) << "Connection to " << endpoint << "closed.";
+					BOOST_LOG_TRIVIAL(info) << "Connection to " << endpoint << " closed.";
 					if(responsible(endpoint, uuid))
 							connections_.erase(endpoint);
 				});

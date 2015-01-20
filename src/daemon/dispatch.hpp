@@ -107,7 +107,7 @@ public:
 	 */
 	void operator()(const std::string& msg, const typename connection_pool_type::Callback& cb)
 	{
-		BOOST_LOG_TRIVIAL(info) << "RPC from: " << cb.endpoint() << ": |"
+		BOOST_LOG_TRIVIAL(trace) << "RPC from: " << cb.endpoint() << ": |"
 			<< msg << "|";
 		Json::Value root;
 		Json::Reader reader;
@@ -181,7 +181,7 @@ public:
 			try
 			{
 				//Ignore unconnected
-				if(connected(node))
+				if(pool_.exists(node))
 					pool_.send_targeted(node, json_help::write(root));
 			}
 			catch(std::exception& ex)

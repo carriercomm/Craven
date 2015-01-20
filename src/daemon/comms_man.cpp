@@ -118,6 +118,7 @@ void comms_man::handle_connection(
 				pool_.delete_connection(endpoint);
 				pool_.add_connection(endpoint, conn);
 				install_handlers(conn, endpoint);
+				BOOST_LOG_TRIVIAL(info) << "Successful connection to " << endpoint;
 			}
 
 		}
@@ -125,6 +126,7 @@ void comms_man::handle_connection(
 		{
 			pool_.add_connection(endpoint, conn);
 			install_handlers(conn, endpoint);
+			BOOST_LOG_TRIVIAL(info) << "Successful connection to " << endpoint;
 		}
 	}
 	else
@@ -143,9 +145,27 @@ void comms_man::setup_connection(const std::string& name,
 		handle_connection(conn, name, true);
 	}
 	else
-		BOOST_LOG_TRIVIAL(warning)
+	{
+		BOOST_LOG_TRIVIAL(trace) // this is fairly common; hence trace
 			<< "Failed to connect to endpoint "
 			<< name << ": " << ec.message();
+
+		//setup timer to fire next connection attempt
+		auto retry_timer = std::make_shared<boost::asio::deadline_timer>
+			(io_, boost::posix_time::milliseconds(500));
+
+		retry_timer->async_wait([this, retry_timer, name](const boost::system::error_code& ec) mutable
+				{
+					if(!ec)
+					{
+						if(retry_timer)
+							start_connect(name);
+
+						//drop our timer ref
+						retry_timer.reset();
+					}
+				});
+	}
 }
 
 void comms_man::install_handlers(TCPConnectionPool::connection_type::pointer conn,
