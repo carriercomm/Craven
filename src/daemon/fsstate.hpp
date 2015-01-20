@@ -1054,7 +1054,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 	boost::filesystem::path parent = path.parent_path();
 
 	//Conflict management
-	prepare_apply(rpc, path, parent, typename rpc_traits<Rpc>::prepare_tag());
+	prepare_apply(rpc, path, parent, typename rpc_traits<Rpc>::prepare_tag{});
 
 	if(rpc_adds_entry<Rpc>::value)
 	{
