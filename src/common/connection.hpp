@@ -53,6 +53,12 @@ namespace util
 				handler = object_type(std::forward<Callable>(f));
 			}
 		};
+
+		template <typename function_type>
+		static bool valid(const std::function<function_type>& f)
+		{
+			return static_cast<bool>(f);
+		}
 	};
 
 
@@ -84,6 +90,13 @@ namespace util
 				return handler.connect(std::forward<Callable>(f));
 			}
 		};
+
+		//signals are never invalid
+		template <typename function_type>
+		static bool valid(const boost::signals2::signal<function_type>&)
+		{
+			return true;
+		}
 	};
 
 	template <class Socket, class HandlerTag, class HandlerTraits = connection_traits<HandlerTag>>
@@ -156,14 +169,17 @@ namespace util
 					{
 						auto shared(this->shared_from_this());
 
-						auto conn = connection_.lock();
+						if(!connection_.expired())
+						{
+							auto conn = connection_.lock();
 
-						//Can't execute close in any of the handlers that call this function
-						conn->socket_->get_io_service().post(
-								[this, shared, conn]()
-								{
-									conn->close();
-								});
+							//Can't execute close in any of the handlers that call this function
+							conn->socket_->get_io_service().post(
+									[this, shared, conn]()
+									{
+										conn->close();
+									});
+						}
 					}
 
 					return false;
@@ -182,9 +198,10 @@ namespace util
 				auto shared(this->shared_from_this());
 
 				auto conn = connection_.lock();
+				auto socket = conn->socket_;
 
-				conn->socket_->async_receive(boost::asio::buffer(*buf),
-						[this, shared, buf](const boost::system::error_code& ec, std::size_t bytes_tx)
+				socket->async_receive(boost::asio::buffer(*buf),
+						[this, shared, buf, socket](const boost::system::error_code& ec, std::size_t bytes_tx)
 						{
 							bool go = handle_error(ec);
 
@@ -286,6 +303,12 @@ namespace util
 
 		}
 	public:
+		~connection()
+		{
+			//close the socket (it may outlive us in the socket_detail)
+			close();
+		}
+
 		//! Create a new instance of the class from a socket
 		/*!
 		 *  This is one of the two overloads of this function, the only
@@ -368,7 +391,8 @@ namespace util
 		void close()
 		{
 			socket_->close();
-			close_handler_(uuid_);
+			if(handler_traits::valid(close_handler_))
+				close_handler_(uuid_);
 		}
 
 	protected:
