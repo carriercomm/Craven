@@ -173,12 +173,16 @@ namespace util
 						{
 							auto conn = connection_.lock();
 
-							//Can't execute close in any of the handlers that call this function
-							conn->socket_->get_io_service().post(
-									[this, shared, conn]()
-									{
-										conn->close();
-									});
+							//There's a transient issue with .expired not working.
+							if(conn)
+							{
+								//Can't execute close in any of the handlers that call this function
+								conn->socket_->get_io_service().post(
+										[this, shared, conn]()
+										{
+											conn->close();
+										});
+							}
 						}
 					}
 
@@ -197,27 +201,30 @@ namespace util
 				//Compiler won't look for shared_from_this in this class unless we tell it to
 				auto shared(this->shared_from_this());
 
-				auto conn = connection_.lock();
-				auto socket = conn->socket_;
+				if(!connection_.expired())
+				{
+					auto conn = connection_.lock();
+					auto socket = conn->socket_;
 
-				socket->async_receive(boost::asio::buffer(*buf),
-						[this, shared, buf, socket](const boost::system::error_code& ec, std::size_t bytes_tx)
-						{
-							bool go = handle_error(ec);
-
-							if(go)
+					socket->async_receive(boost::asio::buffer(*buf),
+							[this, shared, buf, socket](const boost::system::error_code& ec, std::size_t bytes_tx)
 							{
-								if(auto conn = connection_.lock())
-								{
-									auto lines = lb(*buf, bytes_tx);
-									for(const std::string& line : lines)
-										conn->read_handler_(line);
+								bool go = handle_error(ec);
 
-									if(conn->is_open())
-										setup_read();
+								if(go)
+								{
+									if(auto conn = connection_.lock())
+									{
+										auto lines = lb(*buf, bytes_tx);
+										for(const std::string& line : lines)
+											conn->read_handler_(line);
+
+										if(conn->is_open())
+											setup_read();
+									}
 								}
-							}
-						});
+							});
+				}
 			}
 
 			//! Setup a write
@@ -305,8 +312,6 @@ namespace util
 	public:
 		~connection()
 		{
-			//close the socket (it may outlive us in the socket_detail)
-			close();
 		}
 
 		//! Create a new instance of the class from a socket
