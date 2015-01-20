@@ -58,6 +58,8 @@ protected:
 	void start_ctx_timer(uint32_t tick_timeout);
 	void start_fst_timer(uint32_t tick_timeout);
 
+	void changetx_send(const std::string& node, const Json::Value& rpc) const;
+
 	//! The asio io_service for the daemon.
 	boost::asio::io_service io_;
 	std::string id_;

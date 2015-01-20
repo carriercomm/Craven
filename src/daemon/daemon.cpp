@@ -55,8 +55,8 @@ Daemon::Daemon(DaemonConfigure const& config)
 			id_, config.node_list(),
 			config.raft_log().string()),
 	changetx_(config.persistence_root(),
-			std::bind(changetx_send_, std::placeholders::_1,
-				"changetx", std::placeholders::_2)),
+			std::bind(&Daemon::changetx_send, this,
+				std::placeholders::_1, std::placeholders::_2)),
 	fsstate_(raft_.client(), changetx_, id_,
 			config.fuse_uid(), config.fuse_gid())
 {
@@ -91,6 +91,22 @@ Daemon::Daemon(DaemonConfigure const& config)
 							<< "Unknown type for changetx rpc: "
 							<< type;
 				});
+
+		raft_.client().connect_commit_update(
+				std::bind(&change::change_transfer<>::commit_update,
+					&changetx_, std::placeholders::_1));
+
+		raft_.client().connect_commit_rename(
+				std::bind(&change::change_transfer<>::commit_rename,
+					&changetx_, std::placeholders::_1));
+
+		raft_.client().connect_commit_delete(
+				std::bind(&change::change_transfer<>::commit_delete,
+					&changetx_, std::placeholders::_1));
+
+		raft_.client().connect_commit_add(
+				std::bind(&change::change_transfer<>::commit_add,
+					&changetx_, std::placeholders::_1));
 
 
 		//set up fuselink
@@ -250,4 +266,10 @@ void Daemon::start_fst_timer(uint32_t tick_timeout)
 				if(ec != boost::asio::error::operation_aborted)
 					start_fst_timer(tick_timeout);
 			});
+}
+
+
+void Daemon::changetx_send(const std::string& node, const Json::Value& rpc) const
+{
+	changetx_send_(node, "changetx", rpc);
 }
