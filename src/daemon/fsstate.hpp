@@ -273,6 +273,13 @@ namespace dfs
 			{
 				if(dcache_.count(path.string()) == 1)
 				{
+					//clean up tombstones
+					boost::range::remove_erase_if(
+							dcache_[path.string()],
+							[](const node_info& value)
+							{
+								return value.state == node_info::dead;
+							});
 
 					if(dcache_[path.string()].size() == 1)
 					{
@@ -1378,9 +1385,15 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 		//recurse on directory contents
 		for(const node_info& ni : dcache_[from.string()])
 		{
-			int retcode = rename_impl(from / ni.name, to / ni.name);
-			if(retcode != 0)
-				return retcode;
+			//Dead nodes: I want to delete them. They're in the sync cache; just
+			//ignore them. Pending new nodes should be moved as normal (might need
+			//extra checks though).
+			if(ni.state != node_info::dead)
+			{
+				int retcode = rename_impl(from / ni.name, to / ni.name);
+				if(retcode != 0)
+					return retcode;
+			}
 		}
 
 		//delete from path
