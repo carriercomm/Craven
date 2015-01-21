@@ -1585,14 +1585,14 @@ void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost:
 	ni.fds = 1;
 	if((fi->flags & O_ACCMODE) == O_RDONLY)
 	{
-		BOOST_LOG_TRIVIAL(info) << "Create read-only file: " << path;
+		BOOST_LOG_TRIVIAL(trace) << "Create read-only file: " << path;
 		ni.state = node_info::active_read;
 		auto si = changetx_.add(encode_path(path.string()));
 		ni.version = changetx_.close(si);
 	}
 	else
 	{
-		BOOST_LOG_TRIVIAL(info) << "Create read-write file: " << path;
+		BOOST_LOG_TRIVIAL(trace) << "Create read-write file: " << path;
 		ni.state = node_info::active_write;
 		ni.scratch_info = changetx_.add(encode_path(path.string()));
 	}
