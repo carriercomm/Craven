@@ -158,7 +158,7 @@ void comms_man::setup_connection(const std::string& name,
 				{
 					if(!ec)
 					{
-						if(retry_timer)
+						if(retry_timer && !pool_.exists(name))
 							start_connect(name);
 
 						//drop our timer ref
