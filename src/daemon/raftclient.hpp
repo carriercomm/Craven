@@ -91,7 +91,7 @@ namespace raft
 				{
 					pending_version_map_.clear();
 
-					if(!done(request, version_map_))
+					if(valid(request) != request_done)
 					{
 						BOOST_LOG_TRIVIAL(info) << "Forwarding request to leader: " << request;
 
@@ -138,26 +138,8 @@ namespace raft
 		template <typename Derived>
 		validity valid(const Derived& request) const noexcept
 		{
-			validity commit_valid = valid(request, version_map_);
-			validity pending_valid = valid(request, pending_version_map_);
-
-			auto leader_id = handlers_.leader();
-			if(leader_id && *leader_id == id_)
-			{
-				switch(pending_valid)
-				{
-				case request_valid:
-				case request_done:
-					return pending_valid;
-					break;
-
-				default:
-					return commit_valid;
-				}
-
-			}
-			else
-				return commit_valid;
+			return request_traits<Derived>::valid(request, version_map_,
+					pending_version_map_);
 		}
 
 		//! Connect a function to be called on commit of a new Update
@@ -227,7 +209,9 @@ namespace raft
 		template <typename Derived>
 		void commit_if_valid(const Derived& entry)
 		{
-			auto commit_valid = valid(entry, version_map_);
+			auto commit_valid = request_traits<Derived>::valid(entry,
+					version_map_, pending_version_map_);
+
 			if(commit_valid == request_invalid)
 				throw std::runtime_error("Bad commit: conflicts");
 
@@ -242,7 +226,6 @@ namespace raft
 
 				//Notify the commit handlers
 				commit_notify(entry);
-
 			}
 		}
 
@@ -251,49 +234,61 @@ namespace raft
 		void apply_to(const raft::request::Rename& update, version_map_type& version_map);
 		void apply_to(const raft::request::Add& update, version_map_type& version_map);
 
+		template <typename Request>
+		struct request_traits;
+	};
 
-		bool check_conflict(const raft::request::Update& update) const;
-		bool check_conflict(const raft::request::Delete& del) const;
-		bool check_conflict(const raft::request::Rename& rename) const;
-		bool check_conflict(const raft::request::Add& add) const;
+	template <>
+	struct Client::request_traits<raft::request::Update>
+	{
+		typedef raft::request::Update rpc_type;
 
-		//! Checks a request is valid against a map
-		template <typename Derived>
-		validity valid(const Derived& request, const version_map_type& version_map) const noexcept
-		{
-			try
-			{
-				if(done(request, version_map))
-					return request_done;
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map,
+				const version_map_type& pendng_map);
 
-				return check_conflict(request) ? request_invalid : request_valid;
-			}
-			catch(std::exception& ex)
-			{
-				BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::valid(). Ignoring. Details: "
-					<< ex.what();
-			}
-			catch(...)
-			{
-				BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::valid(). Ignoring.";
-			}
-			return request_invalid;
-		}
+	private:
+		static validity valid_impl(const rpc_type& rpc,
+				const version_map_type& version_map);
+	};
 
-		//! Check if the request has already been applied in map
-		/*!
-		 *  \param request The request to check with
-		 *  \param version_map The version map to check in
-		 */
-		bool done(raft::request::Update::const_reference request, const version_map_type& version_map) const noexcept;
+	template <>
+	struct Client::request_traits<raft::request::Delete>
+	{
+		typedef raft::request::Delete rpc_type;
 
-		//! \overload
-		bool done(raft::request::Delete::const_reference request, const version_map_type& version_map) const noexcept;
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map,
+				const version_map_type& pendng_map);
 
-		//! \overload
-		bool done(raft::request::Rename::const_reference request, const version_map_type& version_map) const noexcept;
+	private:
+		static validity valid_impl(const rpc_type& rpc,
+				const version_map_type& version_map);
+	};
 
-		//! \overload
-		bool done(raft::request::Add::const_reference request, const version_map_type& version_map) const noexcept;
+	template <>
+	struct Client::request_traits<raft::request::Rename>
+	{
+		typedef raft::request::Rename rpc_type;
+
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map,
+				const version_map_type& pendng_map);
+
+	private:
+		static boost::optional<std::string> most_recent(
+				const std::string& key,
+				const version_map_type& version_map,
+				const version_map_type& pending_map);
+	};
+
+	template <>
+	struct Client::request_traits<raft::request::Add>
+	{
+		typedef raft::request::Add rpc_type;
+
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map,
+				const version_map_type& pendng_map);
 	};
 }

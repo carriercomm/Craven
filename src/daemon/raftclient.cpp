@@ -64,18 +64,7 @@ void raft::Client::commit_handler(const Json::Value& root)
 		BOOST_LOG_TRIVIAL(info) << "Committing delete on key: " << entry.key()
 			<< " version: " << entry.version();
 
-		auto commit_valid = valid(entry, version_map_);
-		if(commit_valid == request_invalid && version_map_.count(entry.key()) == 1)
-			throw std::runtime_error("Bad commit: conflicts");
-
-		apply_to(entry, version_map_);
-		//Remove the entry from pending if it's in there
-		if(pending_version_map_.count(entry.key()) == 1 &&
-				std::get<0>(pending_version_map_[entry.key()]) == entry.version())
-			pending_version_map_.erase(entry.key());
-
-		//Notify the commit handlers
-		commit_notify(entry);
+		commit_if_valid(entry);
 	}
 	else if(type == "rename")
 	{
@@ -93,7 +82,8 @@ void raft::Client::commit_handler(const Json::Value& root)
 
 		commit_if_valid(entry);
 	}
-	else throw std::runtime_error("Bad commit RPC: unknown type " + type);
+	else
+		throw std::runtime_error("Bad commit RPC: unknown type " + type);
 }
 
 bool raft::Client::exists(const std::string& key) const noexcept
@@ -148,108 +138,100 @@ void raft::Client::apply_to(const raft::request::Add& update, version_map_type& 
 	version_map[update.key()] = std::make_tuple(update.version(), update.from());
 }
 
-bool raft::Client::check_conflict(const raft::request::Update& update) const
+raft::Client::validity raft::Client::request_traits<raft::request::Update>::valid(
+		const rpc_type& rpc, const version_map_type& version_map,
+		const version_map_type& pending_map)
 {
-	if(pending_version_map_.count(update.key()))
-		return std::get<0>(pending_version_map_.at(update.key())) != update.old_version();
-	else if(version_map_.count(update.key()))
-		return std::get<0>(version_map_.at(update.key())) != update.old_version();
+	if(pending_map.count(rpc.key()) == 0)
+		return valid_impl(rpc, version_map);
 	else
-		return true;
+		return valid_impl(rpc, pending_map);
 }
 
-bool raft::Client::check_conflict(const raft::request::Delete& del) const
+raft::Client::validity raft::Client::request_traits<raft::request::Update>
+	::valid_impl(const rpc_type& rpc, const version_map_type& version_map)
 {
-	if(pending_version_map_.count(del.key()))
-		return std::get<0>(pending_version_map_.at(del.key())) != del.version();
-	else if(version_map_.count(del.key()))
-		return std::get<0>(version_map_.at(del.key())) != del.version();
-
-	return true;
-}
-
-bool raft::Client::check_conflict(const raft::request::Rename& rename) const
-{
-	if(!(pending_version_map_.count(rename.new_key()) == 1
-		|| version_map_.count(rename.new_key()) == 1))
+	if(version_map.count(rpc.key()) == 1)
 	{
-		if(pending_version_map_.count(rename.key()))
-			return std::get<0>(pending_version_map_.at(rename.key())) != rename.version();
-		else if(version_map_.count(rename.key()))
-			return std::get<0>(version_map_.at(rename.key())) != rename.version();
+		if(std::get<0>(version_map.at(rpc.key())) == rpc.new_version())
+			return request_done;
+		else
+			return std::get<0>(version_map.at(rpc.key())) == rpc.old_version()
+				? request_valid : request_invalid;
 	}
-
-	return true;
+	else
+		return request_invalid;
 }
 
-bool raft::Client::check_conflict(const raft::request::Add& add) const
+raft::Client::validity raft::Client::request_traits<raft::request::Delete>::valid(
+		const rpc_type& rpc, const version_map_type& version_map,
+		const version_map_type& pending_map)
 {
-	return version_map_.count(add.key()) == 1 || pending_version_map_.count(add.key()) == 1;
+	if(pending_map.count(rpc.key()) == 0)
+		return valid_impl(rpc, version_map);
+	else
+		return valid_impl(rpc, pending_map);
 }
 
 
-bool raft::Client::done(raft::request::Update::const_reference request, const version_map_type& version_map) const noexcept
+raft::Client::validity raft::Client::request_traits<raft::request::Delete>
+	::valid_impl(const rpc_type& rpc, const version_map_type& version_map)
 {
-	try
-	{
-		if(version_map.count(request.key()))
-			return std::get<0>(version_map.at(request.key())) == request.new_version();
-	}
-	catch(std::exception& ex)
-	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Update...). Ignoring. Details: "
-			<< ex.what();
-	}
-	catch(...)
-	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Update...). Ignoring.";
-	}
-
-	return false;
+	if(version_map.count(rpc.key()) == 1)
+		return std::get<0>(version_map.at(rpc.key())) == rpc.version()
+			? request_valid : request_invalid;
+	else
+		return request_done;
 }
 
-bool raft::Client::done(raft::request::Delete::const_reference, const version_map_type&) const noexcept
+raft::Client::validity raft::Client::request_traits<raft::request::Rename>::valid(
+		const rpc_type& rpc, const version_map_type& version_map,
+		const version_map_type& pending_map)
 {
-	//can't tell if the've been done
-	return false;
+	auto from_version = most_recent(rpc.key(), version_map, pending_map);
+	auto to_version = most_recent(rpc.new_key(), version_map, pending_map);
+
+	if(!from_version && to_version && *to_version == rpc.version())
+		return request_done;
+	if(from_version && !to_version && *from_version == rpc.version())
+		return request_valid;
+
+	return request_invalid;
 }
 
-bool raft::Client::done(raft::request::Rename::const_reference request, const version_map_type& version_map) const noexcept
+boost::optional<std::string> raft::Client
+	::request_traits<raft::request::Rename>::most_recent(
+		const std::string& key, const version_map_type& version_map,
+		const version_map_type& pending_map)
 {
-	try
+	if(pending_map.count(key) == 1)
+		return std::get<0>(pending_map.at(key));
+	else
 	{
-		if(version_map.count(request.new_key()))
-			return std::get<0>(version_map.at(request.new_key())) == request.version();
+		if(version_map.count(key) == 1)
+			return std::get<0>(version_map.at(key));
+		else
+			return boost::none;
 	}
-	catch(std::exception& ex)
-	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Rename...). Ignoring. Details: "
-			<< ex.what();
-	}
-	catch(...)
-	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Rename...). Ignoring.";
-	}
-
-	return false;
 }
 
-bool raft::Client::done(raft::request::Add::const_reference request, const version_map_type& version_map) const noexcept
+raft::Client::validity raft::Client::request_traits<raft::request::Add>::valid(
+		const rpc_type& rpc, const version_map_type& version_map,
+		const version_map_type& pending_map)
 {
-	try
+	if(pending_map.count(rpc.key()) == 0)
 	{
-		if(version_map.count(request.key()))
-			return std::get<0>(version_map.at(request.key())) == request.version();
+		if(version_map.count(rpc.key()) == 1)
+		{
+			return std::get<0>(version_map.at(rpc.key())) == rpc.version()
+				? request_done : request_invalid;
+		}
+		else
+			return request_valid;
 	}
-	catch(std::exception& ex)
+	else
 	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Add...). Ignoring. Details: "
-			<< ex.what();
+		return std::get<0>(pending_map.at(rpc.key())) == rpc.version()
+			? request_done : request_invalid;
 	}
-	catch(...)
-	{
-		BOOST_LOG_TRIVIAL(warning) << "Unexpected exception in raft::Client::done(Add...). Ignoring.";
-	}
-
-	return false;
 }
