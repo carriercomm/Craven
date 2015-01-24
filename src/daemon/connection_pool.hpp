@@ -188,7 +188,8 @@ protected:
 		connection->connect_close(
 				[this, endpoint](const std::string& uuid)
 				{
-					BOOST_LOG_TRIVIAL(info) << "Connection to " << endpoint << " closed.";
+					BOOST_LOG_TRIVIAL(info) << "Connection to " << endpoint
+						<< "with ID " << uuid << " closed.";
 					if(responsible(endpoint, uuid))
 							connections_.erase(endpoint);
 				});

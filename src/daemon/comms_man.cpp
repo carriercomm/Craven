@@ -141,6 +141,8 @@ void comms_man::setup_connection(const std::string& name,
 	if(!ec)
 	{
 		auto conn = TCPConnectionPool::connection_type::create(sock);
+		BOOST_LOG_TRIVIAL(trace) << "Setting up connection to " << name
+			<< " with ID " << conn->uuid();
 		conn->queue_write(id_ + '\n');
 		handle_connection(conn, name, true);
 	}
@@ -182,7 +184,8 @@ void comms_man::install_handlers(TCPConnectionPool::connection_type::pointer con
 					//a lambda because bind can't cope with overloads
 					io_.post([this, endpoint]
 							{
-								start_connect(endpoint);
+								if(!pool_.exists(endpoint))
+									start_connect(endpoint);
 							});
 				}
 			});
