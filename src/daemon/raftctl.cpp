@@ -55,7 +55,18 @@ namespace raft
 				[this](const std::string& endpoint, const raft::rpc::request_vote& rpc)
 				{state_rpc_(endpoint, "raftstate", rpc);},
 				std::bind(&Controller::async_reset_timer, this, std::placeholders::_1),
-				std::bind(&Client::commit_handler, &client_, std::placeholders::_1)
+				[this](const Json::Value& value)
+				{
+					try
+					{
+						client_.commit_handler(value);
+					}
+					catch(const std::exception& ex)
+					{
+						BOOST_LOG_TRIVIAL(error) << "Error in raft commit: " << ex.what();
+					}
+
+				}
 				),
 
 		//Set up the client handlers
