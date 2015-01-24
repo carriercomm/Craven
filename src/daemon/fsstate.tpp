@@ -463,24 +463,28 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::commit_update(const raft::request::Update& rpc)
 {
+	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling update: " << rpc;
 	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::commit_delete(const raft::request::Delete& rpc)
 {
+	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling delete: " << rpc;
 	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::commit_rename(const raft::request::Rename& rpc)
 {
+	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling rename: " << rpc;
 	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::commit_add(const raft::request::Add& rpc)
 {
+	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling add: " << rpc;
 	manage_commit(rpc);
 }
 
