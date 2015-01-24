@@ -33,6 +33,7 @@ src_daemon_dfsd_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
 						  src/daemon/persist.hpp src/daemon/persist.cpp \
 						  src/common/b64_help.hpp src/common/b64_help.cpp \
 						  src/daemon/fsstate.hpp src/daemon/fsstate.cpp \
+						  src/daemon/fsstate.tpp \
 						  src/daemon/fuselink.hpp src/daemon/fuselink.cpp \
 						  src/daemon/comms_man.cpp src/daemon/comms_man.hpp \
 						  src/common/uuid.hpp src/common/uuid.cpp
