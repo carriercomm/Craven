@@ -385,6 +385,7 @@ void raft::State::check_commit()
 		else
 			++trial_index;
 	}
+	commit_available();
 }
 
 void raft::State::heartbeat()
