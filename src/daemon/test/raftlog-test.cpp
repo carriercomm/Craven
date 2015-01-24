@@ -64,8 +64,8 @@ void test_fixture::write_simple() const
 	//is 1.
 	of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
 		//first index of the log is 1.
-		<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
-		<< R"({"term":1,"type":"entry","index":2,"action":"thud"})"
+		<< R"({"term":1, "spawn_term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
+		<< R"({"term":1, "spawn_term":1,"type":"entry","index":2,"action":"thud"})"
 		<< std::endl;
 
 }
@@ -111,8 +111,8 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_term_implicit, test_fixture)
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
-			<< R"({"term":2,"type":"entry","index":2,"action":"thud"})"
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << "\n"
+			<< R"({"term":2,"type":"entry","spawn_term":2,"index":2,"action":"thud"})"
 			<< std::endl;
 
 	}
@@ -135,8 +135,8 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_vote_implicit, test_fixture)
 {
 	{
 		std::ofstream of(tmp_log().string());
-		of << R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
-			<< R"({"term":1,"type":"entry","index":2,"action":"thud"})"
+		of << R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << "\n"
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":2,"action":"thud"})"
 			<< std::endl;
 
 	}
@@ -150,8 +150,8 @@ BOOST_FIXTURE_TEST_CASE(plain_recovery_correct_vote_implicit_overwrite, test_fix
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
-			<< R"({"term":2,"type":"entry","index":2,"action":"thud"})"
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << "\n"
+			<< R"({"term":2,"type":"entry","spawn_term":2,"index":2,"action":"thud"})"
 			<< std::endl;
 	}
 
@@ -173,8 +173,8 @@ BOOST_FIXTURE_TEST_CASE(log_entries_append, test_fixture)
 	write_simple();
 	{
 		raft::Log sut(tmp_log().string());
-		sut.write(raft::log::LogEntry(2, 3, Json::Value("fnord")));
-		sut.write(raft::log::LogEntry(2, 4, Json::Value("thud")));
+		sut.write(raft::log::LogEntry(2, 3, 3, Json::Value("fnord")));
+		sut.write(raft::log::LogEntry(2, 4, 4, Json::Value("thud")));
 		sut.write(raft::log::Vote(3, "eris"));
 	}
 
@@ -235,8 +235,8 @@ BOOST_FIXTURE_TEST_CASE(log_entries_appended_recoverable, test_fixture)
 	write_simple();
 	{
 		raft::Log sut(tmp_log().string());
-		sut.write(raft::log::LogEntry(2, 3, Json::Value("fnord")));
-		sut.write(raft::log::LogEntry(2, 4, Json::Value("thud")));
+		sut.write(raft::log::LogEntry(2, 3, 3, Json::Value("fnord")));
+		sut.write(raft::log::LogEntry(2, 4, 4, Json::Value("thud")));
 		sut.write(raft::log::Vote(3, "eris"));
 	}
 
@@ -278,9 +278,9 @@ BOOST_FIXTURE_TEST_CASE(invalidated_entries_overwritten_on_recovery, test_fixtur
 	{
 		std::ofstream log(tmp_log().string(), std::ios::app);
 
-		log << R"({"term":1,"type":"entry","index":3,"action":"hail"})" << "\n"
-			<< R"({"term":3,"type":"entry","index":1,"action":"hail"})" << "\n"
-			<< R"({"term":3,"type":"entry","index":2,"action":"discordia"})" << "\n";
+		log << R"({"term":1,"type":"entry","spawn_term":1,"index":3,"action":"hail"})" << "\n"
+			<< R"({"term":3,"type":"entry","spawn_term":3,"index":1,"action":"hail"})" << "\n"
+			<< R"({"term":3,"type":"entry","spawn_term":3,"index":2,"action":"discordia"})" << "\n";
 	}
 
 	raft::Log sut(tmp_log().string());
@@ -309,7 +309,7 @@ BOOST_FIXTURE_TEST_CASE(overwriting_invalid_log_entry_ok, test_fixture)
 
 	sut.invalidate(2);
 
-	sut.write(raft::log::LogEntry(2, 2, Json::Value("foo")));
+	sut.write(raft::log::LogEntry(2, 2, 2, Json::Value("foo")));
 }
 
 BOOST_FIXTURE_TEST_CASE(writing_stale_vote_throws, test_fixture)
@@ -318,9 +318,9 @@ BOOST_FIXTURE_TEST_CASE(writing_stale_vote_throws, test_fixture)
 	{
 		std::ofstream log(tmp_log().string(), std::ios::app);
 
-		log << R"({"term":1,"type":"entry","index":3,"action":"hail"})" << "\n"
-			<< R"({"term":3,"type":"entry","index":4,"action":"hail"})" << "\n"
-			<< R"({"term":3,"type":"entry","index":5,"action":"discordia"})" << "\n";
+		log << R"({"term":1,"type":"entry","spawn_term":1,"index":3,"action":"hail"})" << "\n"
+			<< R"({"term":3,"type":"entry","spawn_term":3,"index":4,"action":"hail"})" << "\n"
+			<< R"({"term":3,"type":"entry","spawn_term":3,"index":5,"action":"discordia"})" << "\n";
 	}
 
 	raft::Log sut(tmp_log().string());
@@ -358,8 +358,8 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_not_called_during_recovery, test_fixtur
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
-			<< R"({"term":2,"type":"entry","index":2,"action":"thud"})"
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << "\n"
+			<< R"({"term":2,"type":"entry","spawn_term":2,"index":2,"action":"thud"})"
 			<< std::endl;
 	}
 
@@ -389,7 +389,7 @@ BOOST_FIXTURE_TEST_CASE(new_term_handler_called_on_write, test_fixture)
 
 	called = false;
 
-	sut.write(raft::log::LogEntry(3, 2, Json::Value("foo")));
+	sut.write(raft::log::LogEntry(3, 2, 2, Json::Value("foo")));
 	BOOST_REQUIRE_MESSAGE(called, "New term handler not called for entry");
 }
 
@@ -398,7 +398,7 @@ BOOST_FIXTURE_TEST_CASE(explicit_term_loaded_properly, test_fixture)
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << "\n"
 			<< R"({"term":2,"type":"term"})"
 			<< std::endl;
 	}
@@ -438,7 +438,7 @@ BOOST_FIXTURE_TEST_CASE(stale_explicit_term_fails, test_fixture)
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"endpoint1"})" << "\n"
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << "\n"
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << "\n"
 			<< R"({"term":2,"type":"term"})"
 			<< std::endl;
 	}

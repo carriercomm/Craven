@@ -14,7 +14,7 @@
 #include <boost/format.hpp>
 
 #include <json/json.h>
-#include "../common/json_help.hpp"
+#include <json_help.hpp>
 
 #include "raftlog.hpp"
 
@@ -53,14 +53,17 @@ void raft::log::Loggable::throw_if_not_member(const Json::Value& json, const std
 
 raft::log::LogEntry::LogEntry()
 	:Loggable(0),
-	index_(0)
+	index_(0),
+	spawn_term_(0)
 {
 
 }
 
-raft::log::LogEntry::LogEntry(uint32_t term, uint32_t index, const Json::Value& action)
+raft::log::LogEntry::LogEntry(uint32_t term, uint32_t index, uint32_t spawn_term,
+		const Json::Value& action)
 	:Loggable(term),
 	index_(index),
+	spawn_term_(spawn_term),
 	action_(action)
 {
 }
@@ -71,6 +74,7 @@ raft::log::LogEntry::LogEntry(const Json::Value& json)
 	throw_if_not_member(json, "type");
 	throw_if_not_member(json, "index");
 	throw_if_not_member(json, "action");
+	throw_if_not_member(json, "spawn_term");
 
 	if(!json["type"].isString())
 		throw exceptions::json_bad_type("type", "string");
@@ -78,8 +82,12 @@ raft::log::LogEntry::LogEntry(const Json::Value& json)
 	if(!(json["index"].isInt() && json["index"].asInt() >= 0))
 		throw exceptions::json_bad_type("index", "unsigned int");
 
+	if(!(json["spawn_term"].isInt() && json["spawn_term"].asInt() >= 0))
+		throw exceptions::json_bad_type("spawn_term", "unsigned int");
+
 	if(json["type"].asString() != "entry")
 		throw exceptions::bad_json("Json not an entry");
+
 
 	index_ = json["index"].asUInt();
 	action_ = json["action"];
@@ -90,6 +98,7 @@ Json::Value raft::log::LogEntry::write() const
 	Json::Value root = Loggable::write();
 	root["type"] = "entry";
 	root["index"] = index_;
+	root["spawn_term"] = spawn_term_;
 	root["action"] = action_;
 	return root;
 }
@@ -97,6 +106,11 @@ Json::Value raft::log::LogEntry::write() const
 uint32_t raft::log::LogEntry::index() const
 {
 	return index_;
+}
+
+uint32_t raft::log::LogEntry::spawn_term() const
+{
+	return spawn_term_;
 }
 
 Json::Value raft::log::LogEntry::action() const
@@ -281,7 +295,9 @@ bool raft::Log::valid(const raft::log::LogEntry entry) const noexcept
 {
 	return (entry.index() <= last_index()
 			&& entry.term() > (*this)[entry.index()].term())
-			|| entry.index() == last_index() +1;
+			|| (entry.index() == last_index() +1
+					&& entry.spawn_term() >= (*this)[last_index()].term()
+			   );
 }
 
 bool raft::Log::match(uint32_t term, uint32_t index) const noexcept
@@ -375,6 +391,11 @@ void raft::Log::handle_state(const raft::log::LogEntry& entry) noexcept(false)
 		//Add this entry
 		log_.push_back(entry);
 		BOOST_LOG_TRIVIAL(info) << "Added a log entry, now on index " << last_index();
+
+		//sanity check the spawn term
+		if(entry.term() < entry.spawn_term())
+			BOOST_LOG_TRIVIAL(warning) << "Impossible spawn term for log entry: "
+				<< entry.spawn_term() << " from term: " << entry.term();
 
 		//Want a quiet ignore if the term is lower, but still bump up if term is
 		//greater.

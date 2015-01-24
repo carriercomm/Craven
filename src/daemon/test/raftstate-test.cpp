@@ -116,8 +116,8 @@ void test_fixture::write_for_stale() const
 {
 	std::ofstream of(tmp_log().string());
 	of << R"({"term":1,"type":"vote","for":"foo"})" << '\n'
-		<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << '\n'
-		<< R"({"term":2,"type":"entry","index":2,"action":"thud"})" << '\n';
+		<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << '\n'
+		<< R"({"term":2,"type":"entry","spawn_term":2,"index":2,"action":"thud"})" << '\n';
 }
 
 BOOST_FIXTURE_TEST_CASE(starts_as_follower, test_fixture)
@@ -409,9 +409,9 @@ BOOST_FIXTURE_TEST_CASE(timeout_switches_to_candidate_state_fires_requests, test
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"foo"})" << '\n'
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << '\n'
-			<< R"({"term":2,"type":"entry","index":2,"action":"thud"})" << '\n'
-			<< R"({"term":2,"type":"entry","index":3,"action":"thud"})" << '\n';
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << '\n'
+			<< R"({"term":2,"type":"entry","spawn_term":2,"index":2,"action":"thud"})" << '\n'
+			<< R"({"term":2,"type":"entry","spawn_term":2,"index":3,"action":"thud"})" << '\n';
 	}
 
 	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());
@@ -447,7 +447,7 @@ BOOST_FIXTURE_TEST_CASE(request_vote_already_voted_different_endpoint_reject, te
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"foo"})" << '\n'
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << '\n'
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << '\n'
 			<< R"({"term":2,"type":"vote","for":"foo"})" << '\n';
 	}
 
@@ -471,7 +471,7 @@ BOOST_FIXTURE_TEST_CASE(request_vote_already_voted_same_endpoint_repeat, test_fi
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"foo"})" << '\n'
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << '\n'
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << '\n'
 			<< R"({"term":2,"type":"vote","for":"foo"})" << '\n';
 	}
 
@@ -539,9 +539,9 @@ BOOST_FIXTURE_TEST_CASE(request_vote_last_log_index_lower_reject, test_fixture)
 	{
 		std::ofstream of(tmp_log().string());
 		of << R"({"term":1,"type":"vote","for":"foo"})" << '\n'
-			<< R"({"term":1,"type":"entry","index":1,"action":"thud"})" << '\n'
-			<< R"({"term":2,"type":"entry","index":2,"action":"thud"})" << '\n'
-			<< R"({"term":2,"type":"entry","index":3,"action":"thud"})" << '\n';
+			<< R"({"term":1,"type":"entry","spawn_term":1,"index":1,"action":"thud"})" << '\n'
+			<< R"({"term":2,"type":"entry","spawn_term":2,"index":2,"action":"thud"})" << '\n'
+			<< R"({"term":2,"type":"entry","spawn_term":2,"index":3,"action":"thud"})" << '\n';
 	}
 
 	raft::State sut("eris", {"foo", "bar"}, tmp_log().string(), handler());

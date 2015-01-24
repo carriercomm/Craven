@@ -28,16 +28,19 @@ namespace raft
 			//! Constructs the zeroth log entry, which doesn't actually exist.
 			LogEntry();
 
-			LogEntry(uint32_t term, uint32_t index, const Json::Value& action);
+			LogEntry(uint32_t term, uint32_t index, uint32_t spawn_term,
+					const Json::Value& action);
 			LogEntry(const Json::Value& json);
 
 			Json::Value write() const;
 
 			uint32_t index() const;
+			uint32_t spawn_term() const;
 			Json::Value action() const;
 
 		protected:
 			uint32_t index_;
+			uint32_t spawn_term_;
 			Json::Value action_;
 		};
 

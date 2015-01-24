@@ -134,9 +134,10 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 				{
 					std::tuple<uint32_t, Json::Value> entry = rpc.entries()[i];
 
-					raft::log::LogEntry log_entry(std::get<0>(entry),
+					raft::log::LogEntry log_entry(log_.term(),
 							//Indexes start from one after prev_log_index
 							i + 1 + rpc.prev_log_index(),
+							std::get<0>(entry),
 							std::get<1>(entry));
 
 					log_.write(log_entry);
@@ -167,7 +168,7 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 	}
 
 	//Shouldn't get here, but just in case
-	return std::make_tuple(log_.term(), false);
+	throw std::runtime_error("Invalid logic path in append_entries receive");
 }
 
 void raft::State::append_entries_response(const std::string& from,
@@ -339,7 +340,7 @@ void raft::State::append(const Json::Value& root)
 {
 	if(static_cast<bool>(leader_) && *leader_ == id_)
 	{
-		raft::log::LogEntry entry(log_.term(), log_.last_index() + 1, root);
+		raft::log::LogEntry entry(log_.term(), log_.last_index() + 1, log_.term(), root);
 		log_.write(entry);
 	}
 	else
