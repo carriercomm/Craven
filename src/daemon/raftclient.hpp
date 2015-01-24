@@ -77,14 +77,14 @@ namespace raft
 					auto request_validity = valid(request);
 					if(request_validity == request_valid)
 					{
-						BOOST_LOG_TRIVIAL(info) << "Request valid";
+						BOOST_LOG_TRIVIAL(info) << "Request " << request << " valid";
 						apply_to(request, pending_version_map_);
 						handlers_.append_to_log(request);
 					}
 					else if(request_validity == request_done)
-						BOOST_LOG_TRIVIAL(info) << "Request done";
+						BOOST_LOG_TRIVIAL(info) << "Request " << request << " done";
 					else
-						BOOST_LOG_TRIVIAL(info) << "Request invalid";
+						BOOST_LOG_TRIVIAL(info) << "Request " << request << " invalid";
 					//else ignore
 				}
 				else
@@ -210,7 +210,7 @@ namespace raft
 		void commit_if_valid(const Derived& entry)
 		{
 			auto commit_valid = request_traits<Derived>::valid(entry,
-					version_map_, pending_version_map_);
+					version_map_);
 
 			if(commit_valid == request_invalid)
 				throw std::runtime_error("Bad commit: conflicts");
@@ -218,15 +218,15 @@ namespace raft
 			if(commit_valid == request_valid)
 			{
 				apply_to(entry, version_map_);
-
-				//Remove the entry from pending if it's in there
-				if(pending_version_map_.count(entry.key()) == 1 &&
-						std::get<0>(pending_version_map_[entry.key()]) == entry.version())
-					pending_version_map_.erase(entry.key());
-
-				//Notify the commit handlers
-				commit_notify(entry);
 			}
+
+			//Remove the entry from pending if it's in there
+			if(pending_version_map_.count(entry.key()) == 1 &&
+					std::get<0>(pending_version_map_[entry.key()]) == entry.version())
+				pending_version_map_.erase(entry.key());
+
+			//Notify the commit handlers
+			commit_notify(entry);
 		}
 
 		void apply_to(const raft::request::Update& update, version_map_type& version_map);
@@ -247,6 +247,9 @@ namespace raft
 				const version_map_type& version_map,
 				const version_map_type& pendng_map);
 
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map);
+
 	private:
 		static validity valid_impl(const rpc_type& rpc,
 				const version_map_type& version_map);
@@ -261,6 +264,9 @@ namespace raft
 				const version_map_type& version_map,
 				const version_map_type& pendng_map);
 
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map);
+
 	private:
 		static validity valid_impl(const rpc_type& rpc,
 				const version_map_type& version_map);
@@ -274,6 +280,9 @@ namespace raft
 		static validity valid(const rpc_type& rpc,
 				const version_map_type& version_map,
 				const version_map_type& pendng_map);
+
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map);
 
 	private:
 		static boost::optional<std::string> most_recent(
@@ -290,5 +299,8 @@ namespace raft
 		static validity valid(const rpc_type& rpc,
 				const version_map_type& version_map,
 				const version_map_type& pendng_map);
+
+		static validity valid(const rpc_type& rpc,
+				const version_map_type& version_map);
 	};
 }

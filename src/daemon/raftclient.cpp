@@ -148,6 +148,12 @@ raft::Client::validity raft::Client::request_traits<raft::request::Update>::vali
 		return valid_impl(rpc, pending_map);
 }
 
+raft::Client::validity raft::Client::request_traits<raft::request::Update>::valid(
+		const rpc_type& rpc, const version_map_type& version_map)
+{
+	return valid_impl(rpc, version_map);
+}
+
 raft::Client::validity raft::Client::request_traits<raft::request::Update>
 	::valid_impl(const rpc_type& rpc, const version_map_type& version_map)
 {
@@ -173,6 +179,11 @@ raft::Client::validity raft::Client::request_traits<raft::request::Delete>::vali
 		return valid_impl(rpc, pending_map);
 }
 
+raft::Client::validity raft::Client::request_traits<raft::request::Delete>::valid(
+		const rpc_type& rpc, const version_map_type& version_map)
+{
+	return valid_impl(rpc, version_map);
+}
 
 raft::Client::validity raft::Client::request_traits<raft::request::Delete>
 	::valid_impl(const rpc_type& rpc, const version_map_type& version_map)
@@ -197,6 +208,19 @@ raft::Client::validity raft::Client::request_traits<raft::request::Rename>::vali
 		return request_valid;
 
 	return request_invalid;
+}
+
+raft::Client::validity raft::Client::request_traits<raft::request::Rename>::valid(
+		const rpc_type& rpc, const version_map_type& version_map)
+{
+	if(version_map.count(rpc.key()) == 1
+			&& std::get<0>(version_map.at(rpc.key())) == rpc.version())
+		return request_valid;
+	else if(version_map.count(rpc.new_key()) == 1
+			&& std::get<0>(version_map.at(rpc.new_key())) == rpc.version())
+		return request_done;
+	else
+		return request_invalid;
 }
 
 boost::optional<std::string> raft::Client
@@ -234,4 +258,15 @@ raft::Client::validity raft::Client::request_traits<raft::request::Add>::valid(
 		return std::get<0>(pending_map.at(rpc.key())) == rpc.version()
 			? request_done : request_invalid;
 	}
+}
+
+raft::Client::validity raft::Client::request_traits<raft::request::Add>::valid(
+		const rpc_type& rpc, const version_map_type& version_map)
+{
+	if(version_map.count(rpc.key()) == 0)
+		return request_valid;
+	else if(std::get<0>(version_map.at(rpc.key())) == rpc.version())
+		return request_done;
+	else
+		return request_invalid;
 }
