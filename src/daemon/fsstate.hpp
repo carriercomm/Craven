@@ -103,6 +103,11 @@ namespace dfs
 				dead	//!< The node has been deleted but the delete is not yet synced
 			};
 
+			friend std::ostream& operator<<(std::ostream& os, state_type st)
+			{
+				return os << state_type_tl_.at(st);
+			}
+
 			node_type type;
 			state_type state;
 
@@ -136,6 +141,9 @@ namespace dfs
 
 			//! The version of the node. Empty for novel files & directories.
 			std::string version;
+
+		private:
+			static const std::map<state_type, std::string> state_type_tl_;
 		};
 
 		basic_state(Client& client, ChangeTx& changetx, const std::string& id, uid_t uid, gid_t gid)

@@ -1,4 +1,18 @@
 template <typename Client, typename ChangeTx>
+const std::map<typename dfs::basic_state<Client, ChangeTx>::node_info::state_type,
+	  std::string> dfs::basic_state<Client, ChangeTx>::node_info::state_type_tl_ =
+{
+	{clean, "clean"},
+	{pending, "pending"},
+	{dirty, "dirty"},
+	{active_write, "active_write"},
+	{active_read, "active_read"},
+	{novel, "novel"},
+	{dead, "dead"}
+};
+
+
+template <typename Client, typename ChangeTx>
 void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni)
 {
 	//Only process the from
@@ -1157,7 +1171,8 @@ int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path
 					node.version);
 		else
 		{
-			BOOST_LOG_TRIVIAL(error) << "Read called for a file in the wrong state: " << node.state;
+			BOOST_LOG_TRIVIAL(error) << "Read called for "
+			   << path << " which is in the wrong state: " << node.state;
 			return -EBADF;
 		}
 
@@ -1201,7 +1216,8 @@ int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& pat
 	}
 	else
 	{
-		BOOST_LOG_TRIVIAL(warning) << "File in wrong state for write: " << node.state;
+		BOOST_LOG_TRIVIAL(warning) << "File " << path
+			<< " in wrong state for write: " << node.state;
 		return -EBADF;
 	}
 }
@@ -1219,6 +1235,10 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 	}
 
 	node_info& node = get(path);
+	if(node.fds == 0)
+		BOOST_LOG_TRIVIAL(warning) << "Release on file " << path
+			<< " which has no (tracked) open file handlers";
+
 	if(--node.fds == 0)
 	{
 		if(node.state == node_info::active_read)
@@ -1261,7 +1281,8 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 			sync_cache_[true_path.string()].back().name = true_path.string();
 		}
 		else
-			BOOST_LOG_TRIVIAL(warning) << "Invalid state for a file being closed: " << node.state;
+			BOOST_LOG_TRIVIAL(warning) << "File " << path
+				<< " is in an invalid state for closing: " << node.state;
 
 		if(fusetl_.count(path.string()))
 			fusetl_.erase(path.string());
