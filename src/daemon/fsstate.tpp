@@ -453,7 +453,12 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 	{
 		//totally not a hack...
 		boost::range::remove_erase_if(dcache_[parent.string()],
-				check_name(path.filename().string()));
+				[this, &path, &rpc](const node_info& value)
+				{
+					return value.name == path.filename().string()
+						&& value.state == node_info::dead
+						&& value.version == rpc.version();
+				});
 	}
 
 
