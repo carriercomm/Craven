@@ -169,7 +169,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 							<< path.string();
 				}
 				else
-					BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
+					BOOST_LOG_TRIVIAL(warning) << "Dangling rename from-marker in sync cache for "
 						<< path.string();
 			}
 
@@ -209,7 +209,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 							<< path.string();
 				}
 				else
-					BOOST_LOG_TRIVIAL(warning) << "Dangling rename pointer in sync cache for "
+					BOOST_LOG_TRIVIAL(warning) << "Dangling rename to-marker in sync cache for "
 						<< path.string();
 			}
 
@@ -387,6 +387,7 @@ void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 	//conflict manage
 	if(conflict)
 	{
+		BOOST_LOG_TRIVIAL(info) << "Commit-conflict for local state of " << path;
 		auto recovery = recover_path(path);
 
 		manage_sync_cache(rpc, path, recovery);
@@ -423,6 +424,7 @@ void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 	//conflict manage
 	if(conflict)
 	{
+		BOOST_LOG_TRIVIAL(info) << "Commit-conflict for local state of " << path;
 		auto recovery_add = recover_path(to_path);
 		raft::request::Add add(rpc.from(), rpc.new_key(),
 				rpc.version());
