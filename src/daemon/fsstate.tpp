@@ -457,11 +457,12 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 		std::tie(apply_key, new_file) = rpc_traits<Rpc>::template generate<node_info>(rpc, path,
 				parent, changetx_);
 
-		//remove any existing entries
-		boost::range::remove_erase_if(dcache_[apply_key],
+		//if there is no existing dcache entry, add it
+		auto it = boost::range::find_if(dcache_[apply_key],
 				check_name(new_file.name));
 
-		dcache_[apply_key].push_back(new_file);
+		if(it == dcache_[apply_key].end())
+			dcache_[apply_key].push_back(new_file);
 	}
 	else
 	{
@@ -1239,7 +1240,7 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 		BOOST_LOG_TRIVIAL(warning) << "Release on file " << path
 			<< " which has no (tracked) open file handlers";
 
-	if(--node.fds == 0)
+	if(node.fds == 0 || --node.fds == 0)
 	{
 		if(node.state == node_info::active_read)
 		{
