@@ -1056,8 +1056,14 @@ int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& 
 		si = changetx_.open(get_key(path), node.version);
 	}
 
+	boost::filesystem::path scratch_path = (*si)();
+
+	//if the scratch doesn't exist, make it
+	if(!boost::filesystem::exists(scratch_path))
+		boost::filesystem::ofstream os(scratch_path);
+
 	//want the system truncate
-	if(::truncate((*si)().c_str(), newsize) != 0)
+	if(::truncate(scratch_path.c_str(), newsize) != 0)
 	{
 		//delete the scratch
 		if(our_si)
