@@ -11,9 +11,22 @@ const std::map<typename dfs::basic_state<Client, ChangeTx>::node_info::state_typ
 	{dead, "dead"}
 };
 
+template <typename Client, typename ChangeTx>
+template <typename Rpc>
+void dfs::basic_state<Client, ChangeTx>::handle_request(const Rpc& rpc,
+		std::deque<node_info>& cache_queue)
+{
+	//check the request is not done (ignore invalid) & request
+	if(client_.valid(rpc) == std::remove_reference<decltype(client_)>::type::request_done)
+		cache_queue.pop_front();
+	else
+		client_.request(rpc);
+}
+
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni)
+void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni,
+		std::deque<node_info>& cache_queue)
 {
 	//Only process the from
 	if(ni.state == node_info::dead)
@@ -31,12 +44,19 @@ void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni)
 					&& *front_info.rename_info == ni.name
 					&& front_info.version == ni.version)
 			{
-
-				client_.request(raft::request::Rename(id_,
+				raft::request::Rename req{id_,
 							encode_path(ni.name),
 							encode_path(front_info.name),
-							ni.version));
+							ni.version};
 
+				//if the request is done, remove the markers
+				if(client_.valid(req) == std::remove_reference<decltype(client_)>::type::request_done)
+				{
+					ot_queue.pop_front();
+					cache_queue.pop_front();
+				}
+				else //fire request
+					client_.request(req);
 			}
 			//else not front, so don't do anything
 			else
@@ -63,35 +83,35 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 				if(client_.exists(encode_path(std::get<0>(entry))))
 				{
 					auto version_info = client_[encode_path(std::get<0>(entry))];
-					client_.request(raft::request::Update(id_,
+					handle_request(raft::request::Update{id_,
 								encode_path(std::get<0>(entry)),
 								std::get<0>(version_info),
-								top.version));
+								top.version}, std::get<1>(entry));
 				}
 				else //recover to novel
-					client_.request(raft::request::Add(id_,
+					handle_request(raft::request::Add{id_,
 								encode_path(std::get<0>(entry)),
-								top.version));
+								top.version}, std::get<1>(entry));
 				break;
 
 			case node_info::novel:
 				//if there're no rename markers, fire an add
 				if(top.rename_info)
-					tick_handle_rename(top);
+					tick_handle_rename(top, std::get<1>(entry));
 				else
-					client_.request(raft::request::Add(id_,
+					handle_request(raft::request::Add{id_,
 								encode_path(std::get<0>(entry)),
-								top.version));
+								top.version}, std::get<1>(entry));
 				break;
 
 			case node_info::dead:
 				//if there're no rename markers, fire a delete
 				if(top.rename_info)
-					tick_handle_rename(top);
+					tick_handle_rename(top, std::get<1>(entry));
 				else
-					client_.request(raft::request::Delete(id_,
+					handle_request(raft::request::Delete{id_,
 								encode_path(std::get<0>(entry)),
-								top.version));
+								top.version}, std::get<1>(entry));
 				break;
 
 			default:

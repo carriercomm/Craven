@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <list>
 #include <deque>
+#include <type_traits>
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -358,7 +359,12 @@ namespace dfs
 
 		std::string get_key(const boost::filesystem::path& path) const;
 
-		void tick_handle_rename(node_info& ni);
+		//! Handles the rename markers for tick; removes them if they're done.
+		void tick_handle_rename(node_info& ni, std::deque<node_info>& cache_queue);
+
+		//! Checks a request isn't done & handles it either way
+		template <typename Rpc>
+		void handle_request(const Rpc& rpc, std::deque<node_info>& cache_queue);
 
 		void create_impl(node_info& ni, const boost::filesystem::path& path,
 				struct fuse_file_info* fi);

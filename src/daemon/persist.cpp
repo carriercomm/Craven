@@ -145,7 +145,7 @@ namespace change
 
 		//Remove the key too
 		if(versions_.count(key) == 0)
-			fs::remove(root_ / key);
+			fs::remove_all(root_ / key);
 	}
 
 
@@ -170,7 +170,7 @@ namespace change
 
 		//Remove the key too
 		if(versions_.count(key) == 0)
-			fs::remove(root_ / key);
+			fs::remove_all(root_ / key);
 
 	}
 
