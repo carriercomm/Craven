@@ -457,8 +457,10 @@ namespace change
 		{
 			std::vector<std::string> retval;
 
-			auto versions = root_.versions().equal_range(key);
-			retval.reserve(root_.versions().count(key));
+			auto version_set = root_.versions();
+			auto versions = version_set.equal_range(key);
+
+			retval.reserve(version_set.count(key));
 
 			using namespace boost::adaptors;
 
@@ -485,9 +487,10 @@ namespace change
 		{
 			std::vector<scratch> retval;
 
-			auto versions = root_.versions().equal_range(key);
+			auto version_set = root_.versions();
+			auto versions = version_set.equal_range(key);
 
-			retval.reserve(root_.versions().count(key));
+			retval.reserve(version_set.count(key));
 
 			using namespace boost::adaptors;
 
