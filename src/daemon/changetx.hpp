@@ -197,16 +197,7 @@ namespace change
 			for(const std::pair<std::tuple<std::string, std::string>,
 					pending_info>& pending : pending_)
 			{
-				uint32_t start_from = 0;
-				if(pending.second.gaps.empty())
-					start_from = pending.second.length;
-				else
-					start_from = std::get<0>(pending.second.gaps.front());
-
-				send_handler_(pending.second.from,
-						rpc::request(std::get<0>(pending.first),
-							pending.second.version, "",
-							start_from));
+				continue_transfer(pending);
 			}
 		}
 
@@ -339,6 +330,8 @@ namespace change
 						//No longer pending!
 						if(info.eof_seen && info.gaps.empty())
 							finish_transfer(from, rpc);
+						else
+							continue_transfer(rpc.key(), rpc.version());
 
 					}
 					//special case: empty file
@@ -693,6 +686,30 @@ namespace change
 				os << hash[i];
 
 			return os.str();
+		}
+
+		void continue_transfer(const std::string& key, const std::string& version)
+		{
+			auto it = pending_.find(std::make_tuple(key, version));
+			if(it == pending_.end())
+				throw std::logic_error("No such key, version pair in pending: " + key + ", " + version);
+
+			continue_transfer(*it);
+		}
+
+		void continue_transfer(const std::pair<std::tuple<std::string, std::string>,
+				pending_info>& pending)
+		{
+				uint32_t start_from = 0;
+				if(pending.second.gaps.empty())
+					start_from = pending.second.length;
+				else
+					start_from = std::get<0>(pending.second.gaps.front());
+
+				send_handler_(pending.second.from,
+						rpc::request(std::get<0>(pending.first),
+							pending.second.version, "",
+							start_from));
 		}
 
 		//! Finish a transfer
