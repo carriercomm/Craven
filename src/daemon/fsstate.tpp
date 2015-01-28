@@ -1358,12 +1358,13 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 		}
 		else if(node.state == node_info::active_write)
 		{
-			//close the scratch & set up the state for syncing
-			node.version = changetx_.close(*node.scratch_info);
-			if(!client_.exists(get_key(path)))
+			if(node.version == "")
 				node.state = node_info::novel;
 			else
 				node.state = node_info::dirty;
+
+			//close the scratch & set up the state for syncing
+			node.version = changetx_.close(*node.scratch_info);
 
 			//get the true path & add to sync cache
 			boost::filesystem::path true_path;
