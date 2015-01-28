@@ -402,15 +402,17 @@ namespace change
 		//! Handle the commit of a rename RPC
 		void commit_rename(const raft::request::Rename& rpc)
 		{
-			if(root_.exists(rpc.key(), rpc.version()) &&
-					!root_.exists(rpc.new_key(), rpc.version()))
+			if(root_.exists(rpc.key(), rpc.version()))
 			{
-				root_.rename(rpc.key(), rpc.version(), rpc.new_key());
+				if(!root_.exists(rpc.new_key(), rpc.version()))
+				{
+					root_.rename(rpc.key(), rpc.version(), rpc.new_key());
+					notify_arrival_(rpc.new_key(), rpc.version());
+				}
 			}
-			else
-				BOOST_LOG_TRIVIAL(error) << "Failed to persist rename "
-					<< rpc.key() << " -> " << rpc.new_key() << " version "
-					<< rpc.version() << " from " << rpc.from();
+			else //fetch it
+				handle_new_version(rpc.from(), rpc.new_key(),
+						rpc.version(), "");
 		}
 
 		//! Handle the commit of a delete rpc

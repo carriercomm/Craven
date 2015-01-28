@@ -141,8 +141,21 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 			//clean up the completed item
 			rpc_traits<Rpc>::cleanup(rpc, ni, sync_cache_);
 	}
-	else //conflict check
-		conflict = true;
+	else if(dcache_.count(path.parent_path().string()))
+	{
+		auto ni_it = boost::range::find_if(dcache_.at(path.parent_path().string()),
+				check_name(path.filename().string()));
+
+		if(ni_it != dcache_.at(path.parent_path().string()).end())
+		{
+			conflict = ni_it->state == node_info::active_read
+					|| ni_it->state == node_info::active_write;
+		}
+		else //conflict check not required: we're clean for this key
+			conflict = false;
+	}
+	else //conflict check not required: we're clean for this key
+		conflict = false;
 
 	return conflict;
 }
@@ -388,7 +401,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boo
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
 		const boost::filesystem::path& parent, ordinary_prepare_tag)
 {
 	bool conflict = false;
@@ -413,13 +426,16 @@ void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 		manage_sync_cache(rpc, path, recovery);
 
 		manage_dcache(rpc, path, recovery);
+
 	}
+	//want to clobber if there's no conflict
+	return !conflict;
 }
 
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
 		const boost::filesystem::path& parent, rename_prepare_tag)
 {
 	boost::filesystem::path to_path = decode_path(rpc.new_key());
@@ -439,7 +455,8 @@ void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 		//but don't create it, because we don't care
 
 	//check for completion and conflict
-	conflict = conflict_check_required(rpc, path);
+	conflict = conflict_check_required(rpc, path)
+		|| conflict_check_required(rpc, to_path);
 
 	//conflict manage
 	if(conflict)
@@ -458,7 +475,19 @@ void dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 
 		manage_sync_cache(del, path, recovery_del);
 		manage_dcache(del, path, recovery_del);
+
 	}
+	else //clean out the from
+	{
+		boost::range::remove_erase_if(dcache_[path.parent_path().string()],
+				[path](const node_info& value)
+				{
+					return value.name == path.filename().string();
+				});
+	}
+
+	//want to clobber if there's no conflict
+	return !conflict;
 }
 
 template <typename Client, typename ChangeTx>
@@ -469,7 +498,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 	boost::filesystem::path parent = path.parent_path();
 
 	//Conflict management
-	prepare_apply(rpc, path, parent, typename rpc_traits<Rpc>::prepare_tag{});
+	bool clobber = prepare_apply(rpc, path, parent, typename rpc_traits<Rpc>::prepare_tag{});
 
 	if(rpc_adds_entry<Rpc>::value)
 	{
@@ -485,6 +514,8 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 
 		if(it == dcache_[apply_key].end())
 			dcache_[apply_key].push_back(new_file);
+		else if(clobber)
+			*it = new_file;
 	}
 	else
 	{
@@ -493,7 +524,8 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 				[this, &path, &rpc](const node_info& value)
 				{
 					return value.name == path.filename().string()
-						&& value.state == node_info::dead
+						&& ( value.state == node_info::dead
+								|| value.state == node_info::clean)
 						&& value.version == rpc.version();
 				});
 	}
@@ -775,8 +807,8 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 			node.state = node_info::dead;
 			node.rename_info = to.string();
 
-			sync_cache_[to.string()].push_back(to_node);
-			sync_cache_[to.string()].back().name = to.string();
+			sync_cache_[from.string()].push_back(node);
+			sync_cache_[from.string()].back().name = from.string();
 		}
 
 		return 0;

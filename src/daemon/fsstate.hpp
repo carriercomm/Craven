@@ -327,11 +327,11 @@ namespace dfs
 				const boost::filesystem::path& recovery);
 
 		template <typename Rpc>
-		void prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+		bool prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& parent, ordinary_prepare_tag);
 
 		template <typename Rpc>
-		void prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+		bool prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& parent, rename_prepare_tag);
 
 		template <typename Rpc>
