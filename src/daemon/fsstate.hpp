@@ -548,7 +548,11 @@ namespace dfs
 				{
 					if(other->rename_info &&
 							*(other->rename_info) == ni.name)
+					{
 						sync_cache.at(new_path).erase(other);
+						if(sync_cache.at(new_path).empty())
+							sync_cache.erase(new_path);
+					}
 					else
 						BOOST_LOG_TRIVIAL(warning) << "Malformed rename targets in sync cache for "
 							<< ni.name << " and " << other->name;

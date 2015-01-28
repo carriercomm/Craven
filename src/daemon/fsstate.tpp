@@ -482,11 +482,16 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 	//additionally check the to node
 	if(!conflict && sync_cache_.count(to_path.string()) == 1)
 	{
-		auto head_ni = sync_cache_.at(to_path.string()).front();
-		conflict = !(head_ni.state == node_info::dead
-				&& head_ni.version == rpc.version()
-				&& head_ni.rename_info
-				&& *head_ni.rename_info == path);
+		if(!sync_cache_.at(to_path.string()).empty())
+		{
+			auto head_ni = sync_cache_.at(to_path.string()).front();
+			conflict = !(head_ni.state == node_info::dead
+					&& head_ni.version == rpc.version()
+					&& head_ni.rename_info
+					&& *head_ni.rename_info == path);
+		}
+		else
+			sync_cache_.erase(to_path.string());
 	}
 
 	//conflict manage
