@@ -169,10 +169,6 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 	//check the sync cache & recover if necessary
 	if(sync_cache_.count(path.string()))
 	{ //if we're here, it's because the sync cache clashes
-
-		//Should be true; worth checking that
-		assert(!sync_cache_[path.string()].empty());
-
 		node_info& ni = sync_cache_[path.string()].front();
 		if(ni.state == node_info::dead)
 		{
