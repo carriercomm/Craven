@@ -538,6 +538,10 @@ namespace change
 		scratch open(const std::string& key, const std::string& version)
 		{
 			auto scratch_id = version + ".scratch";
+
+			if(root_.exists(key, scratch_id)) //reset the scratch
+				root_.kill(key, scratch_id);
+
 			auto path = root_.add(key, scratch_id);
 
 			//Copy the initial info over
