@@ -1177,13 +1177,17 @@ int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& 
 		return -errno;
 	}
 
-	//commit the scratch
-	node.version = changetx_.close(*si);
-	node.scratch_info = boost::none;
-	node.state = node_info::dirty;
+	//don't want to commit if we're open
+	if(node.state != node_info::active_write)
+	{
+		//commit the scratch
+		node.version = changetx_.close(*si);
+		node.scratch_info = boost::none;
+		node.state = node_info::dirty;
 
-	sync_cache_[path.string()].push_back(node);
-	sync_cache_[path.string()].back().name = path.string();
+		sync_cache_[path.string()].push_back(node);
+		sync_cache_[path.string()].back().name = path.string();
+	}
 
 	return 0;
 }
