@@ -148,7 +148,7 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 			catch(std::runtime_error& ex)
 			{
 				BOOST_LOG_TRIVIAL(error) << "Unexpected failure on log append: " << ex.what();
-				return std::make_tuple(log_.term(), false);
+				throw ex; //signify it went wrong still
 			}
 
 			if(rpc.leader_commit() > commit_index_)
@@ -452,21 +452,27 @@ void raft::State::heartbeat(const std::string& node)
 		BOOST_LOG_TRIVIAL(trace) << "Update to " << node
 			<< ", adding logs: " << from_log << "--" << log_.last_index();
 
-		for(unsigned int i = from_log; i <= log_.last_index(); ++i)
-			entries.push_back(std::make_tuple(log_[i].term(), log_[i].action()));
-
-		std::tuple<uint32_t, uint32_t> prev_log{0, 0};
-		if(from_log > 1)
+		if(from_log > 0)
 		{
-			auto entry = log_[from_log - 1];
-			prev_log = std::make_tuple(entry.term(), entry.index());
+			for(unsigned int i = from_log; i <= log_.last_index(); ++i)
+				entries.push_back(std::make_tuple(log_[i].term(), log_[i].action()));
+
+			std::tuple<uint32_t, uint32_t> prev_log{0, 0};
+			if(from_log > 1)
+			{
+				auto entry = log_[from_log - 1];
+				prev_log = std::make_tuple(entry.term(), entry.index());
+			}
+
+			raft::rpc::append_entries msg(log_.term(), id_,
+					std::get<0>(prev_log), std::get<1>(prev_log),
+					entries, commit_index_);
+
+			handlers_.append_entries(node, msg);
 		}
+		else //reset the numbers
+			client_index_[node] = std::make_tuple(log_.last_index() + 1, 0, true);
 
-		raft::rpc::append_entries msg(log_.term(), id_,
-				std::get<0>(prev_log), std::get<1>(prev_log),
-				entries, commit_index_);
-
-		handlers_.append_entries(node, msg);
 	}
 }
 
