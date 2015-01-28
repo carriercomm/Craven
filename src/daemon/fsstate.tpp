@@ -175,7 +175,7 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 	if(sync_cache_.count(path.string()))
 	{
 		auto ni = sync_cache_.at(path.string()).front();
-		conflict = !rpc_traits<Rpc>::completed(rpc, ni);
+		conflict = !rpc_traits<Rpc>::completed(rpc, ni, sync_cache_);
 		if(!conflict)
 			//clean up the completed item
 			rpc_traits<Rpc>::cleanup(rpc, ni, sync_cache_);
@@ -478,21 +478,6 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 
 	//check for completion and conflict
 	conflict = conflict_check_required(rpc, path);
-
-	//additionally check the to node
-	if(!conflict && sync_cache_.count(to_path.string()) == 1)
-	{
-		if(!sync_cache_.at(to_path.string()).empty())
-		{
-			auto head_ni = sync_cache_.at(to_path.string()).front();
-			conflict = !(head_ni.state == node_info::dead
-					&& head_ni.version == rpc.version()
-					&& head_ni.rename_info
-					&& *head_ni.rename_info == path);
-		}
-		else
-			sync_cache_.erase(to_path.string());
-	}
 
 	//conflict manage
 	if(conflict)

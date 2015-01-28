@@ -448,7 +448,8 @@ namespace dfs
 		typedef ordinary_prepare_tag prepare_tag;
 
 		template<typename node_info>
-		static bool completed(const rpc_type& rpc, const node_info& ni)
+		static bool completed(const rpc_type& rpc, const node_info& ni,
+				std::unordered_map<std::string, std::deque<node_info>>& /*sync_cache*/)
 		{
 			return ni.version == rpc.version()
 				&& ni.state == node_info::dirty;
@@ -484,7 +485,8 @@ namespace dfs
 		typedef ordinary_prepare_tag prepare_tag;
 
 		template<typename node_info>
-		static bool completed(const rpc_type& rpc, const node_info& ni)
+		static bool completed(const rpc_type& rpc, const node_info& ni,
+				std::unordered_map<std::string, std::deque<node_info>>& /*sync_cache*/)
 		{
 			return ni.version == rpc.version()
 				&& ni.state == node_info::dead
@@ -519,47 +521,45 @@ namespace dfs
 
 		//! Note that this isn't sufficient: need to check the other signpost
 		template<typename node_info>
-		static bool completed(const rpc_type& rpc, const node_info& ni)
+		static bool completed(const rpc_type& rpc, const node_info& ni,
+				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
 		{
-			return ni.version == rpc.version()
-				&& ni.state == node_info::dead
-				&& static_cast<bool>(ni.rename_info)
-				&& *ni.rename_info == decode_path(rpc.new_key());
+			auto other = find_other(rpc, ni, sync_cache);
+			if(other)
+			{
+				if((*other)->rename_info &&
+						*((*other)->rename_info) == ni.name)
+				{
+					return ni.version == rpc.version()
+						&& ni.state == node_info::dead
+						&& static_cast<bool>(ni.rename_info)
+						&& *ni.rename_info == decode_path(rpc.new_key());
+				}
+				else
+					return false;
+			}
+			return false;
 		}
 
 		template<typename node_info>
 		static void cleanup(const rpc_type& rpc, const node_info& ni,
 				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
 		{
-			std::string new_path = decode_path(rpc.new_key());
-			//find the other end of the signpost
-			if(sync_cache.count(new_path) && ni.rename_info)
+			//this has a very ugly type; it's a deque iterator
+			auto other = find_other(rpc, ni, sync_cache);
+			if(other)
 			{
-				//The other side may not be first
-				auto other = boost::range::find_if(sync_cache.at(new_path),
-						[&ni](const node_info& value)
-						{
-							return value.state == node_info::novel
-								&& value.rename_info
-								&& *value.rename_info == ni.name;
-						});
-
-				if(other != sync_cache.at(new_path).end())
+				std::string new_path = decode_path(rpc.new_key());
+				if((*other)->rename_info &&
+						*((*other)->rename_info) == ni.name)
 				{
-					if(other->rename_info &&
-							*(other->rename_info) == ni.name)
-					{
-						sync_cache.at(new_path).erase(other);
-						if(sync_cache.at(new_path).empty())
-							sync_cache.erase(new_path);
-					}
-					else
-						BOOST_LOG_TRIVIAL(warning) << "Malformed rename targets in sync cache for "
-							<< ni.name << " and " << other->name;
+					sync_cache.at(new_path).erase(*other);
+					if(sync_cache.at(new_path).empty())
+						sync_cache.erase(new_path);
 				}
 				else
-					BOOST_LOG_TRIVIAL(warning)
-						<< "Dangling rename pointer for path " << ni.name;
+					BOOST_LOG_TRIVIAL(warning) << "Malformed rename targets in sync cache for "
+						<< ni.name << " and " << (*other)->name;
 			}
 			else
 				BOOST_LOG_TRIVIAL(warning)
@@ -580,6 +580,33 @@ namespace dfs
 				node_info{to_path.filename().string(), rpc.version(),
 				changetx.exists(rpc.new_key(), rpc.version())});
 		}
+
+	private:
+		template<typename node_info>
+		static boost::optional<typename std::deque<node_info>::iterator> find_other(const rpc_type& rpc, const node_info& ni,
+				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
+		{
+			std::string new_path = decode_path(rpc.new_key());
+			//find the other end of the signpost
+			if(sync_cache.count(new_path) && ni.rename_info)
+			{
+				//The other side may not be first
+				auto other = boost::range::find_if(sync_cache.at(new_path),
+						[&ni](const node_info& value)
+						{
+							return value.state == node_info::novel
+								&& value.rename_info
+								&& *value.rename_info == ni.name;
+						});
+
+				if(other != sync_cache.at(new_path).end())
+					return other;
+				else
+					return boost::none;
+			}
+			else
+				return boost::none;
+		}
 	};
 
 	template <>
@@ -591,7 +618,8 @@ namespace dfs
 		//! Check if the given RPC matches the given node info (keys should
 		//! already have been checked).
 		template<typename node_info>
-		static bool completed(const rpc_type& rpc, const node_info& ni)
+		static bool completed(const rpc_type& rpc, const node_info& ni,
+				std::unordered_map<std::string, std::deque<node_info>>& /*sync_cache*/)
 		{
 			if(ni.version == rpc.version())
 			{
