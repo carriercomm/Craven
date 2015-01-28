@@ -126,6 +126,45 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 		sync_cache_.erase(key);
 }
 
+template <typename Client, typename ChangeTx>
+template <typename Rpc>
+bool dfs::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& /*rpc*/, const boost::filesystem::path& path,
+		ordinary_prepare_tag)
+{
+	bool conflict = false;
+	if(dcache_.count(path.parent_path().string()))
+	{
+		auto ni_it = boost::range::find_if(dcache_.at(path.parent_path().string()),
+				check_name(path.filename().string()));
+
+		if(ni_it != dcache_.at(path.parent_path().string()).end())
+		{
+			conflict = ni_it->state == node_info::active_read
+					|| ni_it->state == node_info::active_write;
+		}
+	}
+
+	return conflict;
+}
+
+template <typename Client, typename ChangeTx>
+template <typename Rpc>
+bool dfs::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& rpc, const boost::filesystem::path& path,
+		rename_prepare_tag)
+{
+	//create add & delete RPCs and check dcache conflicts with those
+	raft::request::Add add(rpc.from(), rpc.new_key(),
+			rpc.version());
+
+	raft::request::Delete del(rpc.from(), rpc.key(),
+			rpc.version());
+
+	return dcache_conflict(add, decode_path(rpc.new_key()),
+			typename rpc_traits<raft::request::Add>::prepare_tag{})
+		|| dcache_conflict(del, path,
+			typename rpc_traits<raft::request::Delete>::prepare_tag{});
+}
+
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
@@ -141,21 +180,8 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 			//clean up the completed item
 			rpc_traits<Rpc>::cleanup(rpc, ni, sync_cache_);
 	}
-	else if(dcache_.count(path.parent_path().string()))
-	{
-		auto ni_it = boost::range::find_if(dcache_.at(path.parent_path().string()),
-				check_name(path.filename().string()));
-
-		if(ni_it != dcache_.at(path.parent_path().string()).end())
-		{
-			conflict = ni_it->state == node_info::active_read
-					|| ni_it->state == node_info::active_write;
-		}
-		else //conflict check not required: we're clean for this key
-			conflict = false;
-	}
-	else //conflict check not required: we're clean for this key
-		conflict = false;
+	else
+		conflict = dcache_conflict(rpc, path, typename rpc_traits<Rpc>::prepare_tag{});
 
 	return conflict;
 }
@@ -451,8 +477,17 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 		//but don't create it, because we don't care
 
 	//check for completion and conflict
-	conflict = conflict_check_required(rpc, path)
-		|| conflict_check_required(rpc, to_path);
+	conflict = conflict_check_required(rpc, path);
+
+	//additionally check the to node
+	if(!conflict && sync_cache_.count(to_path.string()) == 1)
+	{
+		auto head_ni = sync_cache_.at(to_path.string()).front();
+		conflict = !(head_ni.state == node_info::dead
+				&& head_ni.version == rpc.version()
+				&& head_ni.rename_info
+				&& *head_ni.rename_info == path);
+	}
 
 	//conflict manage
 	if(conflict)

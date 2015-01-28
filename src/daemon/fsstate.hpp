@@ -316,6 +316,14 @@ namespace dfs
 			return path += boost::filesystem::unique_path(".%%%%-%%%%");
 		}
 
+		template <typename Rpc>
+		bool dcache_conflict(const Rpc& rpc, const boost::filesystem::path& path,
+				ordinary_prepare_tag);
+
+		template <typename Rpc>
+		bool dcache_conflict(const Rpc& rpc, const boost::filesystem::path& path,
+				rename_prepare_tag);
+
 		//! Ensures everything is set up properly and checks if a conflict check
 		//! is required.
 		template <typename Rpc>
