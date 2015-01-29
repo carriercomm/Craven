@@ -80,20 +80,16 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 			{
 			case node_info::dirty:
 				//determine the current version and fire an update
-				if(client_.exists(encode_path(std::get<0>(entry))))
 				{
-					auto version_info = client_[encode_path(std::get<0>(entry))];
-					handle_request(raft::request::Update{id_,
-								encode_path(std::get<0>(entry)),
-								std::get<0>(version_info),
-								top.version}, std::get<1>(entry));
-				}
-				else //recover to novel
-				{
-					BOOST_LOG_TRIVIAL(warning) << "Recovering a dirty node whose key does ot exist to an add";
-					handle_request(raft::request::Add{id_,
-								encode_path(std::get<0>(entry)),
-								top.version}, std::get<1>(entry));
+					auto encoded = encode_path(std::get<0>(entry));
+					if(client_.exists(encoded))
+					{
+						auto version_info = client_[encoded];
+						handle_request(raft::request::Update{id_,
+									encoded,
+									std::get<0>(version_info),
+									top.version}, std::get<1>(entry));
+					}
 				}
 				break;
 
