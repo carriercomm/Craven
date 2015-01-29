@@ -130,7 +130,7 @@ namespace dfs
 			//! Scratch info, for if we're active
 			boost::optional<typename ChangeTx::scratch> scratch_info;
 
-			//! Previous version, if we're pending
+			//! Previous version, if we're pending (or dirty)
 			boost::optional<std::string> previous_version;
 
 			//! The name of the node

@@ -82,14 +82,16 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 				//determine the current version and fire an update
 				{
 					auto encoded = encode_path(std::get<0>(entry));
-					if(client_.exists(encoded))
+					if(top.previous_version)
 					{
-						auto version_info = client_[encoded];
 						handle_request(raft::request::Update{id_,
 									encoded,
-									std::get<0>(version_info),
+									*top.previous_version,
 									top.version}, std::get<1>(entry));
-					}
+					} //else fall back on novel
+					else
+						handle_request(raft::request::Add{id_,
+								encoded, top.version}, std::get<1>(entry));
 				}
 				break;
 
@@ -613,8 +615,10 @@ void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, 
 		if(subject != dcache_[path.parent_path().string()].end())
 		{
 			if(subject->state == node_info::pending)
+			{
 				subject->state = node_info::clean;
-			subject->previous_version = boost::none;
+				subject->previous_version = boost::none;
+			}
 		}
 	}
 }
@@ -1091,6 +1095,7 @@ void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost:
 	else
 	{
 		BOOST_LOG_TRIVIAL(trace) << "Create read-write file: " << path;
+		ni.version = "";
 		ni.state = node_info::active_write;
 		ni.scratch_info = changetx_.add(encode_path(path.string()));
 	}
@@ -1337,30 +1342,43 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 	{
 		if(node.state == node_info::active_read)
 		{
-			//restore state
-			if(!client_.exists(get_key(path)))
-				node.state = node_info::novel;
-			else
+			if(sync_cache_.count(path.string()) == 0
+					|| sync_cache_.at(path.string()).empty())
 			{
-				auto version_info = client_[encode_path(path.string())];
-				if(std::get<0>(version_info) == node.version)
+				if(client_.exists(get_key(path)))
 				{
-					if(node.previous_version && !changetx_.exists(encode_path(path.string()),
-								node.version))
-						node.state = node_info::pending;
+					auto version_info = client_[encode_path(path.string())];
+					if(std::get<0>(version_info) == node.version)
+					{
+						if(node.previous_version && !changetx_.exists(encode_path(path.string()),
+									node.version))
+							node.state = node_info::pending;
+						else
+							node.state = node_info::clean;
+					}
 					else
-						node.state = node_info::clean;
+						node.state = node_info::dirty;
 				}
 				else
-					node.state = node_info::dirty;
+					node.state = node_info::novel;
 			}
+			else
+			{
+				node.state = (sync_cache_.at(path.string()).back().state == node_info::dead)
+					? node_info::novel
+					: node_info::dead;
+			}
+
 		}
 		else if(node.state == node_info::active_write)
 		{
 			if(node.version == "")
 				node.state = node_info::novel;
 			else
+			{
 				node.state = node_info::dirty;
+				node.previous_version = node.version;
+			}
 
 			//close the scratch & set up the state for syncing
 			node.version = changetx_.close(*node.scratch_info);
