@@ -285,7 +285,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 			for(node_info& ni : sync_cache_[recovery.string()])
 			{
 				ni.name = recovery.string();
-				changetx_.copy(encode_path((path.parent_path() / ni.name).string()), ni.version,
+				changetx_.copy(rpc.key(), ni.version,
 						encode_path(recovery.string()));
 			}
 		}
