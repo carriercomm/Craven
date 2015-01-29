@@ -651,7 +651,8 @@ bool dfs::basic_state<Client, ChangeTx>::exists(const boost::filesystem::path& p
 			auto it = boost::find_if(dcache_.at(path.parent_path().string()),
 					check_name(path.filename().string()));
 
-			return it != dcache_.at(path.parent_path().string()).end();
+			return it != dcache_.at(path.parent_path().string()).end()
+				&& it->state != node_info::dead;
 		}
 		else
 			return false;
