@@ -115,27 +115,54 @@ void raft::Client::commit_notify(const request::Add& rpc)
 	commit_add_(rpc);
 }
 
-
-void raft::Client::apply_to(const raft::request::Update& update, version_map_type& version_map)
+raft::Client::version_map_type& raft::Client::fetch_map(apply_target target)
 {
-	version_map[update.key()] = std::make_tuple(update.new_version(), update.from());
+	if(target == apply_main)
+		return version_map_;
+	else
+		return pending_version_map_;
 }
 
-void raft::Client::apply_to(const raft::request::Delete& update, version_map_type& version_map)
+void raft::Client::apply_to(const raft::request::Update& update, apply_target target)
 {
-	version_map.erase(update.key());
+	fetch_map(target)[update.key()] = std::make_tuple(update.new_version(), update.from());
 }
 
-void raft::Client::apply_to(const raft::request::Rename& update, version_map_type& version_map)
+void raft::Client::apply_to(const raft::request::Delete& update, apply_target target)
 {
-	version_map[update.new_key()] = std::make_tuple(std::get<0>(version_map[update.key()]),
-			update.from());
-	version_map.erase(update.key());
+	fetch_map(target).erase(update.key());
 }
 
-void raft::Client::apply_to(const raft::request::Add& update, version_map_type& version_map)
+void raft::Client::apply_to(const raft::request::Rename& update, apply_target target)
 {
-	version_map[update.key()] = std::make_tuple(update.version(), update.from());
+	//fetch the
+	if(target == apply_pending)
+	{ //if the from isn't in pending, it needs to be in main
+		std::string version;
+		if(pending_version_map_.count(update.key()))
+		{
+			version = std::get<0>(pending_version_map_.at(update.key()));
+			//erase it
+			pending_version_map_.erase(update.key());
+		}
+		else //let it be bounds checked
+			version = std::get<0>(version_map_.at(update.key()));
+
+		//Add the rename
+		pending_version_map_[update.new_key()] = std::make_tuple(version,
+				update.from());
+	}
+	else
+	{ //only read the main
+		version_map_[update.new_key()] = std::make_tuple(std::get<0>(version_map_[update.key()]),
+				update.from());
+		version_map_.erase(update.key());
+	}
+}
+
+void raft::Client::apply_to(const raft::request::Add& update, apply_target target)
+{
+	fetch_map(target)[update.key()] = std::make_tuple(update.version(), update.from());
 }
 
 raft::Client::validity raft::Client::request_traits<raft::request::Update>::valid(

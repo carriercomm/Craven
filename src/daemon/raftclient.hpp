@@ -78,7 +78,7 @@ namespace raft
 					if(request_validity == request_valid)
 					{
 						BOOST_LOG_TRIVIAL(info) << "Request " << request << " valid";
-						apply_to(request, pending_version_map_);
+						apply_to(request, apply_pending);
 						handlers_.append_to_log(request);
 					}
 					else if(request_validity == request_done)
@@ -217,7 +217,7 @@ namespace raft
 
 			if(commit_valid == request_valid)
 			{
-				apply_to(entry, version_map_);
+				apply_to(entry, apply_main);
 			}
 
 			//Remove the entry from pending if it's in there
@@ -229,10 +229,18 @@ namespace raft
 			commit_notify(entry);
 		}
 
-		void apply_to(const raft::request::Update& update, version_map_type& version_map);
-		void apply_to(const raft::request::Delete& update, version_map_type& version_map);
-		void apply_to(const raft::request::Rename& update, version_map_type& version_map);
-		void apply_to(const raft::request::Add& update, version_map_type& version_map);
+		//! Specifies apply target to apply_to
+		enum apply_target {
+			apply_main, //!< Apply to the main version map
+			apply_pending //!< Apply to the pending version map
+		};
+
+		version_map_type& fetch_map(apply_target target);
+
+		void apply_to(const raft::request::Update& update, apply_target target);
+		void apply_to(const raft::request::Delete& update, apply_target target);
+		void apply_to(const raft::request::Rename& update, apply_target target);
+		void apply_to(const raft::request::Add& update, apply_target target);
 
 		template <typename Request>
 		struct request_traits;
