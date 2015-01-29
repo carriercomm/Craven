@@ -89,9 +89,12 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 								top.version}, std::get<1>(entry));
 				}
 				else //recover to novel
+				{
+					BOOST_LOG_TRIVIAL(warning) << "Recovering a dirty node whose key does ot exist to an add";
 					handle_request(raft::request::Add{id_,
 								encode_path(std::get<0>(entry)),
 								top.version}, std::get<1>(entry));
+				}
 				break;
 
 			case node_info::novel:
