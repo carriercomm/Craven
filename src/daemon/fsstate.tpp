@@ -451,8 +451,9 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 		manage_dcache(rpc, path, recovery);
 
 	}
-	//want to clobber if there's no conflict
-	return !conflict;
+	//want to clobber if there's nothing in the sync cache
+	return (sync_cache_.count(path.string()) == 0 ||
+			sync_cache_.at(path.string()).empty());
 }
 
 
@@ -522,9 +523,11 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 					return value.name == path.filename().string();
 				});
 	}
-
-	//want to clobber if there's no conflict
-	return !conflict;
+	//want to clobber if there's nothing left in the sync cache
+	return (sync_cache_.count(path.string()) == 0 ||
+			sync_cache_.at(path.string()).empty()) &&
+		(sync_cache_.count(to_path.string()) == 0 ||
+		 sync_cache_.at(path.string()).empty());
 }
 
 template <typename Client, typename ChangeTx>
@@ -651,8 +654,7 @@ bool dfs::basic_state<Client, ChangeTx>::exists(const boost::filesystem::path& p
 			auto it = boost::find_if(dcache_.at(path.parent_path().string()),
 					check_name(path.filename().string()));
 
-			return it != dcache_.at(path.parent_path().string()).end()
-				&& it->state != node_info::dead;
+			return it != dcache_.at(path.parent_path().string()).end();
 		}
 		else
 			return false;
@@ -747,6 +749,109 @@ std::tuple<std::string, std::string>
 }
 
 template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::rename_existing(node_info& node,
+		node_info& to_node, const boost::filesystem::path& from,
+		const boost::filesystem::path& to)
+{
+	if(to_node.type == node_info::dir)
+		return -EISDIR;
+
+	if(node.state == node_info::pending)
+	{
+		if(node.previous_version)
+			to_node.version = *node.previous_version;
+		else //we're a pending add; not visible
+			return -ENOENT;
+	}
+	else
+		to_node.version = node.version;
+
+	//copy the version
+	changetx_.copy(encode_path(from.string()), node.version,
+			encode_path(to.string()));
+
+	//active write; setup new scratch after killing old one
+	if(to_node.state == node_info::active_write)
+	{
+		//delete old scratch
+		changetx_.kill(*to_node.scratch_info);
+
+		//set up new scratch
+		to_node.scratch_info = changetx_.open(
+				encode_path(to.string()), node.version);
+	}
+	else if(to_node.state != node_info::active_read)
+		to_node.state = node_info::dirty;
+	//else nothing extra
+
+	sync_cache_[to.string()].push_back(to_node);
+	sync_cache_[to.string()].back().name = to.string();
+
+	//delete from if it's not pending; otherwise it stays
+	if(node.state != node_info::pending)
+	{
+		node.state = node_info::dead;
+		sync_cache_[from.string()].push_back(node);
+		sync_cache_[from.string()].back().name = from.string();
+	}
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
+int dfs::basic_state<Client, ChangeTx>::rename_normal(node_info& node,
+		const boost::filesystem::path& from,
+		const boost::filesystem::path& to)
+{
+	//copy the version
+	changetx_.copy(encode_path(from.string()), node.version,
+			encode_path(to.string()));
+
+	//perform the rename
+	node_info to_node;
+	if(exists(to))
+	{
+		to_node = get(to);
+		to_node.version = node.version;
+		to_node.state = node_info::clean;
+	}
+	else
+		to_node = node_info{to.filename().string(), node.version,
+			true};
+
+	//Handle the pending info
+	if(node.state == node_info::pending)
+	{
+		if(node.previous_version)
+			to_node.version = *node.previous_version;
+		else //we're a pending add; not visible
+			return -ENOENT;
+	}
+	else
+		to_node.version = node.version;
+
+	//set up rename state
+	to_node.state = node_info::novel;
+	to_node.rename_info = from.string();
+
+	//add it to the dcache
+	dcache_[to.parent_path().string()].push_back(to_node);
+
+	//add it to the sync cache
+	sync_cache_[to.string()].push_back(to_node);
+	sync_cache_[to.string()].back().name = to.string();
+
+	//handle the from marker
+	node.state = node_info::dead;
+	node.rename_info = to.string();
+
+	sync_cache_[from.string()].push_back(node);
+	sync_cache_[from.string()].back().name = from.string();
+
+	return 0;
+}
+
+template <typename Client, typename ChangeTx>
 int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::path& from,
 		const boost::filesystem::path& to)
 {
@@ -769,89 +874,14 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 		{
 			//update to
 			node_info& to_node = get(to);
-			if(to_node.type == node_info::dir)
-				return -EISDIR;
 
-			if(node.state == node_info::pending)
-			{
-				if(node.previous_version)
-					to_node.version = *node.previous_version;
-				else //we're a pending add; not visible
-					return -ENOENT;
-			}
+			if(to_node.state == node_info::dead)
+				return rename_normal(node, from, to);
 			else
-				to_node.version = node.version;
-
-			//copy the version
-			changetx_.copy(encode_path(from.string()), node.version,
-						encode_path(to.string()));
-
-			//active write; setup new scratch after killing old one
-			if(to_node.state == node_info::active_write)
-			{
-				//delete old scratch
-				changetx_.kill(*to_node.scratch_info);
-
-				//set up new scratch
-				to_node.scratch_info = changetx_.open(
-						encode_path(to.string()), node.version);
-			}
-			else if(to_node.state != node_info::active_read)
-				to_node.state = node_info::dirty;
-			//else nothing extra
-
-			sync_cache_[to.string()].push_back(to_node);
-			sync_cache_[to.string()].back().name = to.string();
-
-			//delete from if it's not pending; otherwise it stays
-			if(node.state != node_info::pending)
-			{
-				node.state = node_info::dead;
-				sync_cache_[from.string()].push_back(node);
-				sync_cache_[from.string()].back().name = from.string();
-			}
+				return rename_existing(node, to_node, from, to);
 		}
 		else
-		{
-			//copy the version
-			changetx_.copy(encode_path(from.string()), node.version,
-						encode_path(to.string()));
-
-			//perform the rename
-			node_info to_node(to.filename().string(), node.version,
-					true);
-
-			//Handle the pending info
-			if(node.state == node_info::pending)
-			{
-				if(node.previous_version)
-					to_node.version = *node.previous_version;
-				else //we're a pending add; not visible
-					return -ENOENT;
-			}
-			else
-				to_node.version = node.version;
-
-			//set up rename state
-			to_node.state = node_info::novel;
-			to_node.rename_info = from.string();
-
-			//add it to the dcache
-			dcache_[to.parent_path().string()].push_back(to_node);
-
-			//add it to the sync cache
-			sync_cache_[to.string()].push_back(to_node);
-			sync_cache_[to.string()].back().name = to.string();
-
-			//handle the from marker
-			node.state = node_info::dead;
-			node.rename_info = to.string();
-
-			sync_cache_[from.string()].push_back(node);
-			sync_cache_[from.string()].back().name = from.string();
-		}
-
-		return 0;
+			return rename_normal(node, from, to);
 	}
 	else //directory
 	{
@@ -1086,6 +1116,9 @@ void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost:
 		struct fuse_file_info *fi)
 {
 	ni.fds = 1;
+	ni.previous_version = boost::none;
+	ni.rename_info = boost::none;
+	ni.scratch_info = boost::none;
 	if((fi->flags & O_ACCMODE) == O_RDONLY)
 	{
 		BOOST_LOG_TRIVIAL(trace) << "Create read-only file: " << path;
@@ -1155,6 +1188,9 @@ int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& 
 		return -EIO;
 
 	node_info& node = get(path);
+
+	if(node.state == node_info::dead)
+		return -ENOENT;
 
 	boost::optional<typename ChangeTx::scratch> si;
 	bool our_si = false;

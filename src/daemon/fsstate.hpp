@@ -362,6 +362,12 @@ namespace dfs
 		//! Get an rcache entry
 		std::tuple<std::string, std::string> get_rcache(const boost::filesystem::path& path) const;
 
+		int rename_existing(node_info& node, node_info& to_node, const boost::filesystem::path& from,
+				const boost::filesystem::path& to);
+
+		int rename_normal(node_info& node, const boost::filesystem::path& from,
+				const boost::filesystem::path& to);
+
 		//! Rename implementation
 		int rename_impl(const boost::filesystem::path& from, const boost::filesystem::path& to);
 
