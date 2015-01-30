@@ -482,6 +482,13 @@ namespace dfs
 			return std::make_tuple(parent.string(), ni);
 		}
 
+		template <typename node_info>
+		static bool completion_check_required(const rpc_type& /*rpc*/, const boost::filesystem::path& path,
+				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
+		{
+			return sync_cache.count(path.string());
+		}
+
 	};
 
 	template <>
@@ -515,6 +522,13 @@ namespace dfs
 		{
 			return std::make_tuple("", node_info{});
 		}
+
+		template <typename node_info>
+		static bool completion_check_required(const rpc_type& /*rpc*/, const boost::filesystem::path& path,
+				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
+		{
+			return sync_cache.count(path.string());
+		}
 	};
 
 	typedef basic_state<raft::Client, change::change_transfer<>> state;
@@ -533,8 +547,11 @@ namespace dfs
 			auto other = find_other(rpc, ni, sync_cache);
 			if(other)
 			{
-				if((*other)->rename_info &&
-						*((*other)->rename_info) == ni.name)
+				auto other_ni = **other;
+				if(other_ni.rename_info
+						&& *other_ni.rename_info == ni.name
+						&& other_ni.state == node_info::novel
+						&& other_ni.version == rpc.version())
 				{
 					return ni.version == rpc.version()
 						&& ni.state == node_info::dead
@@ -585,6 +602,13 @@ namespace dfs
 			return std::make_tuple(to_path.parent_path().string(),
 				node_info{to_path.filename().string(), rpc.version(),
 				changetx.exists(rpc.new_key(), rpc.version())});
+		}
+
+		template <typename node_info>
+		static bool completion_check_required(const rpc_type& rpc, const boost::filesystem::path& path,
+				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
+		{
+			return sync_cache.count(path.string()) || sync_cache.count(decode_path(rpc.new_key()));
 		}
 
 	private:
@@ -657,6 +681,13 @@ namespace dfs
 			return std::make_tuple(parent.string(),
 					node_info{path.filename().string(), rpc.version(),
 				changetx.exists(rpc.key(), rpc.version())});
+		}
+
+		template <typename node_info>
+		static bool completion_check_required(const rpc_type& /*rpc*/, const boost::filesystem::path& path,
+				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
+		{
+			return sync_cache.count(path.string());
 		}
 
 	};

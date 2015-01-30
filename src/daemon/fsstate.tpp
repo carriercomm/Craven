@@ -173,8 +173,11 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 {
 	bool conflict = false;
 	//look for this action in the sync cache
-	if(sync_cache_.count(path.string()))
+	if(rpc_traits<Rpc>::completion_check_required(rpc, path, sync_cache_))
 	{
+		//case for rename
+		if(sync_cache_.count(path.string()) == 0)
+			return true;
 		auto ni = sync_cache_.at(path.string()).front();
 		conflict = !rpc_traits<Rpc>::completed(rpc, ni, sync_cache_);
 		if(!conflict)
@@ -481,21 +484,6 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 	//check for completion and conflict
 	conflict = conflict_check_required(rpc, path);
 
-	//additionally check the to node
-	if(!conflict && sync_cache_.count(to_path.string()) == 1)
-	{
-		if(!sync_cache_.at(to_path.string()).empty())
-		{
-			auto head_ni = sync_cache_.at(to_path.string()).front();
-			conflict = !(head_ni.state == node_info::dead
-					&& head_ni.version == rpc.version()
-					&& head_ni.rename_info
-					&& *head_ni.rename_info == path);
-		}
-		else
-			sync_cache_.erase(to_path.string());
-	}
-
 	//conflict manage
 	if(conflict)
 	{
@@ -527,7 +515,7 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 	return (sync_cache_.count(path.string()) == 0 ||
 			sync_cache_.at(path.string()).empty()) &&
 		(sync_cache_.count(to_path.string()) == 0 ||
-		 sync_cache_.at(path.string()).empty());
+		 sync_cache_.at(to_path.string()).empty());
 }
 
 template <typename Client, typename ChangeTx>
@@ -1257,7 +1245,10 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 	{
 
 		node_info& node = get(path);
+		if(node.state == node_info::dead)
+			return -ENOENT;
 		++node.fds;
+
 		//switch to active_{read,write}
 		if((fi->flags & O_ACCMODE) == O_RDONLY)
 		{
@@ -1277,6 +1268,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 						node.version);
 
 				node.state = node_info::active_write;
+				node.rename_info = boost::none;
 			}
 		}
 	}
