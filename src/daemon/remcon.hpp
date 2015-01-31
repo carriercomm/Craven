@@ -38,17 +38,6 @@ public:
 	};
 
 
-	//! Provides thread-safe write access to a ctl.
-	/*!
-	 *  This class provides thread-safe write access to a controller. It should
-	 *  close the connection when the final instance targeted at the session is
-	 *  destructed -- do this by wrapping a shared connection object managed by a
-	 *  shared_ptr; this shared connection object should handle the connection via
-	 *  RAII.
-	 */
-	class session
-	{};
-
 	typedef boost::signals2::signal<void(const std::vector<std::string>&, CTLSession)> signal_type;
 
 	RemoteControl(boost::asio::io_service& io, const boost::filesystem::path& socket);
