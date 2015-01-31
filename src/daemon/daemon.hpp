@@ -12,6 +12,29 @@
 #include "comms_man.hpp"
 #include "remcon.hpp"
 
+//! Logging setup class
+/*!
+ *  The presence of this class means we can setup logging before anything can log.
+ */
+class logup
+{
+public:
+	logup(const DaemonConfigure& config);
+
+protected:
+	//! Initialises logging.
+	/*!
+	 *	This function sets up logging for the daemon -- it creates a log file
+	 *	and also a logger to stderr, using the different loudnesses requested.
+	 *
+	 *  \param log_path The path to the log file.
+	 *  \param stderr_loud How much to log to stderr
+	 *  \param level How much to log to the log file
+	 */
+	void init_log(boost::filesystem::path const& log_path, DaemonConfigure::loudness
+			stderr_loud, boost::log::trivial::severity_level level) const;
+};
+
 //! Daemon control class
 /*!
  * This class handles the control of the daemon; it's responsible for setting
@@ -43,22 +66,13 @@ protected:
 	//! Executes a double-fork to escape a shell.
 	void double_fork() const;
 
-	//! Initialises logging.
-	/*!
-	 *	This function sets up logging for the daemon -- it creates a log file
-	 *	and also a logger to stderr, using the different loudnesses requested.
-	 *
-	 *  \param log_path The path to the log file.
-	 *  \param stderr_loud How much to log to stderr
-	 *  \param level How much to log to the log file
-	 */
-	void init_log(boost::filesystem::path const& log_path, DaemonConfigure::loudness
-			stderr_loud, boost::log::trivial::severity_level level) const;
-
 	void start_ctx_timer(uint32_t tick_timeout);
 	void start_fst_timer(uint32_t tick_timeout);
 
 	void changetx_send(const std::string& node, const Json::Value& rpc) const;
+
+	//! The logger
+	logup log_;
 
 	//! The asio io_service for the daemon.
 	boost::asio::io_service io_;

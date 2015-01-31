@@ -32,6 +32,58 @@ namespace fs = boost::filesystem;
 #include "daemon.hpp"
 #include "fuselink.hpp"
 
+logup::logup(const DaemonConfigure& config)
+{
+	//Setup our logs
+	init_log(config.log_path(), config.output_loudness(), config.log_level());
+}
+
+void logup::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr_level, logging::trivial::severity_level level) const
+{
+	//Add attributes
+
+	//Add LineID, TimeStamp, ProcessID and ThreadID.
+	logging::add_common_attributes();
+
+	//Formatter
+	auto formatter = expr::stream
+		<< "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%dT%H:%M:%S%q")
+		<< "] {" << expr::attr<logging::attributes::current_thread_id::value_type>("ThreadID")
+		<< "} (" << logging::trivial::severity
+		<< "): " << expr::message;
+
+
+	if(stderr_level != DaemonConfigure::daemon)
+	{
+		logging::trivial::severity_level stderr_severity;
+		switch(stderr_level)
+		{
+		case DaemonConfigure::quiet:
+			stderr_severity = logging::trivial::fatal;
+			break;
+
+		case DaemonConfigure::verbose:
+			stderr_severity = logging::trivial::info;
+			break;
+
+		case DaemonConfigure::normal:
+		default:
+			stderr_severity = logging::trivial::warning;
+		}
+
+		logging::add_console_log(std::cerr, logging::keywords::format = formatter)->set_filter(logging::trivial::severity >= stderr_severity);
+	}
+
+	logging::add_file_log(logging::keywords::file_name = log_path.string(),
+			logging::keywords::open_mode = std::ios::app,
+			logging::keywords::format = formatter)
+		->set_filter(logging::trivial::severity >= level);
+
+
+	BOOST_LOG_TRIVIAL(info) << "Log start.";
+	BOOST_LOG_TRIVIAL(info) << "Logging to " << log_path;
+}
+
 raft::Controller::TimerLength Daemon::timer(
 		const std::tuple<uint32_t, uint32_t, uint32_t>& lengths) const
 {
@@ -41,7 +93,8 @@ raft::Controller::TimerLength Daemon::timer(
 }
 
 Daemon::Daemon(DaemonConfigure const& config)
-	:io_(),
+	:log_(config),
+	io_(),
 	id_(config.id()),
 	ctx_tick_(io_),
 	fst_tick_(io_),
@@ -60,8 +113,6 @@ Daemon::Daemon(DaemonConfigure const& config)
 	fsstate_(raft_.client(), changetx_, id_,
 			config.fuse_uid(), config.fuse_gid())
 {
-	//Setup our logs
-	init_log(config.log_path(), config.output_loudness(), config.log_level());
 
 	if(config.version_requested())
 	{
@@ -188,51 +239,6 @@ void Daemon::double_fork() const
 		BOOST_LOG_TRIVIAL(warning) << "First fork of daemonise failed. Continuing...";
 }
 
-void Daemon::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr_level, logging::trivial::severity_level level) const
-{
-	//Add attributes
-
-	//Add LineID, TimeStamp, ProcessID and ThreadID.
-	logging::add_common_attributes();
-
-	//Formatter
-	auto formatter = expr::stream
-		<< "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%dT%H:%M:%S%q")
-		<< "] {" << expr::attr<logging::attributes::current_thread_id::value_type>("ThreadID")
-		<< "} (" << logging::trivial::severity
-		<< "): " << expr::message;
-
-
-	if(stderr_level != DaemonConfigure::daemon)
-	{
-		logging::trivial::severity_level stderr_severity;
-		switch(stderr_level)
-		{
-		case DaemonConfigure::quiet:
-			stderr_severity = logging::trivial::fatal;
-			break;
-
-		case DaemonConfigure::verbose:
-			stderr_severity = logging::trivial::info;
-			break;
-
-		case DaemonConfigure::normal:
-		default:
-			stderr_severity = logging::trivial::warning;
-		}
-
-		logging::add_console_log(std::cerr, logging::keywords::format = formatter)->set_filter(logging::trivial::severity >= stderr_severity);
-	}
-
-	logging::add_file_log(logging::keywords::file_name = log_path.string(),
-			logging::keywords::open_mode = std::ios::app,
-			logging::keywords::format = formatter)
-		->set_filter(logging::trivial::severity >= level);
-
-
-	BOOST_LOG_TRIVIAL(info) << "Log start.";
-	BOOST_LOG_TRIVIAL(info) << "Logging to " << log_path;
-}
 
 void Daemon::start_ctx_timer(uint32_t tick_timeout)
 {
