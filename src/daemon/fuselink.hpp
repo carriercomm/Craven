@@ -21,6 +21,14 @@ public:
 	static std::string mount_point();
 	static void mount_point(const std::string& point);
 
+	static void shutdown();
+
+	template <typename Callable>
+	static void shutdown_handler(Callable&& f)
+	{
+		shutdown_ = std::forward<Callable>(f);
+	}
+
 	static void run_fuse();
 
 protected:
@@ -32,6 +40,8 @@ protected:
 
 	static std::mutex mp_mutex_;
 	static std::string mount_point_;
+
+	static std::function<void ()> shutdown_;
 };
 
 

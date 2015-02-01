@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -96,6 +97,7 @@ Daemon::Daemon(DaemonConfigure const& config)
 	:log_(config),
 	io_(),
 	id_(config.id()),
+	mount_path_(config.fuse_mount()),
 	ctx_tick_(io_),
 	fst_tick_(io_),
 	remcon_(io_, config.socket()),
@@ -164,6 +166,8 @@ Daemon::Daemon(DaemonConfigure const& config)
 		fuselink::io(&io_);
 		fuselink::state(&fsstate_);
 		fuselink::mount_point(config.fuse_mount().string());
+		fuselink::shutdown_handler(std::bind(&Daemon::shutdown_nofuse,
+					this));
 
 		uint32_t tick_timeout = config.tick_timeout();
 
@@ -177,9 +181,15 @@ Daemon::Daemon(DaemonConfigure const& config)
 		if(config.daemonise())
 			double_fork();
 
-
 		//fuse thread
 		std::thread fuse_thread(fuselink::run_fuse);
+
+		//register CLI shutdown
+		remcon_.connect("shutdown", [this](const std::vector<std::string>&,
+					CTLSession)
+				{
+					shutdown();
+				});
 
 		//run the event loop
 		while(state_ == running)
@@ -197,6 +207,9 @@ Daemon::Daemon(DaemonConfigure const& config)
 
 		BOOST_LOG_TRIVIAL(info) << "Waiting for fuse thread to join...";
 
+		//kill the control socket
+		boost::filesystem::remove(config.socket());
+
 		if(fuse_thread.joinable())
 			fuse_thread.join();
 	}
@@ -207,6 +220,32 @@ int Daemon::exit_code() const
 	return static_cast<int>(state_);
 }
 
+void Daemon::shutdown()
+{
+	pid_t child;
+	io_.notify_fork(boost::asio::io_service::fork_prepare);
+
+	if((child = fork()))
+	{
+		io_.notify_fork(boost::asio::io_service::fork_parent);
+		int status;
+		waitpid(child, &status, 0);
+	}
+	else
+	{
+		io_.notify_fork(boost::asio::io_service::fork_child);
+		const char* args[] = {"fusermount", "-u", "--", mount_path_.c_str(), NULL};
+
+		execvp("fusermount", (char**)args);
+	}
+	shutdown_nofuse();
+}
+
+void Daemon::shutdown_nofuse()
+{
+	state_ = exit;
+	io_.stop();
+}
 
 void Daemon::double_fork() const
 {

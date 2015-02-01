@@ -60,6 +60,12 @@ public:
 	//! Retrieve the exit code
 	int exit_code() const;
 
+	//! Shut the daemon down
+	void shutdown();
+
+	//! Shut the daemon down without running fusermount
+	void shutdown_nofuse();
+
 	typedef TopLevelDispatch<TCPConnectionPool> dispatch_type;
 
 protected:
@@ -77,6 +83,7 @@ protected:
 	//! The asio io_service for the daemon.
 	boost::asio::io_service io_;
 	std::string id_;
+	boost::filesystem::path mount_path_;
 
 	//! Timer for changetx
 	boost::asio::deadline_timer ctx_tick_;

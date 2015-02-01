@@ -36,6 +36,7 @@ dfs::state* fuselink::state_{};
 std::mutex fuselink::mp_mutex_{};
 std::string fuselink::mount_point_{};
 
+std::function<void ()> fuselink::shutdown_{};
 
 
 boost::asio::io_service* fuselink::io()
@@ -72,6 +73,11 @@ void fuselink::mount_point(const std::string& point)
 {
 	std::lock_guard<std::mutex> guard(mp_mutex_);
 	mount_point_ = point;
+}
+
+void fuselink::shutdown()
+{
+	io_->post(shutdown_);
 }
 
 try_call::try_call(const std::function<int()>& f, const std::string& err_msg)
@@ -309,4 +315,6 @@ void fuselink::run_fuse()
 	args[3] = arg3;
 
 	fuse_main(4, args, &fuse_ops, nullptr);
+
+	fuselink::shutdown();
 }
