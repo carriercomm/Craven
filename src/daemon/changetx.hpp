@@ -194,10 +194,16 @@ namespace change
 		//! Continue any in-progress transfers.
 		void tick()
 		{
+			//rate-limit
+			unsigned transfer_remaining = 20;
 			for(const std::pair<std::tuple<std::string, std::string>,
 					pending_info>& pending : pending_)
 			{
-				continue_transfer(pending);
+				if(transfer_remaining > 0)
+				{
+					continue_transfer(pending);
+					--transfer_remaining;
+				}
 			}
 		}
 
