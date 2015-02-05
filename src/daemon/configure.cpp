@@ -45,10 +45,11 @@ void DaemonConfigure::init(const std::string& program_name)
 		("log", po::value<std::string>()->default_value(LOG_LOCATION), "Path to the log file.")
 		("working_directory", po::value<std::string>()->default_value("~/." PACKAGE_NAME), "Working directory.")
 		("id", po::value<std::string>(), "The ID of this node")
-		("nodes", po::value<std::string>(), "JSON node info");
+		("nodes", po::value<std::string>(), "JSON node info")
+		("no-mount", "Do not mount the filesystem");
 
 	hidden_.add_options()
-		("fuse_mount", po::value<std::string>()->required(), "The mount point");
+		("fuse_mount", "The mount point");
 
 	pos_.add("fuse_mount", 1);
 
@@ -58,6 +59,17 @@ void DaemonConfigure::init(const std::string& program_name)
 		"Available options";
 
 	parse(usage);
+
+	//check we're either nomount or have a mount point
+	if(!vm_.count("no-mount"))
+	{
+		if(!vm_.count("fuse_mount"))
+			throw std::runtime_error("Need to specify a mount point");
+		else
+			fuse_mount_ = fs::absolute(vm_["fuse_mount"].as<std::string>());
+	}
+	else
+		fuse_mount_ = boost::none;
 
 	//Setup the loglevel:
 	std::string level_string = vm_["level"].as<std::string>();
@@ -86,7 +98,6 @@ void DaemonConfigure::init(const std::string& program_name)
 
 	working_root_ = boost::filesystem::absolute(expand(vm_["working_directory"].
 			as<std::string>()));
-	fuse_mount_ = vm_["fuse_mount"].as<std::string>();
 }
 
 
@@ -184,7 +195,7 @@ gid_t DaemonConfigure::fuse_gid() const
 	return getgid();
 }
 
-boost::filesystem::path DaemonConfigure::fuse_mount() const
+boost::optional<boost::filesystem::path> DaemonConfigure::fuse_mount() const
 {
 	return fuse_mount_;
 }

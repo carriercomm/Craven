@@ -72,7 +72,7 @@ public:
 
 	gid_t fuse_gid() const;
 
-	boost::filesystem::path fuse_mount() const;
+	boost::optional<boost::filesystem::path> fuse_mount() const;
 
 	uint32_t tick_timeout() const;
 
@@ -81,6 +81,7 @@ protected:
 
 	std::string id_;
 	std::string port_;
-	boost::filesystem::path working_root_, fuse_mount_;
+	boost::filesystem::path working_root_;
+	boost::optional<boost::filesystem::path> fuse_mount_;
 	std::unordered_map<std::string, std::tuple<std::string, std::string>> nodes_;
 };

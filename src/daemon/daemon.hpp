@@ -83,7 +83,7 @@ protected:
 	//! The asio io_service for the daemon.
 	boost::asio::io_service io_;
 	std::string id_;
-	boost::filesystem::path mount_path_;
+	boost::optional<boost::filesystem::path> mount_path_;
 
 	//! Timer for changetx
 	boost::asio::deadline_timer ctx_tick_;

@@ -166,7 +166,8 @@ Daemon::Daemon(DaemonConfigure const& config)
 		//set up fuselink
 		fuselink::io(&io_);
 		fuselink::state(&fsstate_);
-		fuselink::mount_point(config.fuse_mount().string());
+		if(mount_path_)
+			fuselink::mount_point(mount_path_->string());
 		fuselink::shutdown_handler(std::bind(&Daemon::shutdown_nofuse,
 					this));
 
@@ -183,7 +184,9 @@ Daemon::Daemon(DaemonConfigure const& config)
 			double_fork();
 
 		//fuse thread
-		std::thread fuse_thread(fuselink::run_fuse);
+		boost::optional<std::thread> fuse_thread;
+		if(mount_path_)
+			fuse_thread = std::thread{fuselink::run_fuse};
 
 		//register CLI shutdown
 		remcon_.connect("shutdown", [this](const std::vector<std::string>&,
@@ -227,8 +230,9 @@ Daemon::Daemon(DaemonConfigure const& config)
 		//kill the control socket
 		boost::filesystem::remove(config.socket());
 
-		if(fuse_thread.joinable())
-			fuse_thread.join();
+		//If we mounted fuse, wait for the thread to join.
+		if(fuse_thread && fuse_thread->joinable())
+			fuse_thread->join();
 	}
 }
 
@@ -242,18 +246,21 @@ void Daemon::shutdown()
 	pid_t child;
 	io_.notify_fork(boost::asio::io_service::fork_prepare);
 
-	if((child = fork()))
+	if(mount_path_)
 	{
-		io_.notify_fork(boost::asio::io_service::fork_parent);
-		int status;
-		waitpid(child, &status, 0);
-	}
-	else
-	{
-		io_.notify_fork(boost::asio::io_service::fork_child);
-		const char* args[] = {"fusermount", "-u", "--", mount_path_.c_str(), NULL};
+		if((child = fork()))
+		{
+			io_.notify_fork(boost::asio::io_service::fork_parent);
+			int status;
+			waitpid(child, &status, 0);
+		}
+		else
+		{
+			io_.notify_fork(boost::asio::io_service::fork_child);
+			const char* args[] = {"fusermount", "-u", "--", mount_path_->c_str(), NULL};
 
-		execvp("fusermount", (char**)args);
+			execvp("fusermount", (char**)args);
+		}
 	}
 	shutdown_nofuse();
 }
