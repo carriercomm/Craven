@@ -168,6 +168,18 @@ public:
 		connections_.erase(endpoint);
 	}
 
+	//Retrieve the connection info
+	std::vector<std::tuple<std::string, std::string>> connections() const
+	{
+		std::vector<std::tuple<std::string, std::string>> info;
+		info.reserve(connections_.size());
+		for(const auto& conn : connections_)
+			info.push_back(std::make_tuple(conn.first,
+						conn.second->uuid()));
+
+		return info;
+	}
+
 protected:
 	//! A reference to the instance of dispatch_type providing RPC dispatch serivces
 	dispatch_type dispatch_;

@@ -17,6 +17,7 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/format.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
@@ -189,6 +190,22 @@ Daemon::Daemon(DaemonConfigure const& config)
 					CTLSession)
 				{
 					shutdown();
+				});
+
+		//register the who command
+		remcon_.connect("who", [this](const std::vector<std::string>&,
+					CTLSession session)
+				{
+					const auto info = pool_.connections();
+					for (const auto& conn : info)
+					{
+						session.write(boost::str(boost::format("%s connection: %s\n")
+										% std::get<0>(conn)
+										% std::get<1>(conn)));
+
+					}
+
+					session.close();
 				});
 
 		//run the event loop

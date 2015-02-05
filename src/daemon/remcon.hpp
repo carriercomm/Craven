@@ -23,6 +23,8 @@ public:
 	 */
 	void write(const std::string& msg);
 
+	void close();
+
 protected:
 	connection_type::pointer connection_;
 };
