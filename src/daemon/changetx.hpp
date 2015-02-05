@@ -174,9 +174,11 @@ namespace change
 		 *  \param send_handler The send handler, expected to wrap the provided
 		 *  json in the required RPC labels.
 		 */
-		change_transfer(const boost::filesystem::path& root_storage,
+		change_transfer(const std::vector<std::string>& nodes,
+				const boost::filesystem::path& root_storage,
 				const std::function<void (const std::string&, const Json::Value&)> send_handler)
 			:root_(root_storage),
+			nodes_(nodes),
 			send_handler_(send_handler)
 		{
 			//Reset all pending
@@ -196,7 +198,7 @@ namespace change
 		{
 			//rate-limit
 			unsigned transfer_remaining = 20;
-			for(const std::pair<std::tuple<std::string, std::string>,
+			for(std::pair<const std::tuple<std::string, std::string>,
 					pending_info>& pending : pending_)
 			{
 				if(transfer_remaining > 0)
@@ -282,6 +284,14 @@ namespace change
 				boost::filesystem::fstream of(pending_path, std::ios::binary | std::ios::out | std::ios::in);
 
 				pending_info& info = pending_.at(std::make_tuple(rpc.key(), rpc.version()));
+
+				//handle retry data
+				if(info.retry_counter == 0)
+				{
+					info.reset_counter();
+					info.from = from;
+				}
+
 
 				//check this is in the right place trivially
 				bool valid = info.length <= rpc.start();
@@ -643,6 +653,12 @@ namespace change
 				from(from),
 				version(version)
 			{
+				reset_counter();
+			}
+
+			void reset_counter()
+			{
+				retry_counter = 2;
 			}
 
 			//! True if we've seen a message tagged with eof
@@ -651,6 +667,9 @@ namespace change
 			//! If eof_seen is false, this is the last known byte. Otherwise it's
 			//! the length of the file
 			uint32_t length;
+
+			//! Number of retries left before attempting all nodes
+			uint32_t retry_counter;
 
 			//! The node with the full version
 			std::string from;
@@ -662,6 +681,8 @@ namespace change
 			//! length.
 			std::list<std::tuple<uint32_t, uint32_t>> gaps;
 		};
+
+		std::vector<std::string> nodes_;
 
 		//! (key, version) -> pending info
 		std::map<std::tuple<std::string, std::string>, pending_info> pending_;
@@ -709,7 +730,7 @@ namespace change
 			continue_transfer(*it);
 		}
 
-		void continue_transfer(const std::pair<std::tuple<std::string, std::string>,
+		void continue_transfer(std::pair<const std::tuple<std::string, std::string>,
 				pending_info>& pending)
 		{
 				uint32_t start_from = 0;
@@ -717,11 +738,24 @@ namespace change
 					start_from = pending.second.length;
 				else
 					start_from = std::get<0>(pending.second.gaps.front());
-
-				send_handler_(pending.second.from,
-						rpc::request(std::get<0>(pending.first),
-							pending.second.version, "",
-							start_from));
+				if(pending.second.retry_counter == 0)
+				{
+					for(const auto& target : nodes_)
+					{
+						send_handler_(pending.second.from,
+								rpc::request(std::get<0>(pending.first),
+									pending.second.version, "",
+									start_from));
+					}
+				}
+				else
+				{
+					--pending.second.retry_counter;
+					send_handler_(pending.second.from,
+							rpc::request(std::get<0>(pending.first),
+								pending.second.version, "",
+								start_from));
+				}
 		}
 
 		//! Finish a transfer
