@@ -28,6 +28,11 @@ void CTLSession::write(const std::string& msg)
 	connection_->queue_write(msg);
 }
 
+void CTLSession::close()
+{
+	connection_->close();
+}
+
 RemoteControl::parse_error::parse_error(const std::string& what)
 	:runtime_error(what)
 {
