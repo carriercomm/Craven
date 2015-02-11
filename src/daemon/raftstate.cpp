@@ -46,8 +46,10 @@ void raft::State::Handlers::commit(const Json::Value& value)
 }
 
 raft::State::State(const std::string& id, const std::vector<std::string>& nodes,
-		const std::string& log_file, State::Handlers& handlers)
-	:id_(id),
+		const std::string& log_file, State::Handlers& handlers,
+		uint32_t transfer_limit)
+	:transfer_limit_(transfer_limit),
+	id_(id),
 	nodes_(nodes),
 	log_(log_file, std::bind(&raft::State::term_update, this, std::placeholders::_1)),
 	state_(follower_state),
@@ -446,15 +448,19 @@ void raft::State::heartbeat(const std::string& node)
 	else //plain old update
 	{
 		std::vector<std::tuple<uint32_t, Json::Value>> entries;
-		uint32_t from_log = std::get<0>(client_index_[node]);
-		entries.reserve(log_.last_index() - from_log);
+		const uint32_t from_log = std::get<0>(client_index_[node]);
+		const uint32_t to_log = (log_.last_index() - from_log) > transfer_limit_
+			? from_log + transfer_limit_
+			: log_.last_index();
+
+		entries.reserve(to_log - from_log);
 
 		BOOST_LOG_TRIVIAL(trace) << "Update to " << node
-			<< ", adding logs: " << from_log << "--" << log_.last_index();
+			<< ", adding logs: " << from_log << "--" << to_log;
 
 		if(from_log > 0)
 		{
-			for(unsigned int i = from_log; i <= log_.last_index(); ++i)
+			for(unsigned int i = from_log; i <= to_log; ++i)
 				entries.push_back(std::make_tuple(log_[i].term(), log_[i].action()));
 
 			std::tuple<uint32_t, uint32_t> prev_log{0, 0};

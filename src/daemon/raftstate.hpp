@@ -54,9 +54,12 @@ namespace raft
 		 *  to communicate with others (possibly over the network -- that detail is
 		 *  hidden from this class). The callback additionally provide neat type
 		 *  erasure, allowing untemplated testing.
+		 *  \param transfer_limit The maximum number of logs to transfer in one
+		 *  RPC
 		 */
 		State(const std::string& id, const std::vector<std::string>& nodes,
-				const std::string& log_file, Handlers& handlers);
+				const std::string& log_file, Handlers& handlers,
+				uint32_t transfer_limit=50);
 
 		//! Handler called on timeout.
 		/*!
@@ -122,7 +125,8 @@ namespace raft
 		void append(const Json::Value& root);
 
 	protected:
-		std::string id_;
+		const uint32_t transfer_limit_;
+		const std::string id_;
 		std::vector<std::string> nodes_;
 		boost::optional<std::string> leader_;
 
