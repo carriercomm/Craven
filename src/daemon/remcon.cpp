@@ -58,9 +58,10 @@ void RemoteControl::start_accept()
 				CTLSession::connection_type::pointer connection = CTLSession::connection_type::create(sock);
 				BOOST_LOG_TRIVIAL(info) << "Connection on control socket";
 
+				auto handler = std::make_shared<boost::signals2::connection>();
 
-				connection->connect_read(
-						[this, connection](const std::string& msg) mutable
+				*handler = connection->connect_read(
+						[this, connection, handler](const std::string& msg) mutable
 						{
 							BOOST_LOG_TRIVIAL(debug) << "Message on control socket: " << msg;
 
@@ -93,6 +94,7 @@ void RemoteControl::start_accept()
 									connection.reset();
 									BOOST_LOG_TRIVIAL(warning) << "Error on control socket: " << ex.what() << "(ignored)";
 								}
+								handler->disconnect();
 							}
 							else
 								BOOST_LOG_TRIVIAL(warning) << "Unexpected message on control socket";

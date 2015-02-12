@@ -118,7 +118,8 @@ namespace util
 		private:
 			socket_detail(std::shared_ptr<connection_type> connection)
 				:connection_(connection),
-				writing_(false)
+				writing_(false),
+				closing_(false)
 			{ }
 
 		public:
@@ -137,6 +138,18 @@ namespace util
 				setup_write();
 			}
 
+			bool queue_empty() const
+			{
+				return write_queue_.empty();
+			}
+
+			void close()
+			{
+				closing_ = true;
+				if(queue_empty())
+					close_impl();
+			}
+
 		protected:
 			std::weak_ptr<connection_type> connection_;
 
@@ -149,6 +162,18 @@ namespace util
 			typedef util::line_buffer<std::array<char, 4096>> line_buffer_type;
 			//! Forms complete lines from buffers.
 			line_buffer_type lb;
+
+			bool closing_;
+
+			void close_impl()
+			{
+				if(!connection_.expired())
+				{
+					auto conn = connection_.lock();
+					conn->socket_->close();
+					conn->close_notify();
+				}
+			}
 
 			//! Handle error codes given by the asio library
 			/*!
@@ -257,6 +282,8 @@ namespace util
 								}
 							});
 				}
+				else if(write_queue_.empty() && closing_)
+					close_impl();
 			}
 		};
 
@@ -312,6 +339,9 @@ namespace util
 	public:
 		~connection()
 		{
+			//if the write queue is empty, close the socket
+			if(socket_manager_->queue_empty())
+				socket_->close();
 		}
 
 		//! Create a new instance of the class from a socket
@@ -395,9 +425,7 @@ namespace util
 
 		void close()
 		{
-			socket_->close();
-			if(handler_traits::valid(close_handler_))
-				close_handler_(uuid_);
+			socket_manager_->close();
 		}
 
 	protected:
@@ -415,6 +443,12 @@ namespace util
 		//! Handles the close callbacks.
 		typename handler_traits::template handler_type<void (const std::string&)>::type close_handler_;
 
+
+		void close_notify()
+		{
+			if(handler_traits::valid(close_handler_))
+				close_handler_(uuid_);
+		}
 
 	};
 }
