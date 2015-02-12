@@ -642,6 +642,33 @@ namespace change
 			return notify_arrival_.connect(std::forward<Callable>(f));
 		}
 
+		struct transfer_info
+		{
+			std::string key;
+			std::string version;
+			std::string from;
+		};
+
+		//! Retrieve in-progress transfers
+		std::vector<transfer_info> transfers() const
+		{
+			std::vector<transfer_info> result;
+			result.reserve(pending_.size());
+
+			for(const auto& tx : pending_)
+			{
+				transfer_info info;
+				info.key = std::get<0>(tx.first);
+				info.version = std::get<1>(tx.first);
+				info.from = tx.second.from;
+
+				result.push_back(info);
+			}
+
+			return result;
+		}
+
+
 	protected:
 		persistence root_;
 

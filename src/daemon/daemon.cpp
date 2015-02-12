@@ -201,6 +201,8 @@ Daemon::Daemon(DaemonConfigure const& config)
 					CTLSession session)
 				{
 					const auto info = pool_.connections();
+					session.write(boost::str(boost::format("%d connections:\n")
+								% info.size()));
 					for (const auto& conn : info)
 					{
 						session.write(boost::str(boost::format("%s connection: %s\n")
@@ -208,8 +210,23 @@ Daemon::Daemon(DaemonConfigure const& config)
 										% std::get<1>(conn)));
 
 					}
+				});
 
-					session.close();
+		//register status command
+		remcon_.connect("status", [this](const std::vector<std::string>&,
+					CTLSession session)
+				{
+					const auto transfers = changetx_.transfers();
+					session.write(boost::str(
+								boost::format("%d in-progress transfers:\n")
+								% transfers.size()));
+					for(const auto& info : transfers)
+					{
+						session.write(boost::str(
+									boost::format("(%s, %s) from %s\n")
+									% info.key % info.version % info.from));
+
+					}
 				});
 
 		//run the event loop
