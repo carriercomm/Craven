@@ -27,7 +27,7 @@ struct disable_logging
 {
 	disable_logging()
 	{
-		//boost::log::core::get()->set_logging_enabled(false);
+		boost::log::core::get()->set_logging_enabled(false);
 	}
 };
 
@@ -55,7 +55,7 @@ test_fixture::test_fixture()
 
 test_fixture::~test_fixture()
 {
-	//fs::remove_all(temp_root_);
+	fs::remove_all(temp_root_);
 }
 
 void test_fixture::send_handler_(const std::string& to, const Json::Value& msg)
