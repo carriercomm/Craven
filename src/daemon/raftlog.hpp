@@ -72,6 +72,20 @@ namespace raft
 			std::string node_;
 		};
 
+		class CommitMarker : public Loggable
+		{
+		public:
+			CommitMarker(uint32_t term, uint32_t index);
+			CommitMarker(const Json::Value& json);
+
+			Json::Value write() const;
+
+			uint32_t index() const;
+
+		protected:
+			uint32_t index_;
+		};
+
 		namespace exceptions
 		{
 			//! Exception thrown when an entry with the same index already exists.
@@ -195,6 +209,10 @@ namespace raft
 		//! Retrieves the log entry at index, throwing if it doesn't exist.
 		raft::log::LogEntry operator[](uint32_t index) const noexcept(false);
 
+		uint32_t commit_index() const;
+
+		void commit_index(uint32_t index);
+
 	protected:
 		std::fstream stream_;
 
@@ -204,6 +222,8 @@ namespace raft
 		boost::optional<std::string> last_vote_;
 
 		std::vector<raft::log::LogEntry> log_;
+
+		uint32_t commit_index_;
 
 		void recover();
 
@@ -257,6 +277,9 @@ namespace raft
 		 *  \param entry The loggable holding the proposed election term
 		 */
 		void handle_state(const raft::log::Loggable& entry) noexcept(false);
+
+		//! \overload
+		void handle_state(const raft::log::CommitMarker& marker) noexcept(false);
 
 		//! Write the given JSON to the end of the log
 		void write_json(const Json::Value& root);

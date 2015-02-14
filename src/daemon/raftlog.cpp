@@ -189,6 +189,45 @@ std::string raft::log::Vote::node() const
 	return node_;
 }
 
+raft::log::CommitMarker::CommitMarker(uint32_t term, uint32_t index)
+	:Loggable(term),
+	index_(index)
+{
+
+}
+
+raft::log::CommitMarker::CommitMarker(const Json::Value& json)
+	:Loggable(json)
+{
+	throw_if_not_member(json, "type");
+	throw_if_not_member(json, "index");
+
+	if(!json["type"].isString())
+		throw exceptions::json_bad_type("type", "string");
+
+	if(!(json["index"].isInt() || json["index"].asInt() >= 0))
+		throw exceptions::json_bad_type("index", "uint");
+
+	if(json["type"].asString() != "commit")
+		throw exceptions::bad_json("Json not a commit marker.");
+
+	index_ = json["index"].asInt();
+}
+
+Json::Value raft::log::CommitMarker::write() const
+{
+	Json::Value root = Loggable::write();
+	root["type"] = "commit";
+	root["index"] = index_;
+
+	return root;
+}
+
+uint32_t raft::log::CommitMarker::index() const
+{
+	return index_;
+}
+
 raft::log::exceptions::entry_exists::entry_exists(uint32_t term, uint32_t index)
 	:std::runtime_error(boost::str(boost::format("Entry exists with index %|s| (term: %|s|)") % index % term))
 {
@@ -240,7 +279,8 @@ raft::Log::Log(const char* file_name, std::function<void(uint32_t)> term_handler
 	//We don't want to call this during recovery
 	new_term_handler_(nullptr),
 	term_(0),
-	last_vote_(boost::none)
+	last_vote_(boost::none),
+	commit_index_(0)
 {
 	BOOST_LOG_TRIVIAL(info) << "Recovering log from " << file_name;
 	recover();
@@ -319,6 +359,17 @@ raft::log::LogEntry raft::Log::operator[](uint32_t index) const noexcept(false)
 	return log_[index - 1]; //-1 because entries number from 1 and indexes from 0
 }
 
+uint32_t raft::Log::commit_index() const
+{
+	return commit_index_;
+}
+
+void raft::Log::commit_index(uint32_t index)
+{
+	raft::log::CommitMarker marker{term_, index};
+	write(marker);
+}
+
 void raft::Log::recover()
 {
 	//seek to start of file
@@ -370,6 +421,11 @@ void raft::Log::recover_line(const Json::Value& root, uint32_t line_number)
 	{
 		raft::log::NewTerm term(root);
 		handle_state(term);
+	}
+	else if(type == "commit")
+	{
+		raft::log::CommitMarker marker{root};
+		handle_state(marker);
 	}
 	else
 		throw raft::log::exceptions::bad_log("Unknown type: " + type, line_number);
@@ -455,6 +511,16 @@ void raft::Log::handle_state(const raft::log::Loggable& entry) noexcept(false)
 	else if(entry.term() < term_)
 		throw std::runtime_error(boost::str(boost::format(
 						"Stale term: %s, current: %s") % entry.term() % term_));
+}
+
+void raft::Log::handle_state(const raft::log::CommitMarker& marker) noexcept(false)
+{
+	handle_state(static_cast<const raft::log::Loggable&>(marker));
+
+	if(marker.index() < commit_index_)
+		throw std::runtime_error("Invalid commit index: can't go backwards");
+
+	commit_index_ = marker.index();
 }
 
 void raft::Log::write_json(const Json::Value& root)

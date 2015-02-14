@@ -54,7 +54,6 @@ raft::State::State(const std::string& id, const std::vector<std::string>& nodes,
 	log_(log_file, std::bind(&raft::State::term_update, this, std::placeholders::_1)),
 	state_(follower_state),
 	handlers_(handlers),
-	commit_index_(0),
 	last_applied_(0)
 {
 	transition_follower();
@@ -153,9 +152,9 @@ std::tuple<uint32_t, bool> raft::State::append_entries(const raft::rpc::append_e
 				throw ex; //signify it went wrong still
 			}
 
-			if(rpc.leader_commit() > commit_index_)
+			if(rpc.leader_commit() > log_.commit_index())
 			{
-				commit_index_ = rpc.leader_commit();
+				log_.commit_index(rpc.leader_commit());
 				commit_available();
 			}
 
@@ -352,7 +351,7 @@ void raft::State::append(const Json::Value& root)
 
 void raft::State::commit_available()
 {
-	for(; last_applied_ < commit_index_ && last_applied_ < log_.last_index();
+	for(; last_applied_ < log_.commit_index() && last_applied_ < log_.last_index();
 			++last_applied_)
 		handlers_.commit(log_[last_applied_ + 1].action());
 }
@@ -367,7 +366,7 @@ void raft::State::term_update(uint32_t term)
 
 void raft::State::check_commit()
 {
-	uint32_t trial_index = commit_index_ + 1;
+	uint32_t trial_index = log_.commit_index() + 1;
 	while(trial_index <= log_.last_index())
 	{
 		if(log_[trial_index].term() == log_.term())
@@ -381,7 +380,7 @@ void raft::State::check_commit()
 			}
 
 			if(number_have >= calculate_majority())
-				commit_index_ = trial_index++;
+				log_.commit_index(trial_index++);
 			else
 				break;
 		}
@@ -413,7 +412,7 @@ void raft::State::heartbeat(const std::string& node)
 
 		raft::rpc::append_entries msg(log_.term(), id_,
 				std::get<0>(entry_info), std::get<1>(entry_info),
-				{}, commit_index_);
+				{}, log_.commit_index());
 
 		//send the message
 		handlers_.append_entries(node, msg);
@@ -440,7 +439,7 @@ void raft::State::heartbeat(const std::string& node)
 
 			raft::rpc::append_entries msg(log_.term(), id_,
 					std::get<0>(prev_log), std::get<1>(prev_log),
-					{}, commit_index_);
+					{}, log_.commit_index());
 			handlers_.append_entries(node, msg);
 
 		}
@@ -472,7 +471,7 @@ void raft::State::heartbeat(const std::string& node)
 
 			raft::rpc::append_entries msg(log_.term(), id_,
 					std::get<0>(prev_log), std::get<1>(prev_log),
-					entries, commit_index_);
+					entries, log_.commit_index());
 
 			handlers_.append_entries(node, msg);
 		}

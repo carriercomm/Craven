@@ -330,9 +330,9 @@ BOOST_FIXTURE_TEST_CASE(append_entries_with_correct_prev_log, test_fixture)
 	}
 
 	std::ifstream log(tmp_log().string());
-	//ignore the first three lines
+	//ignore the first four lines
 	std::string line;
-	for(unsigned int i = 0; i < 3; ++i)
+	for(unsigned int i = 0; i < 4; ++i)
 		BOOST_REQUIRE(std::getline(log, line));
 
 	BOOST_REQUIRE(!std::getline(log, line));

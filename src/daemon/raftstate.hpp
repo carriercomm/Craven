@@ -137,7 +137,6 @@ namespace raft
 		Handlers& handlers_;
 
 		//volatile state on all servers
-		uint32_t commit_index_;
 		uint32_t last_applied_;
 
 		//volatile state on candidates
