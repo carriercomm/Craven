@@ -57,6 +57,7 @@ raft::State::State(const std::string& id, const std::vector<std::string>& nodes,
 	last_applied_(0)
 {
 	transition_follower();
+	commit_available();
 }
 
 void raft::State::timeout()
