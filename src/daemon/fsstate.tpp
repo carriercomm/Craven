@@ -178,6 +178,9 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 		//case for rename
 		if(sync_cache_.count(path.string()) == 0)
 			return true;
+		if(sync_cache_.at(path.string()).empty())
+			return true;
+
 		auto ni = sync_cache_.at(path.string()).front();
 		conflict = !rpc_traits<Rpc>::completed(rpc, ni, sync_cache_);
 		if(!conflict)
@@ -197,7 +200,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 		const boost::filesystem::path& recovery)
 {
 	//check the sync cache & recover if necessary
-	if(sync_cache_.count(path.string()))
+	if(sync_cache_.count(path.string()) && !sync_cache_.at(path.string()).empty())
 	{ //if we're here, it's because the sync cache clashes
 		node_info& ni = sync_cache_[path.string()].front();
 		if(ni.state == node_info::dead)
