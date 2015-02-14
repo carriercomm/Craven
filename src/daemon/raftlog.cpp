@@ -90,6 +90,7 @@ raft::log::LogEntry::LogEntry(const Json::Value& json)
 
 
 	index_ = json["index"].asUInt();
+	spawn_term_ = json["spawn_term"].asUInt();
 	action_ = json["action"];
 }
 
