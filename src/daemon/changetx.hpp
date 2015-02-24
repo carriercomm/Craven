@@ -326,7 +326,7 @@ namespace change
 						b64_help::decode(rpc.data(), of);
 
 						uint32_t length = static_cast<uint32_t>(of.tellp()) - rpc.start();
-						BOOST_LOG_TRIVIAL(info) << "Transferred " << length << " bytes of data"
+						BOOST_LOG_TRIVIAL(trace) << "Transferred " << length << " bytes of data"
 							<< " for (" << rpc.key() << ", " << rpc.version() << ") from "
 							<< from;
 
