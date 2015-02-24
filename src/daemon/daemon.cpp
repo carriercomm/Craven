@@ -175,7 +175,7 @@ Daemon::Daemon(DaemonConfigure const& config)
 		uint32_t tick_timeout = config.tick_timeout();
 
 		//connection manager & timer
-		start_ctx_timer(tick_timeout);
+		start_ctx_timer(2 * tick_timeout);
 
 		//filesystem state & timer
 		start_fst_timer(tick_timeout);

@@ -203,8 +203,13 @@ namespace change
 			{
 				if(transfer_remaining > 0)
 				{
-					continue_transfer(pending);
-					--transfer_remaining;
+					if(pending.second.skip_tick)
+						pending.second.skip_tick = false;
+					else
+					{
+						continue_transfer(pending, true);
+						--transfer_remaining;
+					}
 				}
 			}
 		}
@@ -357,10 +362,10 @@ namespace change
 						finish_transfer(from, rpc);
 					}
 					else //invalid
-						BOOST_LOG_TRIVIAL(info) << "Response invalid.";
+						BOOST_LOG_TRIVIAL(info) << "Response invalid: empty data.";
 				}
 				else //invalid
-					BOOST_LOG_TRIVIAL(info) << "Response invalid.";
+					BOOST_LOG_TRIVIAL(info) << "Response invalid: misses gaps.";
 			}
 			else
 				BOOST_LOG_TRIVIAL(info) << "Ignoring update for (" << rpc.key() << ", " << rpc.version()
@@ -678,7 +683,8 @@ namespace change
 				:eof_seen(false),
 				length(0),
 				from(from),
-				version(version)
+				version(version),
+				skip_tick(false)
 			{
 				reset_counter();
 			}
@@ -707,6 +713,9 @@ namespace change
 			//! The first element in each gap is the position, the second is the
 			//! length.
 			std::list<std::tuple<uint32_t, uint32_t>> gaps;
+
+			//! True to skip the next tick (used to reduce duplicates)
+			bool skip_tick;
 		};
 
 		std::vector<std::string> nodes_;
@@ -748,23 +757,27 @@ namespace change
 			return os.str();
 		}
 
-		void continue_transfer(const std::string& key, const std::string& version)
+		void continue_transfer(const std::string& key, const std::string& version, bool tick = false)
 		{
 			auto it = pending_.find(std::make_tuple(key, version));
 			if(it == pending_.end())
 				throw std::logic_error("No such key, version pair in pending: " + key + ", " + version);
 
-			continue_transfer(*it);
+			continue_transfer(*it, tick);
 		}
 
 		void continue_transfer(std::pair<const std::tuple<std::string, std::string>,
-				pending_info>& pending)
+				pending_info>& pending, bool tick = false)
 		{
 				uint32_t start_from = 0;
 				if(pending.second.gaps.empty())
 					start_from = pending.second.length;
 				else
 					start_from = std::get<0>(pending.second.gaps.front());
+
+				if(!tick)
+					pending.second.skip_tick = true;
+
 				if(pending.second.retry_counter == 0)
 				{
 					for(const auto& target : nodes_)
