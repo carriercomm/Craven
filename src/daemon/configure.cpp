@@ -159,7 +159,7 @@ std::unordered_map<std::string, std::tuple<std::string, std::string>> DaemonConf
 
 std::tuple<uint32_t, uint32_t, uint32_t> DaemonConfigure::raft_timer() const
 {
-	return std::make_tuple(150, 300, 50);
+	return std::make_tuple(1500, 3000, 500);
 }
 
 std::vector<std::string> DaemonConfigure::node_list() const
