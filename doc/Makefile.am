@@ -1,7 +1,7 @@
 if HAVE_DOXYGEN
 noinst_DATA = Doxyfile.in
 
-directory = $(top_srcdir)/doc
+directory = $(top_builddir)/doc
 
 docstamp:
 	$(DOXYGEN) Doxyfile
@@ -12,6 +12,6 @@ CLEANFILES = docstamp
 all-local: docstamp
 
 clean-local:
-	rm -rf $(top_srcdir)/doc/{html,latex,docstamp}
+	rm -rf $(top_builddir)/doc/{html,latex,docstamp}
 
 endif
