@@ -513,10 +513,9 @@ BOOST_FIXTURE_TEST_CASE(tick_with_pending_version_makes_request, test_fixture)
 
 	sut.tick();
 
-	//2 because the response handler also fires one
-	BOOST_REQUIRE_EQUAL(send_handler_args_.size(), 2);
-	BOOST_REQUIRE_EQUAL(std::get<0>(send_handler_args_[1]), "eris");
-	change::rpc::request rpc(std::get<1>(send_handler_args_[1]));
+	BOOST_REQUIRE_EQUAL(send_handler_args_.size(), 1);
+	BOOST_REQUIRE_EQUAL(std::get<0>(send_handler_args_[0]), "eris");
+	change::rpc::request rpc(std::get<1>(send_handler_args_[0]));
 	BOOST_REQUIRE_EQUAL(rpc.key(), "foo");
 	BOOST_REQUIRE_EQUAL(rpc.version(), "thud");
 	BOOST_REQUIRE_EQUAL(rpc.old_version(), "");
