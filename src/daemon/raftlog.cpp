@@ -348,10 +348,10 @@ bool raft::Log::match(uint32_t term, uint32_t index) const noexcept
 		return index == 0;
 	BOOST_LOG_TRIVIAL(trace) << "Match: (" << term << ", " << index
 		<<") with ("
-		<< ((index <= log_.size()) ? std::to_string((*this)[index].term()) : "no term")
+		<< ((index <= log_.size()) ? std::to_string((*this)[index].spawn_term()) : "no term")
 		<< ", " << log_.size() << ")";
 
-	return (index <= log_.size()) && (*this)[index].term() == term;
+	return (index <= log_.size()) && (*this)[index].spawn_term() == term;
 }
 
 raft::log::LogEntry raft::Log::operator[](uint32_t index) const noexcept(false)
