@@ -337,29 +337,17 @@ namespace change
 
 						info.length = std::max(static_cast<uint32_t>(of.tellp()), info.length);
 
-						//Delete any gaps whose start positions are the same
-						//as the rpc's
-						boost::range::remove_erase_if(info.gaps,
-								[=](const std::tuple<uint32_t, uint32_t>& value)
-								{
-									return std::get<0>(value) == rpc.start();
-								});
-
-						if(rpc.ec() == rpc::response::eof)
-							info.eof_seen = true;
-
-						//No longer pending!
-						if(info.eof_seen && info.gaps.empty())
-							finish_transfer(from, rpc);
-						else
-							continue_transfer(rpc.key(), rpc.version());
-
+						check_transfer(from, rpc, info);
 					}
 					//special case: empty file
 					else if(rpc.start() == 0
 							&& rpc.ec() == rpc::response::eof)
 					{
 						finish_transfer(from, rpc);
+					}
+					else if(rpc.ec() == rpc::response::eof)
+					{
+						check_transfer(from, rpc, info);
 					}
 					else //invalid
 						BOOST_LOG_TRIVIAL(info) << "Response invalid: empty data.";
@@ -755,6 +743,26 @@ namespace change
 				os << hash[i];
 
 			return os.str();
+		}
+
+		void check_transfer(const std::string& from, const rpc::response& rpc, pending_info& info)
+		{
+			//Delete any gaps whose start positions are the same
+			//as the rpc's
+			boost::range::remove_erase_if(info.gaps,
+					[=](const std::tuple<uint32_t, uint32_t>& value)
+					{
+						return std::get<0>(value) == rpc.start();
+					});
+
+			if(rpc.ec() == rpc::response::eof)
+				info.eof_seen = true;
+
+			//No longer pending!
+			if(info.eof_seen && info.gaps.empty())
+				finish_transfer(from, rpc);
+			else
+				continue_transfer(rpc.key(), rpc.version());
 		}
 
 		void continue_transfer(const std::string& key, const std::string& version, bool tick = false)
