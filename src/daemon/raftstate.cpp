@@ -426,7 +426,9 @@ void raft::State::heartbeat(const std::string& node)
 		if(next_index > log_.last_index())
 		{
 			BOOST_LOG_TRIVIAL(warning) << "Information for follower " << node
-				<< " is nonsensical, resetting.";
+				<< " is nonsensical: last index: " << log_.last_index()
+				<< ", term: " << log_.term() << ", follower index: " << next_index
+				<< ", follower match index: " << std::get<1>(client_index_[node]);
 			client_index_[node] = std::make_tuple(log_.last_index() + 1, 0, true);
 		}
 		else
