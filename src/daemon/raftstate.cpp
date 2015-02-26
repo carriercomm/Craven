@@ -205,6 +205,8 @@ void raft::State::append_entries_response(const std::string& from,
 			{
 				//Decrement next_index_
 				--std::get<0>(client_index_[from]);
+				//ensure we're still in match-hunt mode
+				std::get<2>(client_index_[from]) = true;
 				heartbeat(from);
 			}
 		}
