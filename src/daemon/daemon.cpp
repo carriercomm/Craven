@@ -65,12 +65,12 @@ void logup::init_log(fs::path const& log_path, DaemonConfigure::loudness stderr_
 			break;
 
 		case DaemonConfigure::verbose:
-			stderr_severity = logging::trivial::info;
+			stderr_severity = logging::trivial::trace;
 			break;
 
 		case DaemonConfigure::normal:
 		default:
-			stderr_severity = logging::trivial::warning;
+			stderr_severity = logging::trivial::info;
 		}
 
 		logging::add_console_log(std::cerr, logging::keywords::format = formatter)->set_filter(logging::trivial::severity >= stderr_severity);
