@@ -13,10 +13,11 @@ namespace raft
 			Loggable(uint32_t term);
 			Loggable(const Json::Value& json);
 
+
 			uint32_t term() const;
 
 		protected:
-			Json::Value write() const;
+			operator Json::Value() const;
 			void throw_if_not_member(const Json::Value& json, const std::string& member);
 
 			uint32_t term_;
@@ -32,7 +33,7 @@ namespace raft
 					const Json::Value& action);
 			LogEntry(const Json::Value& json);
 
-			Json::Value write() const;
+			operator Json::Value() const;
 
 			uint32_t index() const;
 			uint32_t spawn_term() const;
@@ -54,7 +55,7 @@ namespace raft
 			NewTerm(uint32_t term);
 			NewTerm(const Json::Value& json);
 
-			Json::Value write() const;
+			operator Json::Value() const;
 		};
 
 		class Vote : public Loggable
@@ -63,7 +64,7 @@ namespace raft
 			Vote(uint32_t term, const std::string& node);
 			Vote(const Json::Value& json);
 
-			Json::Value write() const;
+			operator Json::Value() const;
 
 			std::string node() const;
 
@@ -78,7 +79,7 @@ namespace raft
 			CommitMarker(uint32_t term, uint32_t index);
 			CommitMarker(const Json::Value& json);
 
-			Json::Value write() const;
+			operator Json::Value() const;
 
 			uint32_t index() const;
 
@@ -180,7 +181,7 @@ namespace raft
 		void write(const Log& log) noexcept(false)
 		{
 			handle_state(log);
-			write_json(log.write());
+			write_json(log);
 		}
 
 		//Helper for terms

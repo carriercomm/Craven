@@ -38,7 +38,7 @@ uint32_t raft::log::Loggable::term() const
 	return term_;
 }
 
-Json::Value raft::log::Loggable::write() const
+raft::log::Loggable::operator Json::Value() const
 {
 	Json::Value root;
 	root["term"] = term_;
@@ -94,9 +94,9 @@ raft::log::LogEntry::LogEntry(const Json::Value& json)
 	action_ = json["action"];
 }
 
-Json::Value raft::log::LogEntry::write() const
+raft::log::LogEntry::operator Json::Value() const
 {
-	Json::Value root = Loggable::write();
+	Json::Value root = Loggable::operator Json::Value();
 	root["type"] = "entry";
 	root["index"] = index_;
 	root["spawn_term"] = spawn_term_;
@@ -142,9 +142,9 @@ raft::log::NewTerm::NewTerm(const Json::Value& json)
 
 }
 
-Json::Value raft::log::NewTerm::write() const
+raft::log::NewTerm::operator Json::Value() const
 {
-	auto root = Loggable::write();
+	auto root = Loggable::operator Json::Value();
 
 	root["term"] = term_;
 	root["type"] = "term";
@@ -176,9 +176,9 @@ raft::log::Vote::Vote(const Json::Value& json)
 	node_ = json["for"].asString();
 }
 
-Json::Value raft::log::Vote::write() const
+raft::log::Vote::operator Json::Value() const
 {
-	Json::Value root = Loggable::write();
+	Json::Value root = Loggable::operator Json::Value();
 	root["type"] = "vote";
 	root["for"] = node_;
 
@@ -215,9 +215,9 @@ raft::log::CommitMarker::CommitMarker(const Json::Value& json)
 	index_ = json["index"].asInt();
 }
 
-Json::Value raft::log::CommitMarker::write() const
+raft::log::CommitMarker::operator Json::Value() const
 {
-	Json::Value root = Loggable::write();
+	Json::Value root = Loggable::operator Json::Value();
 	root["type"] = "commit";
 	root["index"] = index_;
 
