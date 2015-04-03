@@ -13,5 +13,9 @@
 
 Tom Johnson <tdj24@cam.ac.uk>
 
-This is the Part II project of Tom Johnson. The code for the project can be
+This is the Part II project of Tom Johnson as part of the Computer Science
+Tripos at the University of Cambridge. The code for the project can be
 found under src/
+
+m4/ contains third-party code; copyright headers and licensing information is
+in the headers of those files.
