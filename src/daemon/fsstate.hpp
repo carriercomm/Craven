@@ -687,7 +687,7 @@ namespace dfs
 		static bool completion_check_required(const rpc_type& /*rpc*/, const boost::filesystem::path& path,
 				std::unordered_map<std::string, std::deque<node_info>>& sync_cache)
 		{
-			return sync_cache.count(path.string());
+			return sync_cache.count(path.string()) && !sync_cache.at(path.string()).empty();
 		}
 
 	};
