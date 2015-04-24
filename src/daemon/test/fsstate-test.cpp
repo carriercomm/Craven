@@ -148,7 +148,7 @@ struct changetx_mock
 
 		scratch new_scratch = scratch_info;
 		new_scratch.key_ = new_key;
-		new_scratch.path_ = dfs::decode_path(new_key);
+		new_scratch.path_ = craven::decode_path(new_key);
 
 		return new_scratch;
 	}
@@ -164,12 +164,12 @@ struct changetx_mock
 
 // Exposes all of the internals because the fuse interface is meh.
 // This is technically bad testing form, but again, meh.
-struct State : dfs::basic_state<client_mock, changetx_mock>
+struct State : craven::basic_state<client_mock, changetx_mock>
 {
-	typedef dfs::basic_state<client_mock, changetx_mock> base_type;
+	typedef craven::basic_state<client_mock, changetx_mock> base_type;
 
 	State(client_mock& cm, changetx_mock& ctxm)
-		:dfs::basic_state<client_mock, changetx_mock>(cm, ctxm, "discordia", 100, 100)
+		:craven::basic_state<client_mock, changetx_mock>(cm, ctxm, "discordia", 100, 100)
 	{
 	}
 
@@ -240,21 +240,21 @@ bool changetx_mock::exists(const std::string& key,
 
 BOOST_AUTO_TEST_CASE(urlencode_exercise)
 {
-	BOOST_CHECK_EQUAL(dfs::encode_path("foo bar"), "foo%20bar");
-	BOOST_CHECK_EQUAL(dfs::encode_path("foo/bar"), "foo%2fbar");
-	BOOST_CHECK_EQUAL(dfs::encode_path("Hail Eris!"), "Hail%20Eris%21");
+	BOOST_CHECK_EQUAL(craven::encode_path("foo bar"), "foo%20bar");
+	BOOST_CHECK_EQUAL(craven::encode_path("foo/bar"), "foo%2fbar");
+	BOOST_CHECK_EQUAL(craven::encode_path("Hail Eris!"), "Hail%20Eris%21");
 }
 
 BOOST_AUTO_TEST_CASE(urldecode_exercise)
 {
-	BOOST_CHECK_EQUAL(dfs::decode_path("foo%20bar"), "foo bar");
-	BOOST_CHECK_EQUAL(dfs::decode_path("foo%2fbar"), "foo/bar");
-	BOOST_CHECK_EQUAL(dfs::decode_path("Hail%20Eris%21"), "Hail Eris!");
+	BOOST_CHECK_EQUAL(craven::decode_path("foo%20bar"), "foo bar");
+	BOOST_CHECK_EQUAL(craven::decode_path("foo%2fbar"), "foo/bar");
+	BOOST_CHECK_EQUAL(craven::decode_path("Hail%20Eris%21"), "Hail Eris!");
 }
 
 BOOST_AUTO_TEST_CASE(urlencode_decode_matches)
 {
-	BOOST_CHECK_EQUAL(dfs::decode_path(dfs::encode_path(
+	BOOST_CHECK_EQUAL(craven::decode_path(craven::encode_path(
 					"foo bar baz/fnord!hello:hi_how~are,.//you?")),
 					"foo bar baz/fnord!hello:hi_how~are,.//you?");
 }
@@ -565,7 +565,7 @@ BOOST_FIXTURE_TEST_CASE(rename_key_exists_and_is_active_moves_and_handles_state,
 
 	node_it->state = State::node_info::active_write;
 	node_it->scratch_info = changetx_mock::scratch(
-			dfs::encode_path("/foo/thud"), ".scratch",
+			craven::encode_path("/foo/thud"), ".scratch",
 			"/does/not/exist");
 
 	//Commit test

@@ -100,7 +100,7 @@ protected:
 	std::function<void(const std::string&, const std::string&,
 			const Json::Value&)> changetx_send_;
 
-	dfs::state fsstate_;
+	craven::state fsstate_;
 
 	//! The state of the daemon
 	daemon_state state_ = running;

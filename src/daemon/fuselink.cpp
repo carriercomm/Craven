@@ -31,7 +31,7 @@ std::mutex fuselink::io_mutex_{};
 boost::asio::io_service* fuselink::io_{};
 
 std::mutex fuselink::state_mutex_{};
-dfs::state* fuselink::state_{};
+craven::state* fuselink::state_{};
 
 std::mutex fuselink::mp_mutex_{};
 std::string fuselink::mount_point_{};
@@ -51,13 +51,13 @@ void fuselink::io(boost::asio::io_service* io_service)
 	io_ = io_service;
 }
 
-dfs::state* fuselink::state()
+craven::state* fuselink::state()
 {
 	std::lock_guard<std::mutex> guard(state_mutex_);
 	return state_;
 }
 
-void fuselink::state(dfs::state* state)
+void fuselink::state(craven::state* state)
 {
 	std::lock_guard<std::mutex> guard(state_mutex_);
 	state_ = state;
@@ -112,7 +112,7 @@ namespace fuse_handlers
 	//The fuse handlers need to be free functions
 	int getattr(const char* path, struct stat* stat_info)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::getattr,
+		auto task = try_call::create_packaged(std::bind(&craven::state::getattr,
 					fuselink::state(),
 					path,
 					stat_info), "Error in getattr: ");
@@ -126,7 +126,7 @@ namespace fuse_handlers
 
 	int mkdir(const char* path, mode_t mode)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::mkdir,
+		auto task = try_call::create_packaged(std::bind(&craven::state::mkdir,
 					fuselink::state(),
 					path, mode), "Error in mkdir: ");
 		auto result = task->get_future();
@@ -138,7 +138,7 @@ namespace fuse_handlers
 	//! Remove a directory at path
 	int rmdir(const char* path)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::rmdir,
+		auto task = try_call::create_packaged(std::bind(&craven::state::rmdir,
 					fuselink::state(),
 					path), "Error in rmdir: ");
 		auto result = task->get_future();
@@ -150,7 +150,7 @@ namespace fuse_handlers
 	//! Remove a regular file
 	int unlink(const char* path)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::unlink,
+		auto task = try_call::create_packaged(std::bind(&craven::state::unlink,
 					fuselink::state(),
 					path), "Error in unlink: ");
 		auto result = task->get_future();
@@ -162,7 +162,7 @@ namespace fuse_handlers
 	//! Create and open a file node (mode is ignored)
 	int create(const char* path, mode_t mode, struct fuse_file_info *fi)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::create,
+		auto task = try_call::create_packaged(std::bind(&craven::state::create,
 					fuselink::state(),
 					path,
 					mode,
@@ -176,7 +176,7 @@ namespace fuse_handlers
 	//! Rename a file or directory
 	int rename(const char* from, const char* to)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::rename,
+		auto task = try_call::create_packaged(std::bind(&craven::state::rename,
 					fuselink::state(),
 					from,
 					to), "Error in rename: ");
@@ -189,7 +189,7 @@ namespace fuse_handlers
 	//! Resize a file
 	int truncate(const char* path, off_t newsize)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::truncate,
+		auto task = try_call::create_packaged(std::bind(&craven::state::truncate,
 					fuselink::state(),
 					path,
 					newsize), "Error in truncate: ");
@@ -202,7 +202,7 @@ namespace fuse_handlers
 	//! Open a file
 	int open(const char* path, fuse_file_info* fi)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::open,
+		auto task = try_call::create_packaged(std::bind(&craven::state::open,
 					fuselink::state(),
 					path,
 					fi), "Error in open: ");
@@ -215,7 +215,7 @@ namespace fuse_handlers
 	//! Read from an open file
 	int read(const char* path, char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::read,
+		auto task = try_call::create_packaged(std::bind(&craven::state::read,
 					fuselink::state(),
 					path, buf, size, offset, fi), "Error in read: ");
 		auto result = task->get_future();
@@ -227,7 +227,7 @@ namespace fuse_handlers
 	//! Write to an open file
 	int write(const char* path, const char* buf, std::size_t size, off_t offset, fuse_file_info* fi)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::write,
+		auto task = try_call::create_packaged(std::bind(&craven::state::write,
 					fuselink::state(),
 					path, buf, size, offset, fi), "Error in write: ");
 		auto result = task->get_future();
@@ -239,7 +239,7 @@ namespace fuse_handlers
 	//! Release -- close & commit an open file
 	int release(const char* path, fuse_file_info* fi)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::release,
+		auto task = try_call::create_packaged(std::bind(&craven::state::release,
 					fuselink::state(),
 					path, fi), "Error in release: ");
 		auto result = task->get_future();
@@ -251,7 +251,7 @@ namespace fuse_handlers
 	int readdir(const char* path, void *buf, fuse_fill_dir_t filler, off_t offset,
 			struct fuse_file_info *fi)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::readdir,
+		auto task = try_call::create_packaged(std::bind(&craven::state::readdir,
 					fuselink::state(),
 					path, buf, filler, offset, fi), "Error in readdir: ");
 		auto result = task->get_future();
@@ -262,7 +262,7 @@ namespace fuse_handlers
 
 	int flush(const char* path, struct fuse_file_info* fi)
 	{
-		auto task = try_call::create_packaged(std::bind(&dfs::state::flush,
+		auto task = try_call::create_packaged(std::bind(&craven::state::flush,
 					fuselink::state(),
 					path, fi), "Error in flush: ");
 		auto result = task->get_future();

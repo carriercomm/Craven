@@ -10,7 +10,7 @@
 #include "fsstate.hpp"
 
 
-std::string dfs::encode_path(const std::string& path)
+std::string craven::encode_path(const std::string& path)
 {
 	std::ostringstream encoded;
 
@@ -29,7 +29,7 @@ std::string dfs::encode_path(const std::string& path)
 	return encoded.str();
 }
 
-std::string dfs::decode_path(const std::string& path)
+std::string craven::decode_path(const std::string& path)
 {
 	std::ostringstream decoded;
 	std::istringstream encoded(path);

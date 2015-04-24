@@ -1,6 +1,6 @@
 template <typename Client, typename ChangeTx>
-const std::map<typename dfs::basic_state<Client, ChangeTx>::node_info::state_type,
-	  std::string> dfs::basic_state<Client, ChangeTx>::node_info::state_type_tl_ =
+const std::map<typename craven::basic_state<Client, ChangeTx>::node_info::state_type,
+	  std::string> craven::basic_state<Client, ChangeTx>::node_info::state_type_tl_ =
 {
 	{clean, "clean"},
 	{pending, "pending"},
@@ -13,7 +13,7 @@ const std::map<typename dfs::basic_state<Client, ChangeTx>::node_info::state_typ
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::handle_request(const Rpc& rpc,
+void craven::basic_state<Client, ChangeTx>::handle_request(const Rpc& rpc,
 		std::deque<node_info>& cache_queue)
 {
 	//check the request is not done (ignore invalid) & request
@@ -25,7 +25,7 @@ void dfs::basic_state<Client, ChangeTx>::handle_request(const Rpc& rpc,
 
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni,
+void craven::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni,
 		std::deque<node_info>& cache_queue)
 {
 	//Only process the from
@@ -66,7 +66,7 @@ void dfs::basic_state<Client, ChangeTx>::tick_handle_rename(node_info& ni,
 }
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::tick()
+void craven::basic_state<Client, ChangeTx>::tick()
 {
 	std::list<std::string> erase_keys;
 	for(typename sync_cache_type::value_type& entry : sync_cache_)
@@ -129,7 +129,7 @@ void dfs::basic_state<Client, ChangeTx>::tick()
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-bool dfs::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& /*rpc*/, const boost::filesystem::path& path,
+bool craven::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& /*rpc*/, const boost::filesystem::path& path,
 		ordinary_prepare_tag)
 {
 	bool conflict = false;
@@ -150,7 +150,7 @@ bool dfs::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& /*rpc*/, con
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-bool dfs::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& rpc, const boost::filesystem::path& path,
+bool craven::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& rpc, const boost::filesystem::path& path,
 		rename_prepare_tag)
 {
 	//create add & delete RPCs and check dcache conflicts with those
@@ -169,7 +169,7 @@ bool dfs::basic_state<Client, ChangeTx>::dcache_conflict(const Rpc& rpc, const b
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc, const boost::filesystem::path& path)
+bool craven::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc, const boost::filesystem::path& path)
 {
 	bool conflict = false;
 	//look for this action in the sync cache
@@ -196,7 +196,7 @@ bool dfs::basic_state<Client, ChangeTx>::conflict_check_required(const Rpc& rpc,
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const boost::filesystem::path& path,
+void craven::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const boost::filesystem::path& path,
 		const boost::filesystem::path& recovery)
 {
 	//check the sync cache & recover if necessary
@@ -301,7 +301,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_sync_cache(const Rpc& rpc, const
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boost::filesystem::path& path,
+void craven::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boost::filesystem::path& path,
 				const boost::filesystem::path& recovery)
 {
 	auto parent = path.parent_path();
@@ -430,7 +430,7 @@ void dfs::basic_state<Client, ChangeTx>::manage_dcache(const Rpc& rpc, const boo
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+bool craven::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
 		const boost::filesystem::path& parent, ordinary_prepare_tag)
 {
 	bool conflict = false;
@@ -439,7 +439,7 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 	{
 		//Make all of the directories along the path
 		make_directories(parent.string());
-		if(dfs::log_on_missing_parent<Rpc>::value)
+		if(craven::log_on_missing_parent<Rpc>::value)
 			BOOST_LOG_TRIVIAL(warning) << "Parent missing for committed rpc: "
 				"recovering, but this shouldn't happen";
 	}
@@ -465,7 +465,7 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
+bool craven::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boost::filesystem::path& path,
 		const boost::filesystem::path& parent, rename_prepare_tag)
 {
 	boost::filesystem::path to_path = decode_path(rpc.new_key());
@@ -523,7 +523,7 @@ bool dfs::basic_state<Client, ChangeTx>::prepare_apply(const Rpc& rpc, const boo
 
 template <typename Client, typename ChangeTx>
 template <typename Rpc>
-void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
+void craven::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 {
 	boost::filesystem::path path = decode_path(rpc.key());
 	boost::filesystem::path parent = path.parent_path();
@@ -566,35 +566,35 @@ void dfs::basic_state<Client, ChangeTx>::manage_commit(const Rpc& rpc)
 }
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::commit_update(const raft::request::Update& rpc)
+void craven::basic_state<Client, ChangeTx>::commit_update(const raft::request::Update& rpc)
 {
 	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling update: " << rpc;
 	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::commit_delete(const raft::request::Delete& rpc)
+void craven::basic_state<Client, ChangeTx>::commit_delete(const raft::request::Delete& rpc)
 {
 	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling delete: " << rpc;
 	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::commit_rename(const raft::request::Rename& rpc)
+void craven::basic_state<Client, ChangeTx>::commit_rename(const raft::request::Rename& rpc)
 {
 	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling rename: " << rpc;
 	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::commit_add(const raft::request::Add& rpc)
+void craven::basic_state<Client, ChangeTx>::commit_add(const raft::request::Add& rpc)
 {
 	BOOST_LOG_TRIVIAL(trace) << "Filesystem handling add: " << rpc;
 	manage_commit(rpc);
 }
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, const std::string& version)
+void craven::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, const std::string& version)
 {
 	boost::filesystem::path path = decode_path(key);
 	if(dcache_.count(path.parent_path().string()) == 1)
@@ -618,7 +618,7 @@ void dfs::basic_state<Client, ChangeTx>::notify_arrival(const std::string& key, 
 }
 
 template <typename Client, typename ChangeTx>
-bool dfs::basic_state<Client, ChangeTx>::exists(const boost::filesystem::path& path) const
+bool craven::basic_state<Client, ChangeTx>::exists(const boost::filesystem::path& path) const
 {
 	//check the translation table
 	if(fusetl_.count(path.string()))
@@ -654,7 +654,7 @@ bool dfs::basic_state<Client, ChangeTx>::exists(const boost::filesystem::path& p
 }
 
 template <typename Client, typename ChangeTx>
-bool dfs::basic_state<Client, ChangeTx>::in_rcache(const boost::filesystem::path& path) const
+bool craven::basic_state<Client, ChangeTx>::in_rcache(const boost::filesystem::path& path) const
 {
 	if(fusetl_.count(path.string()))
 	{
@@ -666,8 +666,8 @@ bool dfs::basic_state<Client, ChangeTx>::in_rcache(const boost::filesystem::path
 }
 
 template <typename Client, typename ChangeTx>
-typename dfs::basic_state<Client, ChangeTx>::node_info&
-	dfs::basic_state<Client, ChangeTx>::get(const boost::filesystem::path& path)
+typename craven::basic_state<Client, ChangeTx>::node_info&
+	craven::basic_state<Client, ChangeTx>::get(const boost::filesystem::path& path)
 {
 	//special case: root
 	if(path == "/")
@@ -734,13 +734,13 @@ typename dfs::basic_state<Client, ChangeTx>::node_info&
 
 template <typename Client, typename ChangeTx>
 std::tuple<std::string, std::string>
-	dfs::basic_state<Client, ChangeTx>::get_rcache(const boost::filesystem::path& path) const
+	craven::basic_state<Client, ChangeTx>::get_rcache(const boost::filesystem::path& path) const
 {
 	return rcache_.at(path.string());
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::rename_existing(node_info& node,
+int craven::basic_state<Client, ChangeTx>::rename_existing(node_info& node,
 		node_info& to_node, const boost::filesystem::path& from,
 		const boost::filesystem::path& to)
 {
@@ -790,7 +790,7 @@ int dfs::basic_state<Client, ChangeTx>::rename_existing(node_info& node,
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::rename_normal(node_info& node,
+int craven::basic_state<Client, ChangeTx>::rename_normal(node_info& node,
 		const boost::filesystem::path& from,
 		const boost::filesystem::path& to)
 {
@@ -843,7 +843,7 @@ int dfs::basic_state<Client, ChangeTx>::rename_normal(node_info& node,
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::path& from,
+int craven::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::path& from,
 		const boost::filesystem::path& to)
 {
 	if(in_rcache(from))
@@ -916,7 +916,7 @@ int dfs::basic_state<Client, ChangeTx>::rename_impl(const boost::filesystem::pat
 
 
 template <typename Client, typename ChangeTx>
-std::string dfs::basic_state<Client, ChangeTx>::get_key(const boost::filesystem::path& path) const
+std::string craven::basic_state<Client, ChangeTx>::get_key(const boost::filesystem::path& path) const
 {
 	if(fusetl_.count(path.string()))
 	{
@@ -932,7 +932,7 @@ std::string dfs::basic_state<Client, ChangeTx>::get_key(const boost::filesystem:
 
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& path, struct stat* stat_info)
+int craven::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& path, struct stat* stat_info)
 {
 	//initialise stat structure
 	memset(stat_info, 0, sizeof(struct stat));
@@ -1011,7 +1011,7 @@ int dfs::basic_state<Client, ChangeTx>::getattr(const boost::filesystem::path& p
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::mkdir(const boost::filesystem::path& path, mode_t)
+int craven::basic_state<Client, ChangeTx>::mkdir(const boost::filesystem::path& path, mode_t)
 {
 	if(exists(path))
 		return -EEXIST;
@@ -1035,7 +1035,7 @@ int dfs::basic_state<Client, ChangeTx>::mkdir(const boost::filesystem::path& pat
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::rmdir(const boost::filesystem::path& path)
+int craven::basic_state<Client, ChangeTx>::rmdir(const boost::filesystem::path& path)
 {
 	//check exists and is a directory
 	if(!exists(path))
@@ -1073,7 +1073,7 @@ int dfs::basic_state<Client, ChangeTx>::rmdir(const boost::filesystem::path& pat
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::unlink(const boost::filesystem::path& path)
+int craven::basic_state<Client, ChangeTx>::unlink(const boost::filesystem::path& path)
 {
 	//check exists & is not a directory
 	if(!exists(path))
@@ -1103,7 +1103,7 @@ int dfs::basic_state<Client, ChangeTx>::unlink(const boost::filesystem::path& pa
 }
 
 template <typename Client, typename ChangeTx>
-void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost::filesystem::path& path,
+void craven::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost::filesystem::path& path,
 		struct fuse_file_info *fi)
 {
 	ni.fds = 1;
@@ -1127,7 +1127,7 @@ void dfs::basic_state<Client, ChangeTx>::create_impl(node_info& ni, const boost:
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& path,
+int craven::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& path,
 		mode_t, struct fuse_file_info *fi)
 {
 	if(!exists(path.parent_path()))
@@ -1160,7 +1160,7 @@ int dfs::basic_state<Client, ChangeTx>::create(const boost::filesystem::path& pa
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::rename(const boost::filesystem::path& from,
+int craven::basic_state<Client, ChangeTx>::rename(const boost::filesystem::path& from,
 		const boost::filesystem::path& to)
 {
 	//Child because recursion
@@ -1168,7 +1168,7 @@ int dfs::basic_state<Client, ChangeTx>::rename(const boost::filesystem::path& fr
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& path, off_t newsize)
+int craven::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& path, off_t newsize)
 {
 	//check exists & is not a directory
 	if(!exists(path))
@@ -1225,7 +1225,7 @@ int dfs::basic_state<Client, ChangeTx>::truncate(const boost::filesystem::path& 
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path, fuse_file_info* fi)
+int craven::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path, fuse_file_info* fi)
 {
 	//Check the parent path exists
 	if(!exists(path.parent_path()))
@@ -1282,7 +1282,7 @@ int dfs::basic_state<Client, ChangeTx>::open(const boost::filesystem::path& path
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* /*fi*/)
+int craven::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path, char* buf, std::size_t size, off_t offset, fuse_file_info* /*fi*/)
 {
 	//check it's not in the readcache
 	boost::filesystem::path true_path;
@@ -1320,7 +1320,7 @@ int dfs::basic_state<Client, ChangeTx>::read(const boost::filesystem::path& path
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& path, const char* buf, std::size_t size, off_t offset, fuse_file_info* /*fi*/)
+int craven::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& path, const char* buf, std::size_t size, off_t offset, fuse_file_info* /*fi*/)
 {
 	node_info& node = get(path);
 	if(node.state == node_info::active_write)
@@ -1354,7 +1354,7 @@ int dfs::basic_state<Client, ChangeTx>::write(const boost::filesystem::path& pat
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& path, fuse_file_info* /*fi*/)
+int craven::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& path, fuse_file_info* /*fi*/)
 {
 	if(in_rcache(path))
 	{
@@ -1437,7 +1437,7 @@ int dfs::basic_state<Client, ChangeTx>::release(const boost::filesystem::path& p
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& path, void *buf,
+int craven::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& path, void *buf,
 		fuse_fill_dir_t filler, off_t /*offset*/,
 		struct fuse_file_info* /*fi*/)
 {
@@ -1463,7 +1463,7 @@ int dfs::basic_state<Client, ChangeTx>::readdir(const boost::filesystem::path& p
 }
 
 template <typename Client, typename ChangeTx>
-int dfs::basic_state<Client, ChangeTx>::flush(const boost::filesystem::path& /*path*/,
+int craven::basic_state<Client, ChangeTx>::flush(const boost::filesystem::path& /*path*/,
 		struct fuse_file_info* /*fi*/)
 {
 	//Flush doesn't make much sense in the circumstance; just return 0.

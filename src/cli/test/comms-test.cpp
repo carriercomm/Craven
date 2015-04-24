@@ -53,9 +53,9 @@ SetupConfig::SetupConfig(const std::vector<std::string>& arguments,
 	insert_socket_(insert_socket)
 {
 	if(insert_socket)
-		arguments_ = {"dfsctl", "-s", temp_unix_.string()};
+		arguments_ = {"cravenctl", "-s", temp_unix_.string()};
 	else
-		arguments_ = {"dfsctl"};
+		arguments_ = {"cravenctl"};
 
 	arguments_.reserve(arguments_.size() + arguments.size());
 	std::copy(arguments.begin(), arguments.end(), std::back_inserter(arguments_));
@@ -180,9 +180,9 @@ BOOST_AUTO_TEST_CASE(arguments_passthrough)
 
 	BOOST_REQUIRE(!timeout);
 
-	// TODO #12: work out why dfsctl is coming through
+	// TODO #12: work out why cravenctl is coming through
 	// probably related to ticket 11
-	BOOST_REQUIRE_EQUAL(ux.data(), R"(["dfsctl", "foo", "bar baz", "t", "thud"])");
+	BOOST_REQUIRE_EQUAL(ux.data(), R"(["cravenctl", "foo", "bar baz", "t", "thud"])");
 }
 
 class UnixStream : std::enable_shared_from_this<UnixStream>

@@ -1,4 +1,4 @@
-AC_INIT([dfs], [0.5.5-git], [tdj24@cam.ac.uk])
+AC_INIT([craven], [0.5.5-git], [tdj24@cam.ac.uk])
 AC_CONFIG_SRCDIR([src/daemon/main.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])

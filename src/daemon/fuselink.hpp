@@ -14,9 +14,9 @@ public:
 
 	static void io(boost::asio::io_service* io_service);
 
-	static dfs::state* state();
+	static craven::state* state();
 
-	static void state(dfs::state* state);
+	static void state(craven::state* state);
 
 	static std::string mount_point();
 	static void mount_point(const std::string& point);
@@ -36,7 +36,7 @@ protected:
 	static boost::asio::io_service* io_;
 
 	static std::mutex state_mutex_;
-	static dfs::state* state_;
+	static craven::state* state_;
 
 	static std::mutex mp_mutex_;
 	static std::string mount_point_;

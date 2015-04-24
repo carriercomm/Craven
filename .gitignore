@@ -34,8 +34,8 @@ doc/latex/*
 *.trs
 
 #binaries
-dfsd
-dfsctl
+cravend
+cravenctl
 expansion
 comms
 remcon

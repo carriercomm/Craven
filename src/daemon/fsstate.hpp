@@ -22,7 +22,7 @@
 #include "changetx.hpp"
 
 
-namespace dfs
+namespace craven
 {
 	std::string encode_path(const std::string& path);
 	std::string decode_path(const std::string& path);

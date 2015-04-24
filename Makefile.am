@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_CXXFLAGS = @AM_CXXFLAGS@ -I$(top_srcdir)/src/common
 
-bin_PROGRAMS = src/cli/dfsctl src/daemon/dfsd
+bin_PROGRAMS = src/cli/cravenctl src/daemon/cravend
 check_PROGRAMS = src/cli/test/comms src/common/test/expansion src/common/test/linebuffer \
 				 src/common/test/connection src/daemon/test/connection_pool \
 				 src/daemon/test/dispatch src/daemon/test/raftlog src/daemon/test/raftstate \
@@ -10,16 +10,16 @@ check_PROGRAMS = src/cli/test/comms src/common/test/expansion src/common/test/li
 
 noinst_HEADERS = src/common/configure.hpp src/common/linebuffer.hpp src/common/connection.hpp src/common/json_help.hpp
 
-src_cli_dfsctl_SOURCES = src/cli/main.cpp src/common/configure.cpp src/cli/configure.cpp\
+src_cli_cravenctl_SOURCES = src/cli/main.cpp src/common/configure.cpp src/cli/configure.cpp\
 						 src/cli/comms.cpp src/cli/comms.hpp src/cli/configure.hpp \
 						 src/common/uuid.hpp src/common/uuid.cpp
 
-src_cli_dfsctl_CPPFLAGS = $(BOOST_CPPFLAGS)
-src_cli_dfsctl_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_THREAD_LIBS) $(BOOST_LOG_LIBS) $(BOOST_LOG_SETUP_LIBS)
-src_cli_dfsctl_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_THREAD_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_LOG_SETUP_LDFLAGS)
+src_cli_cravenctl_CPPFLAGS = $(BOOST_CPPFLAGS)
+src_cli_cravenctl_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) $(BOOST_THREAD_LIBS) $(BOOST_LOG_LIBS) $(BOOST_LOG_SETUP_LIBS)
+src_cli_cravenctl_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_THREAD_LDFLAGS) $(BOOST_LOG_LDFLAGS) $(BOOST_LOG_SETUP_LDFLAGS)
 
 
-src_daemon_dfsd_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
+src_daemon_cravend_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
 						  src/daemon/configure.cpp src/daemon/daemon.cpp src/daemon/signals.cpp \
 						  src/daemon/remcon.cpp src/daemon/raftlog.cpp src/daemon/configure.hpp \
 						  src/daemon/connection_pool.hpp src/daemon/daemon.hpp \
@@ -38,12 +38,12 @@ src_daemon_dfsd_SOURCES = src/daemon/main.cpp src/common/configure.cpp \
 						  src/daemon/comms_man.cpp src/daemon/comms_man.hpp \
 						  src/common/uuid.hpp src/common/uuid.cpp
 
-src_daemon_dfsd_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) $(LIBB64_CPPFLAGS) $(FUSE_CFLAGS)
-src_daemon_dfsd_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) \
+src_daemon_cravend_CPPFLAGS = $(BOOST_CPPFLAGS) $(JSONCPP_CFLAGS) $(LIBB64_CPPFLAGS) $(FUSE_CFLAGS)
+src_daemon_cravend_LDADD = $(BOOST_SYSTEM_LIBS) $(BOOST_PROGRAM_OPTIONS_LIBS) $(BOOST_FILESYSTEM_LIBS) \
 						$(BOOST_THREAD_LIBS) $(BOOST_LOG_LIBS) $(BOOST_LOG_SETUP_LIBS) $(JSONCPP_LIBS) \
 						$(LIBB64_LIBS) $(FUSE_LIBS)
 
-src_daemon_dfsd_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LDFLAGS) \
+src_daemon_cravend_LDFLAGS = $(BOOST_SYSTEM_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LDFLAGS) \
 						  $(BOOST_FILESYSTEM_LDFLAGS) $(BOOST_THREAD_LDFLAGS) $(BOOST_LOG_LDFLAGS) \
 						  $(BOOST_LOG_SETUP_LDFLAGS) $(JSONCPP_LDFLAGS) $(LIBB64_LDFLAGS) $(FUSE_LDFLAGS)
 
