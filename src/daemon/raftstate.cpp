@@ -356,7 +356,11 @@ void raft::State::commit_available()
 {
 	for(; last_applied_ < log_.commit_index() && last_applied_ < log_.last_index();
 			++last_applied_)
-		handlers_.commit(log_[last_applied_ + 1].action());
+	{
+		//Ignore Raft-livelock--avoidance nops
+		if(log_[last_applied_ + 1].action() != Json::Value{})
+			handlers_.commit(log_[last_applied_ + 1].action());
+	}
 }
 
 void raft::State::term_update(uint32_t term)
@@ -369,6 +373,7 @@ void raft::State::term_update(uint32_t term)
 
 void raft::State::check_commit()
 {
+	uint32_t nop_index = 0;
 	uint32_t trial_index = log_.commit_index() + 1;
 	while(trial_index <= log_.last_index())
 	{
@@ -388,8 +393,12 @@ void raft::State::check_commit()
 				break;
 		}
 		else
-			++trial_index;
+			nop_index = trial_index++;
 	}
+	//if nop_index > 0 and no entries this term, issue nop
+	if(nop_index > 0 && log_[log_.last_index()].term() != log_.term())
+		append(Json::Value{});
+
 	commit_available();
 }
 
