@@ -135,7 +135,16 @@ void raft::Client::apply_to(const raft::request::Update& update, apply_target ta
 
 void raft::Client::apply_to(const raft::request::Delete& update, apply_target target)
 {
-	fetch_map(target).erase(update.key());
+	if(apply_pending == target)
+		pending_version_map_[update.key()] = boost::none;
+	else
+	{
+		//if there's a tombstone in pending, clean it up
+		if(pending_version_map_.count(update.key())
+				&& pending_version_map_[update.key()])
+			pending_version_map_.erase(update.key());
+		fetch_map(target).erase(update.key());
+	}
 }
 
 void raft::Client::apply_to(const raft::request::Rename& update, apply_target target)
@@ -148,7 +157,7 @@ void raft::Client::apply_to(const raft::request::Rename& update, apply_target ta
 		{
 			version = std::get<0>(*pending_version_map_.at(update.key()));
 			//erase it
-			pending_version_map_.erase(update.key());
+			pending_version_map_[update.key()] = boost::none;
 		}
 		else //let it be bounds checked
 			version = std::get<0>(*version_map_.at(update.key()));
@@ -205,7 +214,9 @@ raft::Client::validity raft::Client::request_traits<raft::request::Delete>::vali
 		const rpc_type& rpc, const version_map_type& version_map,
 		const version_map_type& pending_map)
 {
-	if(!exists_map(rpc.key(), pending_map))
+	//not using exists_map because if there're tombstones in pending we don't want
+	//to mark valid.
+	if(pending_map.count(rpc.key()) == 0)
 		return valid_impl(rpc, version_map);
 	else
 		return valid_impl(rpc, pending_map);
@@ -220,11 +231,12 @@ raft::Client::validity raft::Client::request_traits<raft::request::Delete>::vali
 raft::Client::validity raft::Client::request_traits<raft::request::Delete>
 	::valid_impl(const rpc_type& rpc, const version_map_type& version_map)
 {
-	if(exists_map(rpc.key(), version_map))
+	if(version_map.count(rpc.key()) == 1
+			&& version_map.at(rpc.key()))
 		return std::get<0>(*version_map.at(rpc.key())) == rpc.version()
 			? request_valid : request_invalid;
 	else
-		return request_done;
+		return version_map.count(rpc.key()) == 1 ? request_invalid : request_done;
 }
 
 raft::Client::validity raft::Client::request_traits<raft::request::Rename>::valid(
