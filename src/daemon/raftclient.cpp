@@ -88,12 +88,12 @@ void raft::Client::commit_handler(const Json::Value& root)
 
 bool raft::Client::exists(const std::string& key) const noexcept
 {
-	return version_map_.count(key) == 1;
+	exists_map(key, version_map_);
 }
 
 std::tuple<std::string, std::string> raft::Client::operator [](const std::string& key) noexcept(false)
 {
-	return version_map_.at(key);
+	return *version_map_.at(key);
 }
 void raft::Client::commit_notify(const request::Update& rpc)
 {
@@ -123,6 +123,11 @@ raft::Client::version_map_type& raft::Client::fetch_map(apply_target target)
 		return pending_version_map_;
 }
 
+bool raft::Client::exists_map(const std::string& key, const version_map_type& map) noexcept
+{
+	return map.count(key) == 1 && map.at(key);
+}
+
 void raft::Client::apply_to(const raft::request::Update& update, apply_target target)
 {
 	fetch_map(target)[update.key()] = std::make_tuple(update.new_version(), update.from());
@@ -139,14 +144,14 @@ void raft::Client::apply_to(const raft::request::Rename& update, apply_target ta
 	if(target == apply_pending)
 	{ //if the from isn't in pending, it needs to be in main
 		std::string version;
-		if(pending_version_map_.count(update.key()))
+		if(exists_map(update.key(), pending_version_map_))
 		{
-			version = std::get<0>(pending_version_map_.at(update.key()));
+			version = std::get<0>(*pending_version_map_.at(update.key()));
 			//erase it
 			pending_version_map_.erase(update.key());
 		}
 		else //let it be bounds checked
-			version = std::get<0>(version_map_.at(update.key()));
+			version = std::get<0>(*version_map_.at(update.key()));
 
 		//Add the rename
 		pending_version_map_[update.new_key()] = std::make_tuple(version,
@@ -154,7 +159,7 @@ void raft::Client::apply_to(const raft::request::Rename& update, apply_target ta
 	}
 	else
 	{ //only read the main
-		version_map_[update.new_key()] = std::make_tuple(std::get<0>(version_map_[update.key()]),
+		version_map_[update.new_key()] = std::make_tuple(std::get<0>(*version_map_[update.key()]),
 				update.from());
 		version_map_.erase(update.key());
 	}
@@ -169,7 +174,7 @@ raft::Client::validity raft::Client::request_traits<raft::request::Update>::vali
 		const rpc_type& rpc, const version_map_type& version_map,
 		const version_map_type& pending_map)
 {
-	if(pending_map.count(rpc.key()) == 0)
+	if(!exists_map(rpc.key(), pending_map))
 		return valid_impl(rpc, version_map);
 	else
 		return valid_impl(rpc, pending_map);
@@ -184,12 +189,12 @@ raft::Client::validity raft::Client::request_traits<raft::request::Update>::vali
 raft::Client::validity raft::Client::request_traits<raft::request::Update>
 	::valid_impl(const rpc_type& rpc, const version_map_type& version_map)
 {
-	if(version_map.count(rpc.key()) == 1)
+	if(exists_map(rpc.key(), version_map))
 	{
-		if(std::get<0>(version_map.at(rpc.key())) == rpc.new_version())
+		if(std::get<0>(*version_map.at(rpc.key())) == rpc.new_version())
 			return request_done;
 		else
-			return std::get<0>(version_map.at(rpc.key())) == rpc.old_version()
+			return std::get<0>(*version_map.at(rpc.key())) == rpc.old_version()
 				? request_valid : request_invalid;
 	}
 	else
@@ -200,7 +205,7 @@ raft::Client::validity raft::Client::request_traits<raft::request::Delete>::vali
 		const rpc_type& rpc, const version_map_type& version_map,
 		const version_map_type& pending_map)
 {
-	if(pending_map.count(rpc.key()) == 0)
+	if(!exists_map(rpc.key(), pending_map))
 		return valid_impl(rpc, version_map);
 	else
 		return valid_impl(rpc, pending_map);
@@ -215,8 +220,8 @@ raft::Client::validity raft::Client::request_traits<raft::request::Delete>::vali
 raft::Client::validity raft::Client::request_traits<raft::request::Delete>
 	::valid_impl(const rpc_type& rpc, const version_map_type& version_map)
 {
-	if(version_map.count(rpc.key()) == 1)
-		return std::get<0>(version_map.at(rpc.key())) == rpc.version()
+	if(exists_map(rpc.key(), version_map))
+		return std::get<0>(*version_map.at(rpc.key())) == rpc.version()
 			? request_valid : request_invalid;
 	else
 		return request_done;
@@ -240,11 +245,11 @@ raft::Client::validity raft::Client::request_traits<raft::request::Rename>::vali
 raft::Client::validity raft::Client::request_traits<raft::request::Rename>::valid(
 		const rpc_type& rpc, const version_map_type& version_map)
 {
-	if(version_map.count(rpc.key()) == 1
-			&& std::get<0>(version_map.at(rpc.key())) == rpc.version())
+	if(exists_map(rpc.key(), version_map)
+			&& std::get<0>(*version_map.at(rpc.key())) == rpc.version())
 		return request_valid;
-	else if(version_map.count(rpc.new_key()) == 1
-			&& std::get<0>(version_map.at(rpc.new_key())) == rpc.version())
+	else if(exists_map(rpc.new_key(), version_map)
+			&& std::get<0>(*version_map.at(rpc.new_key())) == rpc.version())
 		return request_done;
 	else
 		return request_invalid;
@@ -255,12 +260,12 @@ boost::optional<std::string> raft::Client
 		const std::string& key, const version_map_type& version_map,
 		const version_map_type& pending_map)
 {
-	if(pending_map.count(key) == 1)
-		return std::get<0>(pending_map.at(key));
+	if(exists_map(key, pending_map))
+		return std::get<0>(*pending_map.at(key));
 	else
 	{
-		if(version_map.count(key) == 1)
-			return std::get<0>(version_map.at(key));
+		if(exists_map(key, version_map))
+			return std::get<0>(*version_map.at(key));
 		else
 			return boost::none;
 	}
@@ -270,11 +275,11 @@ raft::Client::validity raft::Client::request_traits<raft::request::Add>::valid(
 		const rpc_type& rpc, const version_map_type& version_map,
 		const version_map_type& pending_map)
 {
-	if(pending_map.count(rpc.key()) == 0)
+	if(!exists_map(rpc.key(), pending_map))
 	{
-		if(version_map.count(rpc.key()) == 1)
+		if(exists_map(rpc.key(), version_map))
 		{
-			return std::get<0>(version_map.at(rpc.key())) == rpc.version()
+			return std::get<0>(*version_map.at(rpc.key())) == rpc.version()
 				? request_done : request_invalid;
 		}
 		else
@@ -282,7 +287,7 @@ raft::Client::validity raft::Client::request_traits<raft::request::Add>::valid(
 	}
 	else
 	{
-		return std::get<0>(pending_map.at(rpc.key())) == rpc.version()
+		return std::get<0>(*pending_map.at(rpc.key())) == rpc.version()
 			? request_done : request_invalid;
 	}
 }
@@ -290,9 +295,9 @@ raft::Client::validity raft::Client::request_traits<raft::request::Add>::valid(
 raft::Client::validity raft::Client::request_traits<raft::request::Add>::valid(
 		const rpc_type& rpc, const version_map_type& version_map)
 {
-	if(version_map.count(rpc.key()) == 0)
+	if(!exists_map(rpc.key(), version_map))
 		return request_valid;
-	else if(std::get<0>(version_map.at(rpc.key())) == rpc.version())
+	else if(std::get<0>(*version_map.at(rpc.key())) == rpc.version())
 		return request_done;
 	else
 		return request_invalid;

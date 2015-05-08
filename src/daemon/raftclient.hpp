@@ -179,7 +179,7 @@ namespace raft
 
 		Handlers& handlers_;
 		typedef std::unordered_map<std::string,
-				std::tuple<std::string, std::string>> version_map_type;
+				boost::optional<std::tuple<std::string, std::string>>> version_map_type;
 
 		//! Latest committed versions. 0: version 1: requesting node
 		version_map_type version_map_;
@@ -222,7 +222,7 @@ namespace raft
 
 			//Remove the entry from pending if it's in there
 			if(pending_version_map_.count(entry.key()) == 1 &&
-					std::get<0>(pending_version_map_[entry.key()]) == entry.version())
+					std::get<0>(*pending_version_map_[entry.key()]) == entry.version())
 				pending_version_map_.erase(entry.key());
 
 			//Notify the commit handlers
@@ -236,6 +236,7 @@ namespace raft
 		};
 
 		version_map_type& fetch_map(apply_target target);
+		static bool exists_map(const std::string& key, const version_map_type& map) noexcept;
 
 		void apply_to(const raft::request::Update& update, apply_target target);
 		void apply_to(const raft::request::Delete& update, apply_target target);
